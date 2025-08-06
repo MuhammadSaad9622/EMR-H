@@ -408,8 +408,8 @@ const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
       try {
         // Fetch patient data
         const [patientResponse, visitsResponse] = await Promise.all([
-          axios.get(`https://emr-h.onrender.com/api/patients/${id}`),
-          axios.get(`https://emr-h.onrender.com/api/patients/${id}/visits`)
+          axios.get(`http://localhost:5000/api/patients/${id}`),
+          axios.get(`http://localhost:5000/api/patients/${id}/visits`)
         ]);
         
         if (isMounted) {
@@ -466,7 +466,7 @@ setPreviousVisits(sortedVisits);
   const saveMusclePalpationData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://emr-h.onrender.com/api/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         muscleStrength: data.muscleStrength,
         strength: data.strength,
         tenderness: data.tenderness,
@@ -481,7 +481,7 @@ setPreviousVisits(sortedVisits);
   const saveOrthoTestsData = async (visitId: string, data: any, arom: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://emr-h.onrender.com/api/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         ortho: data,
         arom: arom,
       });
@@ -494,7 +494,7 @@ setPreviousVisits(sortedVisits);
   const saveTreatmentPlanData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://emr-h.onrender.com/api/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         chiropracticAdjustment: data.chiropracticAdjustment,
         chiropracticOther: data.chiropracticOther,
         acupuncture: data.acupuncture,
@@ -514,7 +514,7 @@ setPreviousVisits(sortedVisits);
   const saveTreatmentListData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://emr-h.onrender.com/api/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         chiropracticAdjustment: data.chiropracticAdjustment,
         chiropracticOther: data.chiropracticOther,
         acupuncture: data.acupuncture,
@@ -539,7 +539,7 @@ setPreviousVisits(sortedVisits);
   const saveImagingAndSpecialistData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://emr-h.onrender.com/api/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         physiotherapy: data.physiotherapy,
         rehabilitationExercises: data.rehabilitationExercises,
         durationFrequency: data.durationFrequency,
@@ -562,7 +562,7 @@ setPreviousVisits(sortedVisits);
   
       if (formData.previousVisit) {
         // PUT to update
-        await axios.put(`https://emr-h.onrender.com/api/visits/${formData.previousVisit}`, saveData);
+        await axios.put(`http://localhost:5000/api/visits/${formData.previousVisit}`, saveData);
       } else {
         // POST to create
         const createData = {
@@ -570,7 +570,7 @@ setPreviousVisits(sortedVisits);
           visitType: 'followup',
           patient: id,
         };
-        await axios.post('https://emr-h.onrender.com/api/visits', createData);
+        await axios.post('http://localhost:5000/api/visits', createData);
       }
   
       alert('Visit saved successfully!');
@@ -590,7 +590,7 @@ setPreviousVisits(sortedVisits);
     }
   
     try {
-      const res = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
+      const res = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visit = res.data;
   
       // Check if data exists for followup or initial
@@ -628,7 +628,7 @@ setPreviousVisits(sortedVisits);
     }
   
         try {
-      const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visitData = response.data;
 
       if (!visitData) {
@@ -718,7 +718,7 @@ setPreviousVisits(sortedVisits);
     }
   
         try {
-      const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visitData = response.data;
 
       // Filter only treatment plan data
@@ -765,7 +765,7 @@ setPreviousVisits(sortedVisits);
     }
   
         try {
-      const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visitData = response.data;
 
       const treatmentList = {
@@ -817,7 +817,7 @@ setPreviousVisits(sortedVisits);
     }
   
         try {
-      const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visitData = response.data;
 
       const imagingAndSpecialistData = {
@@ -973,7 +973,7 @@ Generate detailed, personalized home care instructions based on the provided pat
   const fetchInitialVisitData = async (visitId: string) => {
     try {
       // Get the visit details using the correct endpoint
-      const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       
       // Check if it's an initial visit (check both __t and visitType for compatibility)
       const isInitialVisit = response.data.__t === 'InitialVisit' || response.data.visitType === 'initial';
@@ -1193,20 +1193,20 @@ Generate detailed, personalized home care instructions based on the provided pat
       console.log('- Imaging data:', !!imagingData);
       console.log('- Home care suggestions:', !!homeCareSuggestions);
       
-      const response = await axios.post(`https://emr-h.onrender.com/api/visits`, visitData);
+      const response = await axios.post(`http://localhost:5000/api/visits`, visitData);
       
       const savedVisitId = response.data.visit._id;
 
       // 2. Generate AI narrative
       try {
-        const aiResponse = await axios.post(`https://emr-h.onrender.com/api/ai/generate-narrative`, {
+        const aiResponse = await axios.post(`http://localhost:5000/api/ai/generate-narrative`, {
           ...formData,
           visitType: 'followup'
         });
 
         if (aiResponse.data.success) {
           // 3. Update the visit with the AI narrative
-          await axios.patch(`https://emr-h.onrender.com/api/visits/${savedVisitId}`, {
+          await axios.patch(`http://localhost:5000/api/visits/${savedVisitId}`, {
             aiNarrative: aiResponse.data.narrative
           });
         }

@@ -79,12 +79,15 @@ router.post('/generate-narrative', async (req, res) => {
   if (visits && visits.length > 0) {
     const sortedVisits = visits.sort((a, b) => new Date(a.date) - new Date(b.date));
     
+    prompt += `\nCLINICAL VISIT HISTORY (${visits.length} visits):\n`;
+    prompt += `The patient has been seen for ${visits.length} clinical visits. Below is the detailed chronological record of each visit:\n\n`;
+    
     sortedVisits.forEach((visit, idx) => {
       const visitType = visit.visitType || 'Visit';
       const visitDate = new Date(visit.date).toLocaleDateString();
       const provider = `Dr. ${visit.doctor?.firstName || ''} ${visit.doctor?.lastName || ''}`;
       
-      prompt += `${visitType.toUpperCase()} #${idx + 1} - ${visitDate}:\n`;
+      prompt += `VISIT #${idx + 1} - ${visitType.toUpperCase()} (${visitDate}):\n`;
       prompt += `Provider: ${provider}\n`;
       
       // Initial Visit Details
@@ -338,9 +341,53 @@ router.post('/generate-narrative', async (req, res) => {
       
       prompt += `\n`;
     });
+    
+    // Add summary information
+    const initialVisit = sortedVisits.find(v => v.visitType === 'initial' || v.__t === 'InitialVisit');
+    const followupVisits = sortedVisits.filter(v => v.visitType === 'followup' || v.__t === 'FollowupVisit');
+    const dischargeVisit = sortedVisits.find(v => v.visitType === 'discharge' || v.__t === 'DischargeVisit');
+    
+    prompt += `\nTREATMENT SUMMARY:\n`;
+    prompt += `- Initial Evaluation: ${initialVisit ? `Completed on ${new Date(initialVisit.date).toLocaleDateString()}` : 'Not completed'}\n`;
+    prompt += `- Follow-up Visits: ${followupVisits.length} visits completed\n`;
+    prompt += `- Discharge Status: ${dischargeVisit ? `Discharged on ${new Date(dischargeVisit.date).toLocaleDateString()}` : 'Patient remains under active care'}\n`;
+    prompt += `- Total Treatment Duration: ${sortedVisits.length > 1 ? `${Math.round((new Date(sortedVisits[sortedVisits.length - 1].date) - new Date(sortedVisits[0].date)) / (1000 * 60 * 60 * 24))} days` : 'Single visit'}\n`;
   }
 
-  prompt += `\nPlease generate a comprehensive, detailed medical narrative report using all the above information. The report should be written in a professional medical style suitable for legal and insurance purposes. Include detailed clinical findings, assessments, treatment plans, and progress notes. Format the report with clear headings and detailed descriptions of all clinical findings and interventions.`;
+  prompt += `\nPlease generate a comprehensive, detailed medical narrative report using all the above information. The report should be written in a professional medical style suitable for legal and insurance purposes. 
+
+IMPORTANT FORMATTING REQUIREMENTS:
+- Use **bold headings** for each major section
+- Write in a narrative, flowing style with complete sentences and paragraphs
+- Include detailed clinical findings, assessments, treatment plans, and progress notes
+- Use professional medical terminology and clinical language
+- Structure the report with the following sections:
+
+**PATIENT DEMOGRAPHICS AND HISTORY**
+Provide a comprehensive overview of the patient's demographic information, including age, gender, occupation, and relevant personal history. Include details about the mechanism of injury, date of onset, and any contributing factors.
+
+**CHIEF COMPLAINT AND PRESENTING SYMPTOMS**
+Describe in detail the patient's primary complaints, including the nature, location, intensity, and characteristics of pain or symptoms. Include information about onset, duration, frequency, and any aggravating or relieving factors.
+
+**MEDICAL HISTORY REVIEW**
+Comprehensive review of the patient's medical history, including relevant past injuries, surgeries, medications, allergies, and family history that may impact current treatment.
+
+**PHYSICAL EXAMINATION FINDINGS**
+Detailed documentation of all physical examination findings, including vital signs, range of motion measurements, strength testing, neurological findings, orthopedic test results, and any other relevant clinical observations.
+
+**CLINICAL ASSESSMENT AND DIAGNOSIS**
+Professional clinical assessment including differential diagnoses, working diagnoses, and clinical impressions based on examination findings and patient history.
+
+**TREATMENT PLAN AND INTERVENTIONS**
+Comprehensive treatment plan including specific interventions, modalities, exercises, frequency of care, and rationale for each treatment approach. Include expected outcomes and treatment goals.
+
+**PROGRESS NOTES AND OUTCOMES**
+Detailed documentation of patient progress, response to treatment, functional improvements, and any changes in symptoms or clinical findings over the course of care.
+
+**RECOMMENDATIONS AND FOLLOW-UP**
+Specific recommendations for continued care, home exercises, activity modifications, and follow-up scheduling. Include any referrals or additional diagnostic studies if indicated.
+
+Each section should be comprehensive and detailed, providing a complete clinical picture suitable for medical-legal documentation. Write in a professional narrative style that flows naturally from one section to the next.`;
 
   try {
     const openai = new OpenAI({ apiKey });
@@ -354,7 +401,21 @@ router.post('/generate-narrative', async (req, res) => {
       messages: [
         {
           role: 'system',
-          content: 'You are a highly experienced medical documentation specialist who creates comprehensive, detailed medical narratives for chiropractic and physical therapy practices. Your reports should be thorough, professional, and suitable for legal and insurance purposes. Include detailed clinical findings, assessments, treatment plans, and progress notes. Write in a formal medical style with clear structure and comprehensive coverage of all clinical data.'
+          content: `You are a highly experienced medical documentation specialist who creates comprehensive, detailed medical narratives for chiropractic and physical therapy practices. Your reports should be thorough, professional, and suitable for legal and insurance purposes.
+
+WRITING STYLE REQUIREMENTS:
+- Write in a narrative, flowing style with complete sentences and paragraphs
+- Use professional medical terminology and clinical language
+- Provide detailed descriptions of all clinical findings and interventions
+- Include comprehensive assessments and treatment rationales
+- Structure information logically with clear transitions between sections
+- Write as if documenting for medical-legal purposes with attention to detail
+- Use active voice and present tense for current findings
+- Include specific measurements, ranges, and clinical observations
+- Provide detailed treatment plans with rationale and expected outcomes
+- Document progress and response to treatment comprehensively
+
+Your narrative should read like a professional medical report that would be suitable for insurance companies, legal proceedings, and other healthcare providers.`
         },
         {
           role: 'user',

@@ -589,11 +589,11 @@ const PatientDetails: React.FC<{}> = () => {
       setIsLoading(true);
       try {
         // Fetch patient details
-        const patientResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${id}`);
+        const patientResponse = await axios.get(`http://localhost:5000/api/patients/${id}`);
         setPatient(patientResponse.data);
         
         // Fetch patient visits
-        const visitsResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${id}/visits`);
+        const visitsResponse = await axios.get(`http://localhost:5000/api/patients/${id}/visits`);
         
         const parsedVisits = visitsResponse.data.map((visit: any) => ({
           ...visit,
@@ -602,11 +602,11 @@ const PatientDetails: React.FC<{}> = () => {
         setVisits(parsedVisits);
         
         // Fetch patient appointments
-        const appointmentsResponse = await axios.get(`https://emr-h.onrender.com/api/appointments?patient=${id}`);
+        const appointmentsResponse = await axios.get(`http://localhost:5000/api/appointments?patient=${id}`);
         setAppointments(appointmentsResponse.data);
         
         // Fetch invoice count for the patient using the dedicated endpoint
-        const invoiceCountResponse = await axios.get(`https://emr-h.onrender.com/api/billing/count/${id}`);
+        const invoiceCountResponse = await axios.get(`http://localhost:5000/api/billing/count/${id}`);
         setInvoiceCount(invoiceCountResponse.data.totalInvoices);
 
         
@@ -691,10 +691,8 @@ const PatientDetails: React.FC<{}> = () => {
     setIsGeneratingReport(true);
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    let y = 35; // Increased starting position to account for header
-    const margin = 25; // Increased margin for better spacing
-    const contentWidth = pageWidth - margin * 2; // Calculate available content width
+    let y = 30;
+    const margin = 20;
     const logoBase64 = await toBase64(logo);
     const signatureBase64 = await toBase64(Sig);
   
@@ -706,114 +704,80 @@ const PatientDetails: React.FC<{}> = () => {
       darkGray: [127, 140, 141],
       success: [46, 204, 113],
       warning: [241, 196, 15],
-      purple: [155, 89, 182],
-      blue: [41, 128, 185],
-      green: [39, 174, 96],
-      orange: [230, 126, 34]
+      purple: [155, 89, 182]
     };
   
     const addHeaderAndFooter = (doc: any, pageNumber: number, totalPages: number) => {
-      // Enhanced header with gradient effect
       doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.rect(0, 0, pageWidth, 30, 'F');
-      
-      // Add subtle gradient effect
-      doc.setFillColor(colors.blue[0], colors.blue[1], colors.blue[2]);
-      doc.rect(0, 0, pageWidth, 5, 'F');
-      
-      doc.addImage(logoBase64, 'PNG', 20, 8, 15, 15);
-      doc.setFontSize(16);
+      doc.rect(0, 0, pageWidth, 25, 'F');
+      doc.addImage(logoBase64, 'PNG', 15, 8, 12, 12);
+      doc.setFontSize(14);
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.text('The Wellness Studio', 40, 20);
-      
-      doc.setFontSize(9);
+      doc.text('The Wellness Studio', 32, 18);
+      doc.setFontSize(10);
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'normal');
-      doc.text('3711 Long Beach Blvd., Suite 200, Long Beach, CA, 90807', pageWidth - 20, 20, { align: 'right' });
-      
-      // Enhanced footer with better styling
+      doc.text('3711 Long Beach Blvd., Suite 200, Long Beach, CA, 90807', pageWidth - 15, 18, { align: 'right' });
       doc.setFillColor(colors.lightGray[0], colors.lightGray[1], colors.lightGray[2]);
-      doc.rect(0, pageHeight - 25, pageWidth, 25, 'F');
-      
-      const footerText = `The Wellness Studio • 3711 Long Beach Blvd., Suite 200, Long Beach, CA, 90807 • Tel: (562) 980-0555`;
-      doc.setFontSize(8);
+      doc.rect(0, 280, pageWidth, 20, 'F');
+      const footerText = `The Wellness Studio • 3711 Long Beach Blvd., Suite 200, Long Beach, CA, 90807 • Tel: (562) 980-0555  Page ${pageNumber} of ${totalPages}`;
+      doc.setFontSize(9);
       doc.setTextColor(colors.darkGray[0], colors.darkGray[1], colors.darkGray[2]);
-      doc.text(footerText, pageWidth / 2, pageHeight - 15, { align: 'center' });
-      
-      // Page numbers with better styling
-      doc.setFontSize(10);
-      doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+      doc.text(footerText, pageWidth / 2, 290, { align: 'center' });
     };
   
-    const addDetailedSection = (title: string, color: number[], fields: Array<[string, any]>, isMainVisitType: boolean = false) => {
+        const addDetailedSection = (title: string, color: number[], fields: Array<[string, any]>, isMainVisitType: boolean = false) => {
       const sentences: Array<{ label: string; text: string[] }> = [];
       let height = 0;
 
-      // Calculate total height needed for this section
       fields.forEach(([label, value]) => {
         if (!value) return;
         const line = `• ${label}: ${typeof value === 'string' ? value : Array.isArray(value) ? value.join(', ') : JSON.stringify(value)}`;
-        const wrapped = doc.splitTextToSize(line, contentWidth - 10); // Reduced width for better readability
+        const wrapped = doc.splitTextToSize(line, pageWidth - margin * 2);
         sentences.push({ label, text: wrapped });
-        height += wrapped.length * 7 + 6; // Increased line spacing
+        height += wrapped.length * 6 + 4;
       });
 
-      // Check if we need a new page
-      if (y + height > pageHeight - 80) { // Increased bottom margin
+      if (y + height > 260) {
         doc.addPage();
-        y = 35;
+        y = 30;
       }
-      
-      y += 12; // Increased spacing before section
+      y += 10;
 
       if (isMainVisitType) {
-        // Enhanced colored background for main visit types
+        // Colored background for main visit types
         doc.setFillColor(color[0], color[1], color[2]);
-        doc.roundedRect(margin - 3, y - 8, contentWidth + 6, 12, 4, 4, 'F');
-        
-        // Add subtle border
-        doc.setDrawColor(color[0] - 20, color[1] - 20, color[2] - 20);
-        doc.roundedRect(margin - 3, y - 8, contentWidth + 6, 12, 4, 4, 'S');
-        
+        doc.roundedRect(margin - 2, y - 6, pageWidth - margin * 2 + 4, 10, 3, 3, 'F');
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(13);
+        doc.setFontSize(12);
         doc.setTextColor(255, 255, 255);
         doc.text(title, margin, y + 2);
       } else {
-        // Enhanced styling for subheadings
+        // Bold and underlined for subheadings (no colors)
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(color[0], color[1], color[2]);
+        doc.setFontSize(11);
+        doc.setTextColor(50);
         doc.text(title, margin, y + 2);
-        
-        // Enhanced underline with color
+        // Add underline
         const textWidth = doc.getTextWidth(title);
-        doc.setDrawColor(color[0], color[1], color[2]);
-        doc.setLineWidth(0.5);
         doc.line(margin, y + 4, margin + textWidth, y + 4);
-        doc.setLineWidth(0.1); // Reset line width
       }
       
-      y += 15; // Increased spacing after title
+      y += 12;
 
-      // Enhanced content styling
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(200);
+
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
-      doc.setTextColor(60); // Darker text for better readability
-      
+      doc.setTextColor(50);
       sentences.forEach(({ text }) => {
-        // Add subtle background for each line
-        doc.setFillColor(248, 249, 250);
-        doc.rect(margin - 2, y - 2, contentWidth + 4, text.length * 7 + 4, 'F');
-        
         doc.text(text, margin, y);
-        y += text.length * 7 + 6; // Increased line spacing
+        y += text.length * 6 + 2;
       });
 
-      y += 12; // Increased spacing after section
+      y += 10;
     };
   
     const formatVitals = (vitals: any) => {
@@ -913,7 +877,7 @@ const PatientDetails: React.FC<{}> = () => {
   
     try {
       console.log('Generating AI narrative with data:', { patient: patient._id, visitsCount: visits.length });
-      const response = await axios.post('https://emr-h.onrender.com/api/ai/generate-narrative', {
+      const response = await axios.post('http://localhost:5000/api/ai/generate-narrative', {
         patient,
         visits,
       });
@@ -923,36 +887,25 @@ const PatientDetails: React.FC<{}> = () => {
   
       // ATTORNEY INFORMATION
       if (patient.attorney) {
-        doc.setFontSize(15);
+        doc.setFontSize(14);
         doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
         doc.setFont('helvetica', 'bold');
         doc.text('ATTORNEY INFORMATION', pageWidth / 2, y, { align: 'center' });
-        y += 15;
+        y += 10;
   
         autoTable(doc, {
           startY: y,
-          styles: { fontSize: 10, cellPadding: 6 },
+          styles: { fontSize: 10, cellPadding: 4 },
           headStyles: {
             fillColor: [colors.primary[0], colors.primary[1], colors.primary[2]],
             textColor: 255,
             fontStyle: 'bold',
-            halign: 'center',
-            fontSize: 11
+            halign: 'center'
           },
-          bodyStyles: { 
-            textColor: 60, 
-            fontStyle: 'normal',
-            fontSize: 10,
-            cellPadding: 6
-          },
+          bodyStyles: { textColor: 50, fontStyle: 'normal' },
           columnStyles: {
-            0: { 
-              cellWidth: 70, 
-              fillColor: [245, 245, 245], 
-              fontStyle: 'bold',
-              textColor: colors.primary[0]
-            },
-            1: { cellWidth: contentWidth - 70 }
+            0: { cellWidth: 60, fillColor: [245, 245, 245], fontStyle: 'bold' },
+            1: { cellWidth: pageWidth - 100 }
           },
           head: [['Field', 'Details']],
           body: [
@@ -965,45 +918,32 @@ const PatientDetails: React.FC<{}> = () => {
               `${patient.attorney.address.street || ''}${patient.attorney.address.street && (patient.attorney.address.city || patient.attorney.address.state) ? ', ' : ''}${patient.attorney.address.city || ''}${patient.attorney.address.city && patient.attorney.address.state ? ', ' : ''}${patient.attorney.address.state || ''} ${patient.attorney.address.zipCode || ''}${patient.attorney.address.country ? `, ${patient.attorney.address.country}` : ''}`.trim() || 'N/A' : 'N/A']
           ],
           theme: 'grid',
-          margin: { left: margin, right: margin },
-          lineWidth: 0.5,
-          lineColor: [200, 200, 200]
+          margin: { left: margin, right: margin }
         });
   
-        y = (doc as any).lastAutoTable.finalY + 20;
+        y = (doc as any).lastAutoTable.finalY + 15;
       }
   
       // PATIENT INFO
-      doc.setFontSize(15);
+      doc.setFontSize(14);
       doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
       doc.setFont('helvetica', 'bold');
       doc.text('PATIENT INFORMATION', pageWidth / 2, y, { align: 'center' });
-      y += 15;
+      y += 10;
   
       autoTable(doc, {
         startY: y,
-        styles: { fontSize: 10, cellPadding: 6 },
+        styles: { fontSize: 10, cellPadding: 4 },
         headStyles: {
           fillColor: [colors.primary[0], colors.primary[1], colors.primary[2]],
           textColor: 255,
           fontStyle: 'bold',
-          halign: 'center',
-          fontSize: 11
+          halign: 'center'
         },
-        bodyStyles: { 
-          textColor: 60, 
-          fontStyle: 'normal',
-          fontSize: 10,
-          cellPadding: 6
-        },
+        bodyStyles: { textColor: 50, fontStyle: 'normal' },
         columnStyles: {
-          0: { 
-            cellWidth: 70, 
-            fillColor: [245, 245, 245], 
-            fontStyle: 'bold',
-            textColor: colors.primary[0]
-          },
-          1: { cellWidth: contentWidth - 70 }
+          0: { cellWidth: 60, fillColor: [245, 245, 245], fontStyle: 'bold' },
+          1: { cellWidth: pageWidth - 100 }
         },
         head: [['Field', 'Details']],
         body: [
@@ -1013,12 +953,10 @@ const PatientDetails: React.FC<{}> = () => {
           ['Type of Accident', patient.accidentType || 'N/A']
         ],
         theme: 'grid',
-        margin: { left: margin, right: margin },
-        lineWidth: 0.5,
-        lineColor: [200, 200, 200]
+        margin: { left: margin, right: margin }
       });
   
-      y = (doc as any).lastAutoTable.finalY + 20;
+      y = (doc as any).lastAutoTable.finalY + 15;
   
       // GROUPED VISITS
       const grouped = {
@@ -1296,150 +1234,63 @@ const PatientDetails: React.FC<{}> = () => {
       // AI NARRATIVE (formatted) - Always include as comprehensive summary
       if (aiNarrative && aiNarrative.trim()) {
         // Add a separator before AI narrative
-        if (y > pageHeight - 120) {
+        if (y > 250) {
           doc.addPage();
-          y = 35;
+          y = 30;
         }
         
-        // Add decorative separator
-        doc.setDrawColor(colors.purple[0], colors.purple[1], colors.purple[2]);
-        doc.setLineWidth(2);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 15;
-        
-        // Add main AI narrative heading with enhanced styling
-        doc.setFontSize(16);
+        // Add main AI narrative heading
+        doc.setFontSize(14);
         doc.setTextColor(colors.purple[0], colors.purple[1], colors.purple[2]);
         doc.setFont('helvetica', 'bold');
         doc.text('COMPREHENSIVE MEDICAL NARRATIVE', pageWidth / 2, y, { align: 'center' });
-        y += 20;
-        
-        // Add subtitle
-        doc.setFontSize(10);
-        doc.setTextColor(colors.darkGray[0], colors.darkGray[1], colors.darkGray[2]);
-        doc.setFont('helvetica', 'italic');
-        doc.text('AI-Generated Clinical Summary', pageWidth / 2, y, { align: 'center' });
         y += 15;
         
         // Parse and format the AI narrative
         const matches = [...aiNarrative.matchAll(/\*\*(.+?):\*\*\s*([\s\S]*?)(?=\*\*|$)/g)];
         
         if (matches.length > 0) {
-          // If AI returned structured sections, format them with enhanced styling
+          // If AI returned structured sections, format them
           matches.forEach(([_, section, content]) => {
-            // Check if we need a new page
-            if (y > pageHeight - 100) {
-              doc.addPage();
-              y = 35;
-            }
-            
-            // Enhanced section styling
-            doc.setFillColor(colors.purple[0], colors.purple[1], colors.purple[2]);
-            doc.roundedRect(margin - 2, y - 3, contentWidth + 4, 8, 3, 3, 'F');
-            
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(12);
-            doc.setTextColor(255, 255, 255);
-            doc.text(section.toUpperCase(), margin, y + 2);
-            y += 12;
-            
-            // Content with enhanced formatting
-            const paragraphs = content.trim().split('\n\n').filter((p: string) => p.trim());
-            paragraphs.forEach((paragraph: string, index: number) => {
-              if (y > pageHeight - 80) {
-                doc.addPage();
-                y = 35;
-              }
-              
-              // Add subtle background for each paragraph
-              doc.setFillColor(248, 249, 250);
-              const wrappedText = doc.splitTextToSize(paragraph.trim(), contentWidth - 10);
-              const paragraphHeight = wrappedText.length * 7 + 8;
-              doc.rect(margin - 2, y - 2, contentWidth + 4, paragraphHeight, 'F');
-              
-              doc.setFont('helvetica', 'normal');
-              doc.setFontSize(10);
-              doc.setTextColor(60);
-              doc.text(wrappedText, margin, y);
-              y += paragraphHeight + 4;
-            });
-            
-            y += 8; // Extra spacing between sections
+            addDetailedSection(section.toUpperCase(), colors.purple, [[section, content.trim()]]);
           });
         } else {
-          // If AI returned unstructured text, format it as paragraphs with enhanced styling
+          // If AI returned unstructured text, format it as paragraphs
           const paragraphs = aiNarrative.split('\n\n').filter((p: string) => p.trim());
           paragraphs.forEach((paragraph: string, index: number) => {
-            if (y > pageHeight - 80) {
+            if (y > 260) {
               doc.addPage();
-              y = 35;
+              y = 30;
             }
-            
-            // Enhanced paragraph styling
-            doc.setFillColor(248, 249, 250);
-            const wrappedText = doc.splitTextToSize(paragraph.trim(), contentWidth - 10);
-            const paragraphHeight = wrappedText.length * 7 + 8;
-            doc.rect(margin - 2, y - 2, contentWidth + 4, paragraphHeight, 'F');
             
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(10);
-            doc.setTextColor(60);
+            doc.setTextColor(50);
+            
+            const wrappedText = doc.splitTextToSize(paragraph.trim(), pageWidth - margin * 2);
             doc.text(wrappedText, margin, y);
-            y += paragraphHeight + 8;
+            y += wrappedText.length * 6 + 8;
           });
         }
-        
-        // Add closing separator
-        y += 10;
-        doc.setDrawColor(colors.purple[0], colors.purple[1], colors.purple[2]);
-        doc.setLineWidth(1);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 15;
       }
   
       // SIGNATURE
-      if (y > pageHeight - 120) {
+      if (y > 220) {
         doc.addPage();
-        y = 35;
+        y = 30;
       }
-      
-      // Add decorative separator before signature
-      doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.setLineWidth(1);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 15;
-      
-      // Enhanced signature section
-      doc.setFillColor(248, 249, 250);
-      doc.roundedRect(margin - 5, y - 5, contentWidth + 10, 50, 5, 5, 'F');
-      
-      doc.addImage(signatureBase64, 'PNG', margin + 10, y, 45, 25);
-      y += 30;
-      
-      doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.setLineWidth(1);
-      doc.line(margin + 10, y, margin + 55, y);
-      y += 8;
-      
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.text('Harold Iseke, D.C.', margin + 10, y);
+      doc.addImage(signatureBase64, 'PNG', margin, y, 40, 20);
+      y += 22;
+      doc.setDrawColor(0);
+      doc.line(margin, y, margin + 60, y);
       y += 6;
-      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('Harold Iseke, D.C.', margin, y);
+      y += 5;
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(10);
-      doc.setTextColor(colors.darkGray[0], colors.darkGray[1], colors.darkGray[2]);
-      doc.text('Treating Provider', margin + 10, y);
-      y += 8;
-      
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text('The Wellness Studio', margin + 10, y);
-      y += 5;
-      doc.text('3711 Long Beach Blvd., Suite 200', margin + 10, y);
-      y += 5;
-      doc.text('Long Beach, CA, 90807', margin + 10, y);
+      doc.text('Treating Provider', margin, y);
   
       // PAGINATION
       const totalPages = (doc as any).internal.getNumberOfPages();
@@ -1452,7 +1303,7 @@ const PatientDetails: React.FC<{}> = () => {
       const blob = doc.output('blob');
       const formData = new FormData();
       formData.append('file', blob, fileName);
-      await axios.post('https://emr-h.onrender.com/api/reports/upload', formData);
+      await axios.post('http://localhost:5000/api/reports/upload', formData);
   
       const downloadLink = document.createElement('a');
       downloadLink.href = URL.createObjectURL(blob);
@@ -1591,7 +1442,7 @@ const PatientDetails: React.FC<{}> = () => {
             onClick={async () => {
               // Refresh patient data before opening modal
               try {
-                const patientResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${id}`);
+                const patientResponse = await axios.get(`http://localhost:5000/api/patients/${id}`);
                 setPatient(patientResponse.data);
               } catch (error) {
                 console.error('Error refreshing patient data:', error);
