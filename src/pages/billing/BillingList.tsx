@@ -11,8 +11,10 @@ import {
   ChevronRight,
   DollarSign,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Trash2 // <-- add Trash2 icon
 } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 interface Patient {
   _id: string;
@@ -161,6 +163,74 @@ const fetchInvoices = async () => {
     }
     
     return invoice.patient._id === patientId;
+  };
+
+  const handleDownload = async (invoiceId: string) => {
+    // Fetch invoice details
+    try {
+      const response = await axios.get(`http://localhost:5000/api/billing/${invoiceId}`);
+      const invoice = response.data;
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.text('INVOICE', 105, 15, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(`Invoice #: ${invoice.invoiceNumber}`, 20, 30);
+      doc.text(`Date Issued: ${new Date(invoice.dateIssued).toLocaleDateString()}`, 20, 40);
+      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 20, 50);
+      doc.text('Bill To:', 20, 70);
+      doc.text(`${invoice.patient.firstName} ${invoice.patient.lastName}`, 20, 80);
+      if (invoice.patient.address && invoice.patient.address.street) {
+        doc.text(invoice.patient.address.street, 20, 90);
+        doc.text(`${invoice.patient.address.city}, ${invoice.patient.address.state} ${invoice.patient.address.zipCode}`, 20, 100);
+      }
+      doc.setFillColor(240, 240, 240);
+      doc.rect(20, 120, 170, 10, 'F');
+      doc.text('Description', 25, 127);
+      doc.text('Qty', 120, 127);
+      doc.text('Price', 140, 127);
+      doc.text('Total', 170, 127);
+      let yPos = 140;
+      invoice.items.forEach((item: any) => {
+        doc.text(item.description, 25, yPos);
+        doc.text(item.quantity.toString(), 120, yPos);
+        doc.text(`$${item.unitPrice.toFixed(2)}`, 140, yPos);
+        doc.text(`$${item.total.toFixed(2)}`, 170, yPos);
+        yPos += 10;
+      });
+      yPos += 10;
+      doc.text('Subtotal:', 140, yPos);
+      doc.text(`$${invoice.subtotal.toFixed(2)}`, 170, yPos);
+      yPos += 10;
+      if (invoice.tax > 0) {
+        doc.text('Tax:', 140, yPos);
+        doc.text(`$${invoice.tax.toFixed(2)}`, 170, yPos);
+        yPos += 10;
+      }
+      if (invoice.discount > 0) {
+        doc.text('Discount:', 140, yPos);
+        doc.text(`-$${invoice.discount.toFixed(2)}`, 170, yPos);
+        yPos += 10;
+      }
+      doc.setFontSize(14);
+      doc.text('Total:', 140, yPos);
+      doc.text(`$${invoice.total.toFixed(2)}`, 170, yPos);
+      yPos += 20;
+      doc.setFontSize(12);
+      doc.text(`Status: ${invoice.status.toUpperCase()}`, 20, yPos);
+      doc.save(`Invoice_${invoice.invoiceNumber}.pdf`);
+    } catch (error) {
+      window.alert('Failed to download invoice PDF.');
+    }
+  };
+
+  const handleDelete = async (invoiceId: string) => {
+    if (!window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/billing/${invoiceId}`);
+      fetchInvoices(); // Refresh the list
+    } catch (error) {
+      window.alert('Failed to delete invoice.');
+    }
   };
 
   return (
@@ -391,24 +461,27 @@ const fetchInvoices = async () => {
                             >
                               <Eye className="w-5 h-5" />
                             </Link>
-                            {invoice.status !== 'paid' && (
-                              <Link
-                                to={`/billing/${invoice._id}/edit`}
-                                className="text-yellow-600 hover:text-yellow-900"
-                                title="Edit Invoice"
-                              >
-                                <Edit className="w-5 h-5" />
-                              </Link>
-                            )}
-                            <Link
-                              to={`/billing/${invoice._id}/download`}
+                            <button
+                              onClick={() => handleDownload(invoice._id)}
                               className="text-green-600 hover:text-green-900"
                               title="Download Invoice"
-                              target="_blank"
-                              rel="noopener noreferrer"
                             >
                               <Download className="w-5 h-5" />
+                            </button>
+                            <Link
+                              to={`/billing/${invoice._id}/edit`}
+                              className="text-yellow-600 hover:text-yellow-900"
+                              title="Edit Invoice"
+                            >
+                              <Edit className="w-5 h-5" />
                             </Link>
+                            <button
+                              onClick={() => handleDelete(invoice._id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete Invoice"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
                           </div>
                         </td>
                       </tr>

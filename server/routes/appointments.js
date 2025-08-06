@@ -164,31 +164,7 @@ router.post('/', async (req, res) => {
       appointmentData.doctor = req.user.id;
     }
     
-    // Check for conflicting appointments
-    const conflictingAppointment = await Appointment.findOne({
-      doctor: appointmentData.doctor,
-      date: appointmentData.date,
-      $or: [
-        {
-          'time.start': { $lte: appointmentData.time.start },
-          'time.end': { $gt: appointmentData.time.start }
-        },
-        {
-          'time.start': { $lt: appointmentData.time.end },
-          'time.end': { $gte: appointmentData.time.end }
-        },
-        {
-          'time.start': { $gte: appointmentData.time.start },
-          'time.end': { $lte: appointmentData.time.end }
-        }
-      ],
-      status: { $nin: ['cancelled', 'no-show'] }
-    });
-    
-    if (conflictingAppointment) {
-      return res.status(400).json({ message: 'Conflicting appointment exists' });
-    }
-    
+    // Remove conflict check: allow multiple appointments for same slot
     const appointment = new Appointment(appointmentData);
     await appointment.save();
     
@@ -216,39 +192,7 @@ router.put('/:id', async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    // Check for conflicting appointments if date/time is changed
-    if (
-      req.body.date !== appointment.date.toISOString().split('T')[0] ||
-      req.body.time.start !== appointment.time.start ||
-      req.body.time.end !== appointment.time.end
-    ) {
-      const conflictingAppointment = await Appointment.findOne({
-        _id: { $ne: req.params.id }, // Exclude current appointment
-        doctor: appointment.doctor,
-        date: req.body.date,
-        $or: [
-          {
-            'time.start': { $lte: req.body.time.start },
-            'time.end': { $gt: req.body.time.start }
-          },
-          {
-            'time.start': { $lt: req.body.time.end },
-            'time.end': { $gte: req.body.time.end }
-          },
-          {
-            'time.start': { $gte: req.body.time.start },
-            'time.end': { $lte: req.body.time.end }
-          }
-        ],
-        status: { $nin: ['cancelled', 'no-show'] }
-      });
-      
-      if (conflictingAppointment) {
-        return res.status(400).json({ message: 'Conflicting appointment exists' });
-      }
-    }
-    
-    // Update appointment
+    // Remove conflict check: allow multiple appointments for same slot
     const updatedAppointment = await Appointment.findByIdAndUpdate(
       req.params.id,
       req.body,

@@ -234,6 +234,7 @@ interface Visit {
   areasImproving?: boolean;
   areasExacerbated?: boolean;
   areasSame?: boolean;
+  areasResolved?: boolean;
   musclePalpation?: string;
   painRadiating?: string;
   romWnlNoPain?: boolean;
@@ -250,6 +251,33 @@ interface Visit {
   treatmentPlan?: {
     treatments?: string;
     timesPerWeek?: string;
+    chiropractic?: boolean;
+    acupuncture?: boolean;
+    mechanicalTraction?: boolean;
+    myofascialRelease?: boolean;
+    ultrasound?: boolean;
+    infraredElectricMuscleStimulation?: boolean;
+    therapeuticExercise?: boolean;
+    neuromuscularReeducation?: boolean;
+    other?: string;
+    frequency?: {
+      timesPerWeek?: {
+        '4x'?: boolean;
+        '3x'?: boolean;
+        '2x'?: boolean;
+        '1x'?: boolean;
+      };
+      duration?: {
+        '4 wks'?: boolean;
+        '6 wks'?: boolean;
+        custom?: string;
+      };
+      reEval?: {
+        '4 wks'?: boolean;
+        '6 wks'?: boolean;
+        custom?: string;
+      };
+    };
   };
   overallResponse?: {
     improving?: boolean;
@@ -261,7 +289,14 @@ interface Visit {
     bodyPart?: string;
     result?: string;
   };
-  homeCare?: string[]; // FollowupVisit and DischargeVisit have homeCare as array
+  homeCare?: string[] | {
+    coreProgram?: boolean;
+    stretches?: boolean;
+    icePackHotPack?: boolean;
+    ligamentStabilityProgram?: boolean;
+    other?: string;
+  };
+  homeCareSuggestions?: string;
 
   // Discharge Visit fields
   treatmentSummary?: string;
@@ -304,6 +339,193 @@ interface Visit {
    physicalModality?: string;
    reevaluation?: string;
    returnFrequency?: string;
+
+  // New comprehensive fields for Initial Visit from VisitDetails.tsx
+  diagnosis?: string[];
+  vitals?: {
+    heightFeet?: number;
+    heightInches?: number;
+    weight?: number;
+    temp?: number;
+    bpSystolic?: number;
+    bpDiastolic?: number;
+    pulse?: number;
+  };
+  grip?: {
+    right1?: number;
+    right2?: number;
+    right3?: number;
+    left1?: number;
+    left2?: number;
+    left3?: number;
+  };
+  appearance?: string[];
+  appearanceOther?: string;
+  orientation?: {
+    timePlacePerson?: string;
+    other?: string;
+  };
+  posture?: string[];
+  gait?: string[];
+  gaitDevice?: string;
+  dtr?: string[];
+  dtrOther?: string;
+  dermatomes?: {
+    [key: string]: {
+      left?: { hypo?: boolean; hyper?: boolean };
+      right?: { hypo?: boolean; hyper?: boolean };
+    };
+  };
+  muscleStrength?: string[];
+  strength?: {
+    [key: string]: {
+      right?: string;
+      left?: string;
+    };
+  };
+  oriented?: boolean;
+  coordination?: boolean;
+  romberg?: string[];
+  rombergNotes?: string;
+  pronatorDrift?: string;
+  neuroTests?: string[];
+  walkTests?: string[];
+  painLocation?: string[];
+  radiatingTo?: string;
+  jointDysfunction?: string[];
+  jointOther?: string;
+  arom?: {
+    [key: string]: {
+      exam?: string;
+      pain?: boolean;
+      left?: boolean;
+      right?: boolean;
+      bilateral?: boolean;
+    };
+  };
+  ortho?: {
+    [key: string]: {
+      left?: boolean;
+      right?: boolean;
+      bilateral?: boolean;
+      ligLaxity?: string;
+    };
+  };
+  tenderness?: {
+    [key: string]: string | string[];
+  };
+  spasm?: {
+    [key: string]: string | string[];
+  };
+  lumbarTouchingToesMovement?: {
+    pain?: boolean;
+    painTS?: boolean;
+    painLS?: boolean;
+    acceleration?: boolean;
+    accelerationTSPain?: boolean;
+    accelerationLSPain?: boolean;
+    deceleration?: boolean;
+    decelerationTSPain?: boolean;
+    decelerationLSPain?: boolean;
+    gowersSign?: boolean;
+    gowersSignTS?: boolean;
+    gowersSignLS?: boolean;
+    deviatingLumbopelvicRhythm?: boolean;
+    deviatingFlexionRotation?: boolean;
+    deviatingExtensionRotation?: boolean;
+  };
+  cervicalAROMCheckmarks?: {
+    pain?: boolean;
+    poorCoordination?: boolean;
+    abnormalJointPlay?: boolean;
+    motionNotSmooth?: boolean;
+    hypomobilityThoracic?: boolean;
+    fatigueHoldingHead?: boolean;
+  };
+
+  // Fetched data from modals (for follow-up visits)
+  fetchedData?: {
+    initialVisitData?: any;
+    musclePalpationData?: {
+      muscleStrength?: any;
+      strength?: any;
+      tenderness?: any;
+      spasm?: any;
+    };
+    orthoTestsData?: {
+      [region: string]: {
+        [testName: string]: {
+          left: string;
+          right: string;
+          ligLaxity: string;
+        };
+      };
+    };
+    aromData?: {
+      [region: string]: {
+        [movementName: string]: {
+          left: string;
+          right: string;
+          ligLaxity: string;
+        };
+      };
+    };
+    activitiesPainData?: {
+      chiropracticAdjustment: string[];
+      chiropracticOther: string;
+      acupuncture: string[];
+      acupunctureOther: string;
+      physiotherapy: string[];
+      rehabilitationExercises: string[];
+      durationFrequency: {
+        timesPerWeek: string;
+        reEvalInWeeks: string;
+      };
+      diagnosticUltrasound: string;
+      disabilityDuration: string;
+    };
+    treatmentListData?: {
+      chiropracticAdjustment: string[];
+      chiropracticOther: string;
+      acupuncture: string[];
+      acupunctureOther: string;
+      physiotherapy: string[];
+      rehabilitationExercises: string[];
+      durationFrequency: {
+        timesPerWeek: string;
+        reEvalInWeeks: string;
+      };
+      referrals: string[];
+      imaging: {
+        xray: string[];
+        mri: string[];
+        ct: string[];
+      };
+      diagnosticUltrasound: string;
+      nerveStudy: string[];
+      restrictions: {
+        avoidActivityWeeks: string;
+        liftingLimitLbs: string;
+        avoidProlongedSitting: boolean;
+      };
+      disabilityDuration: string;
+      otherNotes: string;
+    };
+    imagingData?: {
+      physiotherapy: string[];
+      rehabilitationExercises: string[];
+      durationFrequency: {
+        timesPerWeek: string;
+        reEvalInWeeks: string;
+      };
+      referrals: string[];
+      imaging: {
+        xray: string[];
+        mri: string[];
+        ct: string[];
+      };
+    };
+  };
 }
 
 interface Appointment {
@@ -469,8 +691,10 @@ const PatientDetails: React.FC<{}> = () => {
     setIsGeneratingReport(true);
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    let y = 30;
-    const margin = 20;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let y = 35; // Increased starting position to account for header
+    const margin = 25; // Increased margin for better spacing
+    const contentWidth = pageWidth - margin * 2; // Calculate available content width
     const logoBase64 = await toBase64(logo);
     const signatureBase64 = await toBase64(Sig);
   
@@ -482,56 +706,304 @@ const PatientDetails: React.FC<{}> = () => {
       darkGray: [127, 140, 141],
       success: [46, 204, 113],
       warning: [241, 196, 15],
-      purple: [155, 89, 182]
+      purple: [155, 89, 182],
+      blue: [41, 128, 185],
+      green: [39, 174, 96],
+      orange: [230, 126, 34]
     };
   
     const addHeaderAndFooter = (doc: any, pageNumber: number, totalPages: number) => {
+      // Enhanced header with gradient effect
       doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.rect(0, 0, pageWidth, 25, 'F');
-      doc.addImage(logoBase64, 'PNG', 15, 8, 12, 12);
-      doc.setFontSize(14);
+      doc.rect(0, 0, pageWidth, 30, 'F');
+      
+      // Add subtle gradient effect
+      doc.setFillColor(colors.blue[0], colors.blue[1], colors.blue[2]);
+      doc.rect(0, 0, pageWidth, 5, 'F');
+      
+      doc.addImage(logoBase64, 'PNG', 20, 8, 15, 15);
+      doc.setFontSize(16);
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.text('The Wellness Studio', 32, 18);
-      doc.setFontSize(12);
-      doc.setTextColor(colors.warning[0], colors.warning[1], colors.warning[2]);
-      doc.text('The Wellness Studio', pageWidth - 15, 18, { align: 'right' });
-      doc.setFillColor(colors.lightGray[0], colors.lightGray[1], colors.lightGray[2]);
-      doc.rect(0, 280, pageWidth, 20, 'F');
-      const footerText = `The Wellness Studio • 3711 Long Beach Blvd., Suite 200, Long Beach, CA, 90807 • Tel: (562) 980-0555  Page ${pageNumber} of ${totalPages}`;
+      doc.text('The Wellness Studio', 40, 20);
+      
       doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'normal');
+      doc.text('3711 Long Beach Blvd., Suite 200, Long Beach, CA, 90807', pageWidth - 20, 20, { align: 'right' });
+      
+      // Enhanced footer with better styling
+      doc.setFillColor(colors.lightGray[0], colors.lightGray[1], colors.lightGray[2]);
+      doc.rect(0, pageHeight - 25, pageWidth, 25, 'F');
+      
+      const footerText = `The Wellness Studio • 3711 Long Beach Blvd., Suite 200, Long Beach, CA, 90807 • Tel: (562) 980-0555`;
+      doc.setFontSize(8);
       doc.setTextColor(colors.darkGray[0], colors.darkGray[1], colors.darkGray[2]);
-      doc.text(footerText, pageWidth / 2, 290, { align: 'center' });
+      doc.text(footerText, pageWidth / 2, pageHeight - 15, { align: 'center' });
+      
+      // Page numbers with better styling
+      doc.setFontSize(10);
+      doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+    };
+  
+    const addDetailedSection = (title: string, color: number[], fields: Array<[string, any]>, isMainVisitType: boolean = false) => {
+      const sentences: Array<{ label: string; text: string[] }> = [];
+      let height = 0;
+
+      // Calculate total height needed for this section
+      fields.forEach(([label, value]) => {
+        if (!value) return;
+        const line = `• ${label}: ${typeof value === 'string' ? value : Array.isArray(value) ? value.join(', ') : JSON.stringify(value)}`;
+        const wrapped = doc.splitTextToSize(line, contentWidth - 10); // Reduced width for better readability
+        sentences.push({ label, text: wrapped });
+        height += wrapped.length * 7 + 6; // Increased line spacing
+      });
+
+      // Check if we need a new page
+      if (y + height > pageHeight - 80) { // Increased bottom margin
+        doc.addPage();
+        y = 35;
+      }
+      
+      y += 12; // Increased spacing before section
+
+      if (isMainVisitType) {
+        // Enhanced colored background for main visit types
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.roundedRect(margin - 3, y - 8, contentWidth + 6, 12, 4, 4, 'F');
+        
+        // Add subtle border
+        doc.setDrawColor(color[0] - 20, color[1] - 20, color[2] - 20);
+        doc.roundedRect(margin - 3, y - 8, contentWidth + 6, 12, 4, 4, 'S');
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(255, 255, 255);
+        doc.text(title, margin, y + 2);
+      } else {
+        // Enhanced styling for subheadings
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(color[0], color[1], color[2]);
+        doc.text(title, margin, y + 2);
+        
+        // Enhanced underline with color
+        const textWidth = doc.getTextWidth(title);
+        doc.setDrawColor(color[0], color[1], color[2]);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y + 4, margin + textWidth, y + 4);
+        doc.setLineWidth(0.1); // Reset line width
+      }
+      
+      y += 15; // Increased spacing after title
+
+      // Enhanced content styling
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(60); // Darker text for better readability
+      
+      sentences.forEach(({ text }) => {
+        // Add subtle background for each line
+        doc.setFillColor(248, 249, 250);
+        doc.rect(margin - 2, y - 2, contentWidth + 4, text.length * 7 + 4, 'F');
+        
+        doc.text(text, margin, y);
+        y += text.length * 7 + 6; // Increased line spacing
+      });
+
+      y += 12; // Increased spacing after section
+    };
+  
+    const formatVitals = (vitals: any) => {
+      if (!vitals) return '';
+      const parts = [];
+      if (vitals.heightFeet && vitals.heightInches) parts.push(`Height: ${vitals.heightFeet}'${vitals.heightInches}"`);
+      if (vitals.weight) parts.push(`Weight: ${vitals.weight} lbs`);
+      if (vitals.temp) parts.push(`Temperature: ${vitals.temp}°F`);
+      if (vitals.bpSystolic && vitals.bpDiastolic) parts.push(`BP: ${vitals.bpSystolic}/${vitals.bpDiastolic}`);
+      if (vitals.pulse) parts.push(`Pulse: ${vitals.pulse}`);
+      return parts.join(', ');
+    };
+  
+    const formatGrip = (grip: any) => {
+      if (!grip) return '';
+      const parts = [];
+      if (grip.right1) parts.push(`Right 1: ${grip.right1}`);
+      if (grip.right2) parts.push(`Right 2: ${grip.right2}`);
+      if (grip.right3) parts.push(`Right 3: ${grip.right3}`);
+      if (grip.left1) parts.push(`Left 1: ${grip.left1}`);
+      if (grip.left2) parts.push(`Left 2: ${grip.left2}`);
+      if (grip.left3) parts.push(`Left 3: ${grip.left3}`);
+      return parts.join(', ');
+    };
+  
+        const formatDermatomes = (dermatomes: any) => {
+      if (!dermatomes) return '';
+      const parts: string[] = [];
+      Object.entries(dermatomes).forEach(([key, value]: [string, any]) => {
+        if (value.left?.hypo) parts.push(`${key} Left: Hypo`);
+        if (value.left?.hyper) parts.push(`${key} Left: Hyper`);
+        if (value.right?.hypo) parts.push(`${key} Right: Hypo`);
+        if (value.right?.hyper) parts.push(`${key} Right: Hyper`);
+      });
+      return parts.join(', ');
+    };
+
+    const formatStrength = (strength: any) => {
+      if (!strength) return '';
+      const parts: string[] = [];
+      Object.entries(strength).forEach(([key, value]: [string, any]) => {
+        if (value.right) parts.push(`${key} Right: ${value.right}`);
+        if (value.left) parts.push(`${key} Left: ${value.left}`);
+      });
+      return parts.join(', ');
+    };
+
+    const formatAROM = (arom: any) => {
+      if (!arom) return '';
+      const parts: string[] = [];
+      Object.entries(arom).forEach(([key, value]: [string, any]) => {
+        if (value.pain) parts.push(`${key}: Pain`);
+        if (value.left) parts.push(`${key}: Left`);
+        if (value.right) parts.push(`${key}: Right`);
+        if (value.bilateral) parts.push(`${key}: Bilateral`);
+      });
+      return parts.join(', ');
+    };
+
+    const formatOrtho = (ortho: any) => {
+      if (!ortho) return '';
+      const parts: string[] = [];
+      Object.entries(ortho).forEach(([key, value]: [string, any]) => {
+        if (value.left) parts.push(`${key}: Left`);
+        if (value.right) parts.push(`${key}: Right`);
+        if (value.bilateral) parts.push(`${key}: Bilateral`);
+        if (value.ligLaxity) parts.push(`${key} Ligament Laxity: ${value.ligLaxity}`);
+      });
+      return parts.join(', ');
+    };
+
+    const formatTenderness = (tenderness: any) => {
+      if (!tenderness) return '';
+      const parts: string[] = [];
+      Object.entries(tenderness).forEach(([key, value]: [string, any]) => {
+        if (Array.isArray(value)) {
+          parts.push(`${key}: ${value.join(', ')}`);
+        } else if (value) {
+          parts.push(`${key}: ${value}`);
+        }
+      });
+      return parts.join(', ');
+    };
+
+    const formatSpasm = (spasm: any) => {
+      if (!spasm) return '';
+      const parts: string[] = [];
+      Object.entries(spasm).forEach(([key, value]: [string, any]) => {
+        if (Array.isArray(value)) {
+          parts.push(`${key}: ${value.join(', ')}`);
+        } else if (value) {
+          parts.push(`${key}: ${value}`);
+        }
+      });
+      return parts.join(', ');
     };
   
     try {
+      console.log('Generating AI narrative with data:', { patient: patient._id, visitsCount: visits.length });
       const response = await axios.post('http://localhost:5000/api/ai/generate-narrative', {
         patient,
         visits,
       });
   
       const aiNarrative = response.data.narrative;
+      console.log('AI narrative generated:', aiNarrative ? 'Success' : 'Failed');
+  
+      // ATTORNEY INFORMATION
+      if (patient.attorney) {
+        doc.setFontSize(15);
+        doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ATTORNEY INFORMATION', pageWidth / 2, y, { align: 'center' });
+        y += 15;
+  
+        autoTable(doc, {
+          startY: y,
+          styles: { fontSize: 10, cellPadding: 6 },
+          headStyles: {
+            fillColor: [colors.primary[0], colors.primary[1], colors.primary[2]],
+            textColor: 255,
+            fontStyle: 'bold',
+            halign: 'center',
+            fontSize: 11
+          },
+          bodyStyles: { 
+            textColor: 60, 
+            fontStyle: 'normal',
+            fontSize: 10,
+            cellPadding: 6
+          },
+          columnStyles: {
+            0: { 
+              cellWidth: 70, 
+              fillColor: [245, 245, 245], 
+              fontStyle: 'bold',
+              textColor: colors.primary[0]
+            },
+            1: { cellWidth: contentWidth - 70 }
+          },
+          head: [['Field', 'Details']],
+          body: [
+            ['Attorney Name', patient.attorney.name || 'N/A'],
+            ['Firm', patient.attorney.firm || 'N/A'],
+            ['Phone', patient.attorney.phone || 'N/A'],
+            ['Email', patient.attorney.email || 'N/A'],
+            ['Case Number', patient.attorney.caseNumber || 'N/A'],
+            ['Address', patient.attorney.address ? 
+              `${patient.attorney.address.street || ''}${patient.attorney.address.street && (patient.attorney.address.city || patient.attorney.address.state) ? ', ' : ''}${patient.attorney.address.city || ''}${patient.attorney.address.city && patient.attorney.address.state ? ', ' : ''}${patient.attorney.address.state || ''} ${patient.attorney.address.zipCode || ''}${patient.attorney.address.country ? `, ${patient.attorney.address.country}` : ''}`.trim() || 'N/A' : 'N/A']
+          ],
+          theme: 'grid',
+          margin: { left: margin, right: margin },
+          lineWidth: 0.5,
+          lineColor: [200, 200, 200]
+        });
+  
+        y = (doc as any).lastAutoTable.finalY + 20;
+      }
   
       // PATIENT INFO
-      doc.setFontSize(14);
+      doc.setFontSize(15);
       doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
       doc.setFont('helvetica', 'bold');
       doc.text('PATIENT INFORMATION', pageWidth / 2, y, { align: 'center' });
-      y += 10;
+      y += 15;
   
       autoTable(doc, {
         startY: y,
-        styles: { fontSize: 10, cellPadding: 4 },
+        styles: { fontSize: 10, cellPadding: 6 },
         headStyles: {
           fillColor: [colors.primary[0], colors.primary[1], colors.primary[2]],
           textColor: 255,
           fontStyle: 'bold',
-          halign: 'center'
+          halign: 'center',
+          fontSize: 11
         },
-        bodyStyles: { textColor: 50, fontStyle: 'normal' },
+        bodyStyles: { 
+          textColor: 60, 
+          fontStyle: 'normal',
+          fontSize: 10,
+          cellPadding: 6
+        },
         columnStyles: {
-          0: { cellWidth: 60, fillColor: [245, 245, 245], fontStyle: 'bold' },
-          1: { cellWidth: pageWidth - 100 }
+          0: { 
+            cellWidth: 70, 
+            fillColor: [245, 245, 245], 
+            fontStyle: 'bold',
+            textColor: colors.primary[0]
+          },
+          1: { cellWidth: contentWidth - 70 }
         },
         head: [['Field', 'Details']],
         body: [
@@ -541,51 +1013,12 @@ const PatientDetails: React.FC<{}> = () => {
           ['Type of Accident', patient.accidentType || 'N/A']
         ],
         theme: 'grid',
-        margin: { left: margin, right: margin }
+        margin: { left: margin, right: margin },
+        lineWidth: 0.5,
+        lineColor: [200, 200, 200]
       });
   
-      y = (doc as any).lastAutoTable.finalY + 15;
-  
-      const addNarrativeSection = (title: string, color: number[], fields: Array<[string, any]>) => {
-        const sentences: Array<{ label: string; text: string[] }> = [];
-        let height = 0;
-  
-        fields.forEach(([label, value]) => {
-          if (!value) return;
-          const line = `• ${label}: ${typeof value === 'string' ? value : Array.isArray(value) ? value.join(', ') : JSON.stringify(value)}`;
-          const wrapped = doc.splitTextToSize(line, pageWidth - margin * 2);
-          sentences.push({ label, text: wrapped });
-          height += wrapped.length * 6 + 4;
-        });
-  
-        if (y + height > 260) {
-          doc.addPage();
-          y = 30;
-        }
-        y += 10;
-  
-        doc.setFillColor(color[0], color[1], color[2]);
-        doc.roundedRect(margin - 2, y - 6, pageWidth - margin * 2 + 4, 10, 3, 3, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(255, 255, 255);
-        doc.text(title, margin, y + 2);
-        y += 12;
-  
-        doc.setFillColor(255, 255, 255);
-        doc.setDrawColor(200);
-       
-  
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(50);
-        sentences.forEach(({ text }) => {
-          doc.text(text, margin, y);
-          y += text.length * 6 + 2;
-        });
-  
-        y += 10;
-      };
+      y = (doc as any).lastAutoTable.finalY + 20;
   
       // GROUPED VISITS
       const grouped = {
@@ -596,8 +1029,137 @@ const PatientDetails: React.FC<{}> = () => {
   
       if (grouped.initial) {
         const v = grouped.initial;
-        addNarrativeSection('INITIAL VISIT', colors.accent, [
+        
+        // Initial Visit - Main Heading
+        addDetailedSection('INITIAL VISIT', colors.accent, [
+          ['Visit Date', new Date(v.date).toLocaleDateString()],
+          ['Provider', `Dr. ${v.doctor.firstName} ${v.doctor.lastName}`]
+        ], true);
+
+        // Chief Complaint & Assessment
+        addDetailedSection('CHIEF COMPLAINT & ASSESSMENT', colors.accent, [
           ['Chief Complaint', v.chiefComplaint],
+          ['Assessment', v.assessment],
+          ['Diagnosis', v.diagnosis?.join(', ')],
+          ['Other Notes', v.otherNotes]
+        ]);
+
+        // Vitals
+        if (v.vitals) {
+          addDetailedSection('VITAL SIGNS', colors.accent, [
+            ['Vital Signs', formatVitals(v.vitals)],
+            ['Grip Strength', formatGrip(v.grip)]
+          ]);
+        }
+
+        // Appearance and Orientation
+        if (v.appearance || v.orientation) {
+          addDetailedSection('APPEARANCE & ORIENTATION', colors.accent, [
+            ['Appearance', v.appearance?.join(', ')],
+            ['Appearance Other', v.appearanceOther],
+            ['Orientation', v.orientation?.timePlacePerson],
+            ['Orientation Other', v.orientation?.other],
+            ['Oriented', v.oriented ? 'Yes' : 'No'],
+            ['Coordination', v.coordination ? 'Yes' : 'No']
+          ]);
+        }
+
+        // Posture and Gait
+        if (v.posture || v.gait) {
+          addDetailedSection('POSTURE & GAIT', colors.accent, [
+            ['Posture', v.posture?.join(', ')],
+            ['Gait', v.gait?.join(', ')],
+            ['Gait Device', v.gaitDevice]
+          ]);
+        }
+
+        // DTR and Neurological
+        if (v.dtr || v.neuroTests) {
+          addDetailedSection('DTR & NEUROLOGICAL', colors.accent, [
+            ['Deep Tendon Reflexes', v.dtr?.join(', ')],
+            ['DTR Other', v.dtrOther],
+            ['Neurological Tests', v.neuroTests?.join(', ')],
+            ['Walk Tests', v.walkTests?.join(', ')],
+            ['Romberg', v.romberg?.join(', ')],
+            ['Romberg Notes', v.rombergNotes],
+            ['Pronator Drift', v.pronatorDrift]
+          ]);
+        }
+
+        // Dermatomes
+        if (v.dermatomes) {
+          addDetailedSection('DERMATOMES', colors.accent, [
+            ['Dermatomes', formatDermatomes(v.dermatomes)]
+          ]);
+        }
+
+        // Muscle Strength
+        if (v.muscleStrength || v.strength) {
+          addDetailedSection('MUSCLE STRENGTH', colors.accent, [
+            ['Muscle Strength', v.muscleStrength?.join(', ')],
+            ['Strength Testing', formatStrength(v.strength)]
+          ]);
+        }
+
+        // Pain and Joint
+        if (v.painLocation || v.jointDysfunction) {
+          addDetailedSection('PAIN & JOINT ASSESSMENT', colors.accent, [
+            ['Pain Location', v.painLocation?.join(', ')],
+            ['Radiating To', v.radiatingTo],
+            ['Joint Dysfunction', v.jointDysfunction?.join(', ')],
+            ['Joint Other', v.jointOther]
+          ]);
+        }
+
+        // AROM Testing
+        if (v.arom) {
+          addDetailedSection('AROM TESTING', colors.accent, [
+            ['AROM Testing', formatAROM(v.arom)]
+          ]);
+        }
+
+        // Orthopedic Tests
+        if (v.ortho) {
+          addDetailedSection('ORTHOPEDIC TESTS', colors.accent, [
+            ['Orthopedic Tests', formatOrtho(v.ortho)]
+          ]);
+        }
+
+        // Tenderness and Spasm
+        if (v.tenderness || v.spasm) {
+          addDetailedSection('TENDERNESS & SPASM', colors.accent, [
+            ['Tenderness', formatTenderness(v.tenderness)],
+            ['Spasm', formatSpasm(v.spasm)]
+          ]);
+        }
+
+        // Lumbar Movement
+        if (v.lumbarTouchingToesMovement) {
+          addDetailedSection('LUMBAR MOVEMENT', colors.accent, [
+            ['Pain', v.lumbarTouchingToesMovement.pain ? 'Yes' : 'No'],
+            ['Pain TS', v.lumbarTouchingToesMovement.painTS ? 'Yes' : 'No'],
+            ['Pain LS', v.lumbarTouchingToesMovement.painLS ? 'Yes' : 'No'],
+            ['Acceleration', v.lumbarTouchingToesMovement.acceleration ? 'Yes' : 'No'],
+            ['Deceleration', v.lumbarTouchingToesMovement.deceleration ? 'Yes' : 'No'],
+            ['Gowers Sign', v.lumbarTouchingToesMovement.gowersSign ? 'Yes' : 'No'],
+            ['Deviating Lumbopelvic Rhythm', v.lumbarTouchingToesMovement.deviatingLumbopelvicRhythm ? 'Yes' : 'No']
+          ]);
+        }
+
+        // Cervical AROM
+        if (v.cervicalAROMCheckmarks) {
+          addDetailedSection('CERVICAL AROM', colors.accent, [
+            ['Pain', v.cervicalAROMCheckmarks.pain ? 'Yes' : 'No'],
+            ['Poor Coordination', v.cervicalAROMCheckmarks.poorCoordination ? 'Yes' : 'No'],
+            ['Abnormal Joint Play', v.cervicalAROMCheckmarks.abnormalJointPlay ? 'Yes' : 'No'],
+            ['Motion Not Smooth', v.cervicalAROMCheckmarks.motionNotSmooth ? 'Yes' : 'No'],
+            ['Hypomobility Thoracic', v.cervicalAROMCheckmarks.hypomobilityThoracic ? 'Yes' : 'No'],
+            ['Fatigue Holding Head', v.cervicalAROMCheckmarks.fatigueHoldingHead ? 'Yes' : 'No']
+          ]);
+        }
+
+        // Treatment Plan
+        addDetailedSection('TREATMENT PLAN', colors.accent, [
           ['Chiropractic Adjustment', v.chiropracticAdjustment?.join(', ')],
           ['Chiropractic Other Notes', v.chiropracticOther],
           ['Acupuncture', v.acupuncture?.join(', ')],
@@ -610,74 +1172,274 @@ const PatientDetails: React.FC<{}> = () => {
           ['Diagnostic Ultrasound', v.diagnosticUltrasound],
           ['Nerve Study', v.nerveStudy?.join(', ')],
           ['Restrictions', v.restrictions ? `Avoid activity for ${v.restrictions.avoidActivityWeeks} weeks, lifting limit ${v.restrictions.liftingLimitLbs} lbs${v.restrictions.avoidProlongedSitting ? ', avoid prolonged sitting' : ''}` : ''],
-          ['Disability Duration', v.disabilityDuration],
-          ['Other Notes', v.otherNotes]
+          ['Disability Duration', v.disabilityDuration]
         ]);
       }
   
       if (grouped.followup) {
         const v = grouped.followup;
-        addNarrativeSection('FOLLOW-UP VISIT', colors.success, [
-          ['Areas Status', [v.areasImproving && '✓ Improving', v.areasExacerbated && '✗ Exacerbated', v.areasSame && '➔ Same'].filter(Boolean).join(' ')],
+        
+        // Follow-up Visit - Main Heading
+        addDetailedSection('FOLLOW-UP VISIT', colors.success, [
+          ['Visit Date', new Date(v.date).toLocaleDateString()],
+          ['Provider', `Dr. ${v.doctor.firstName} ${v.doctor.lastName}`]
+        ], true);
+
+        // Progress Assessment
+        addDetailedSection('PROGRESS ASSESSMENT', colors.success, [
+          ['Progress Notes', v.progressNotes],
+          ['Assessment Update', v.assessmentUpdate],
+          ['Areas Status', [v.areasImproving && '✓ Improving', v.areasExacerbated && '✗ Exacerbated', v.areasSame && '➔ Same', v.areasResolved && '✓ Resolved'].filter(Boolean).join(' ')],
+          ['Areas', v.areas]
+        ]);
+
+        // Muscle Palpation and Pain
+        addDetailedSection('MUSCLE & PAIN ASSESSMENT', colors.success, [
           ['Muscle Palpation', v.musclePalpation],
           ['Pain Radiating', v.painRadiating],
-          ['Range of Motion', [v.romWnlNoPain && '✓ WNL (No Pain)', v.romWnlWithPain && '⚠ WNL (With Pain)', v.romImproved && '↑ Improved', v.romDecreased && '↓ Decreased', v.romSame && '→ Same'].filter(Boolean).join(' ')],
-          ['Orthopedic Tests', v.orthos ? `${v.orthos.tests} - ${v.orthos.result}` : ''],
-          ['Activities Causing Pain', [v.activitiesCausePain, v.activitiesCausePainOther].filter(Boolean).join(' ')],
-          ['Treatment Plan', v.treatmentPlan ? `${v.treatmentPlan.treatments} (${v.treatmentPlan.timesPerWeek} times/week)` : ''],
+          ['Activities Causing Pain', [v.activitiesCausePain, v.activitiesCausePainOther].filter(Boolean).join(' ')]
+        ]);
+
+        // Range of Motion
+        addDetailedSection('RANGE OF MOTION', colors.success, [
+          ['Range of Motion', [v.romWnlNoPain && '✓ WNL (No Pain)', v.romWnlWithPain && '⚠ WNL (With Pain)', v.romImproved && '↑ Improved', v.romDecreased && '↓ Decreased', v.romSame && '→ Same'].filter(Boolean).join(' ')]
+        ]);
+
+        // Orthopedic Tests
+        if (v.orthos) {
+          addDetailedSection('ORTHOPEDIC TESTS', colors.success, [
+            ['Orthopedic Tests', `${v.orthos.tests} - ${v.orthos.result}`]
+          ]);
+        }
+
+        // Treatment Plan
+        if (v.treatmentPlan) {
+          addDetailedSection('TREATMENT PLAN', colors.success, [
+            ['Treatments', v.treatmentPlan.treatments],
+            ['Times Per Week', v.treatmentPlan.timesPerWeek],
+            ['Chiropractic', v.treatmentPlan.chiropractic ? 'Yes' : 'No'],
+            ['Acupuncture', v.treatmentPlan.acupuncture ? 'Yes' : 'No'],
+            ['Mechanical Traction', v.treatmentPlan.mechanicalTraction ? 'Yes' : 'No'],
+            ['Myofascial Release', v.treatmentPlan.myofascialRelease ? 'Yes' : 'No'],
+            ['Ultrasound', v.treatmentPlan.ultrasound ? 'Yes' : 'No'],
+            ['Infrared Electric Muscle Stimulation', v.treatmentPlan.infraredElectricMuscleStimulation ? 'Yes' : 'No'],
+            ['Therapeutic Exercise', v.treatmentPlan.therapeuticExercise ? 'Yes' : 'No'],
+            ['Neuromuscular Reeducation', v.treatmentPlan.neuromuscularReeducation ? 'Yes' : 'No'],
+            ['Other', v.treatmentPlan.other]
+          ]);
+        }
+
+        // Overall Response
+        addDetailedSection('RESPONSE & OUTCOME', colors.success, [
           ['Overall Response', [v.overallResponse?.improving && '↑ Improving', v.overallResponse?.worse && '↓ Worse', v.overallResponse?.same && '→ Same'].filter(Boolean).join(' ')],
           ['Diagnostic Study', v.diagnosticStudy ? `${v.diagnosticStudy.study} of ${v.diagnosticStudy.bodyPart}: ${v.diagnosticStudy.result}` : ''],
-          ['Home Care', Array.isArray(v.homeCare) ? v.homeCare.join(', ') : (v.homeCare || 'N/A')],
+          ['Home Care', Array.isArray(v.homeCare) ? v.homeCare.join(', ') : (typeof v.homeCare === 'object' ? Object.entries(v.homeCare).filter(([_, value]) => value).map(([key, _]) => key).join(', ') : 'N/A')],
+          ['Home Care Suggestions', v.homeCareSuggestions],
           ['Referral', v.referral],
           ['Notes', v.otherNotes]
         ]);
+
+        // Fetched Data (if available)
+        if (v.fetchedData) {
+          addDetailedSection('ADDITIONAL DATA', colors.success, [
+            ['Initial Visit Data', v.fetchedData.initialVisitData ? 'Available' : 'N/A'],
+            ['Muscle Palpation Data', v.fetchedData.musclePalpationData ? 'Available' : 'N/A'],
+            ['Ortho Tests Data', v.fetchedData.orthoTestsData ? 'Available' : 'N/A'],
+            ['AROM Data', v.fetchedData.aromData ? 'Available' : 'N/A'],
+            ['Activities Pain Data', v.fetchedData.activitiesPainData ? 'Available' : 'N/A'],
+            ['Treatment List Data', v.fetchedData.treatmentListData ? 'Available' : 'N/A'],
+            ['Imaging Data', v.fetchedData.imagingData ? 'Available' : 'N/A']
+          ]);
+        }
       }
   
       if (grouped.discharge) {
         const v = grouped.discharge;
-        addNarrativeSection('DISCHARGE VISIT', colors.secondary, [
-          ['Prognosis', v.prognosis],
-          ['Range of Motion', v.romPercent ? `${v.romPercent}% of pre-injury ROM` : ''],
-          ['Diagnostic Study', v.diagnosticStudy ? `${v.diagnosticStudy.study} of ${v.diagnosticStudy.bodyPart}: ${v.diagnosticStudy.result}` : ''],
-          ['Recommended Future Medical Care', Array.isArray(v.futureMedicalCare) ? v.futureMedicalCare.join(', ') : (v.futureMedicalCare || 'N/A')],
-          ['Croft Criteria', v.croftCriteria],
-          ['AMA Disability', v.amaDisability],
-          ['Home Care Instructions', v.homeCare?.join(', ')],
-          ['Referrals / Notes', v.referralsNotes],
+        
+        // Discharge Visit - Main Heading
+        addDetailedSection('DISCHARGE VISIT', colors.secondary, [
+          ['Visit Date', new Date(v.date).toLocaleDateString()],
+          ['Provider', `Dr. ${v.doctor.firstName} ${v.doctor.lastName}`]
+        ], true);
+
+        // Treatment Summary
+        addDetailedSection('TREATMENT SUMMARY', colors.secondary, [
           ['Treatment Summary', v.treatmentSummary],
+          ['Discharge Status', v.dischargeStatus],
+          ['Prognosis', v.prognosis],
+          ['Range of Motion', v.romPercent ? `${v.romPercent}% of pre-injury ROM` : '']
+        ]);
+
+        // Diagnosis and Medications
+        addDetailedSection('DIAGNOSIS & MEDICATIONS', colors.secondary, [
           ['Discharge Diagnosis', v.dischargeDiagnosis?.join(', ')],
           ['Medications at Discharge', v.medicationsAtDischarge?.map(med => `${med.name} (${med.dosage}, ${med.frequency}, ${med.duration})`).join('; ')],
+          ['Diagnostic Study', v.diagnosticStudy ? `${v.diagnosticStudy.study} of ${v.diagnosticStudy.bodyPart}: ${v.diagnosticStudy.result}` : '']
+        ]);
+
+        // Future Care and Instructions
+        addDetailedSection('FUTURE CARE & INSTRUCTIONS', colors.secondary, [
+          ['Recommended Future Medical Care', Array.isArray(v.futureMedicalCare) ? v.futureMedicalCare.join(', ') : (v.futureMedicalCare || 'N/A')],
           ['Follow-up Instructions', v.followUpInstructions],
-          ['Return Precautions', v.returnPrecautions?.join(', ')]
+          ['Return Precautions', v.returnPrecautions?.join(', ')],
+          ['Home Care Instructions', Array.isArray(v.homeCare) ? v.homeCare.join(', ') : (typeof v.homeCare === 'object' ? Object.entries(v.homeCare).filter(([_, value]) => value).map(([key, _]) => key).join(', ') : 'N/A')]
+        ]);
+
+        // Disability and Criteria
+        addDetailedSection('DISABILITY & CRITERIA', colors.secondary, [
+          ['Croft Criteria', v.croftCriteria],
+          ['AMA Disability', v.amaDisability],
+          ['Referrals / Notes', v.referralsNotes]
         ]);
       }
   
-      // AI NARRATIVE (formatted)
-      // Dynamically extract all sections from AI narrative
-const matches = [...aiNarrative.matchAll(/\*\*(.+?):\*\*\s*([\s\S]*?)(?=\*\*|$)/g)];
-
-matches.forEach(([_, section, content]) => {
-  addNarrativeSection(section.toUpperCase(), colors.purple, [[section, content.trim()]]);
-});
-
+      // AI NARRATIVE (formatted) - Always include as comprehensive summary
+      if (aiNarrative && aiNarrative.trim()) {
+        // Add a separator before AI narrative
+        if (y > pageHeight - 120) {
+          doc.addPage();
+          y = 35;
+        }
+        
+        // Add decorative separator
+        doc.setDrawColor(colors.purple[0], colors.purple[1], colors.purple[2]);
+        doc.setLineWidth(2);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 15;
+        
+        // Add main AI narrative heading with enhanced styling
+        doc.setFontSize(16);
+        doc.setTextColor(colors.purple[0], colors.purple[1], colors.purple[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.text('COMPREHENSIVE MEDICAL NARRATIVE', pageWidth / 2, y, { align: 'center' });
+        y += 20;
+        
+        // Add subtitle
+        doc.setFontSize(10);
+        doc.setTextColor(colors.darkGray[0], colors.darkGray[1], colors.darkGray[2]);
+        doc.setFont('helvetica', 'italic');
+        doc.text('AI-Generated Clinical Summary', pageWidth / 2, y, { align: 'center' });
+        y += 15;
+        
+        // Parse and format the AI narrative
+        const matches = [...aiNarrative.matchAll(/\*\*(.+?):\*\*\s*([\s\S]*?)(?=\*\*|$)/g)];
+        
+        if (matches.length > 0) {
+          // If AI returned structured sections, format them with enhanced styling
+          matches.forEach(([_, section, content]) => {
+            // Check if we need a new page
+            if (y > pageHeight - 100) {
+              doc.addPage();
+              y = 35;
+            }
+            
+            // Enhanced section styling
+            doc.setFillColor(colors.purple[0], colors.purple[1], colors.purple[2]);
+            doc.roundedRect(margin - 2, y - 3, contentWidth + 4, 8, 3, 3, 'F');
+            
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.setTextColor(255, 255, 255);
+            doc.text(section.toUpperCase(), margin, y + 2);
+            y += 12;
+            
+            // Content with enhanced formatting
+            const paragraphs = content.trim().split('\n\n').filter((p: string) => p.trim());
+            paragraphs.forEach((paragraph: string, index: number) => {
+              if (y > pageHeight - 80) {
+                doc.addPage();
+                y = 35;
+              }
+              
+              // Add subtle background for each paragraph
+              doc.setFillColor(248, 249, 250);
+              const wrappedText = doc.splitTextToSize(paragraph.trim(), contentWidth - 10);
+              const paragraphHeight = wrappedText.length * 7 + 8;
+              doc.rect(margin - 2, y - 2, contentWidth + 4, paragraphHeight, 'F');
+              
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(10);
+              doc.setTextColor(60);
+              doc.text(wrappedText, margin, y);
+              y += paragraphHeight + 4;
+            });
+            
+            y += 8; // Extra spacing between sections
+          });
+        } else {
+          // If AI returned unstructured text, format it as paragraphs with enhanced styling
+          const paragraphs = aiNarrative.split('\n\n').filter((p: string) => p.trim());
+          paragraphs.forEach((paragraph: string, index: number) => {
+            if (y > pageHeight - 80) {
+              doc.addPage();
+              y = 35;
+            }
+            
+            // Enhanced paragraph styling
+            doc.setFillColor(248, 249, 250);
+            const wrappedText = doc.splitTextToSize(paragraph.trim(), contentWidth - 10);
+            const paragraphHeight = wrappedText.length * 7 + 8;
+            doc.rect(margin - 2, y - 2, contentWidth + 4, paragraphHeight, 'F');
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(60);
+            doc.text(wrappedText, margin, y);
+            y += paragraphHeight + 8;
+          });
+        }
+        
+        // Add closing separator
+        y += 10;
+        doc.setDrawColor(colors.purple[0], colors.purple[1], colors.purple[2]);
+        doc.setLineWidth(1);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 15;
+      }
   
       // SIGNATURE
-      if (y > 220) {
+      if (y > pageHeight - 120) {
         doc.addPage();
-        y = 30;
+        y = 35;
       }
-      doc.addImage(signatureBase64, 'PNG', margin, y, 40, 20);
-      y += 22;
-      doc.setDrawColor(0);
-      doc.line(margin, y, margin + 60, y);
-      y += 6;
+      
+      // Add decorative separator before signature
+      doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+      doc.setLineWidth(1);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 15;
+      
+      // Enhanced signature section
+      doc.setFillColor(248, 249, 250);
+      doc.roundedRect(margin - 5, y - 5, contentWidth + 10, 50, 5, 5, 'F');
+      
+      doc.addImage(signatureBase64, 'PNG', margin + 10, y, 45, 25);
+      y += 30;
+      
+      doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+      doc.setLineWidth(1);
+      doc.line(margin + 10, y, margin + 55, y);
+      y += 8;
+      
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text('Harold Iseke, D.C.', margin, y);
-      y += 5;
+      doc.setFontSize(12);
+      doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+      doc.text('Harold Iseke, D.C.', margin + 10, y);
+      y += 6;
+      
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(10);
-      doc.text('Treating Provider', margin, y);
+      doc.setTextColor(colors.darkGray[0], colors.darkGray[1], colors.darkGray[2]);
+      doc.text('Treating Provider', margin + 10, y);
+      y += 8;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('The Wellness Studio', margin + 10, y);
+      y += 5;
+      doc.text('3711 Long Beach Blvd., Suite 200', margin + 10, y);
+      y += 5;
+      doc.text('Long Beach, CA, 90807', margin + 10, y);
   
       // PAGINATION
       const totalPages = (doc as any).internal.getNumberOfPages();
@@ -1086,9 +1848,103 @@ matches.forEach(([_, section, content]) => {
     </div>
 
     {/* Display detailed subjective intakes for each body part */}
-    {patient.subjective?.intakes && patient.subjective.intakes.length > 0 ? (
+    {patient.subjective?.bodyPart && patient.subjective.bodyPart.length > 0 ? (
       <div className="space-y-6">
-        {patient.subjective.intakes!.map((intake, index) => (
+        {patient.subjective.bodyPart.map((bp, index) => (
+          <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <h3 className="text-md font-semibold text-blue-700 mb-3">
+              {bp.part} - {bp.side}
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+              {/* Severity */}
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Severity</dt>
+                <dd className="mt-1 text-sm text-gray-900">{bp.severity || 'N/A'}</dd>
+              </div>
+              
+              {/* Quality */}
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Quality</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {bp.quality?.length
+                    ? bp.quality.join(', ')
+                    : 'N/A'}
+                </dd>
+              </div>
+              
+              {/* Timing */}
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Timing</dt>
+                <dd className="mt-1 text-sm text-gray-900">{bp.timing || 'N/A'}</dd>
+              </div>
+              
+              {/* Context */}
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Context</dt>
+                <dd className="mt-1 text-sm text-gray-900">{bp.context || 'N/A'}</dd>
+              </div>
+              
+              {/* Exacerbated By */}
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Exacerbated By</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {bp.exacerbatedBy?.length
+                    ? bp.exacerbatedBy.join(', ')
+                    : 'N/A'}
+                </dd>
+              </div>
+              
+              {/* Symptoms */}
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Symptoms</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {bp.symptoms?.length
+                    ? bp.symptoms.join(', ')
+                    : 'N/A'}
+                </dd>
+              </div>
+              
+              {/* Radiating To */}
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Radiating To</dt>
+                <dd className="mt-1 text-sm text-gray-900">{bp.radiatingTo || 'N/A'}</dd>
+              </div>
+              
+              {/* Radiating Pain */}
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Radiating Pain</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {[
+                    bp.radiatingLeft && 'Left',
+                    bp.radiatingRight && 'Right',
+                  ].filter(Boolean).join(', ') || 'None'}
+                </dd>
+              </div>
+              
+              {/* Sciatica */}
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Sciatica</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {[
+                    bp.sciaticaLeft && 'Left',
+                    bp.sciaticaRight && 'Right',
+                  ].filter(Boolean).join(', ') || 'None'}
+                </dd>
+              </div>
+              
+              {/* Notes */}
+              <div className="md:col-span-2">
+                <dt className="text-sm font-medium text-gray-500">Notes</dt>
+                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{bp.notes || 'N/A'}</dd>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : patient.subjective?.intakes && patient.subjective.intakes.length > 0 ? (
+      <div className="space-y-6">
+        {patient.subjective.intakes.map((intake, index) => (
           <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
             <h3 className="text-md font-semibold text-blue-700 mb-3">
               {intake.bodyPart} - {intake.side}
@@ -1197,7 +2053,8 @@ matches.forEach(([_, section, content]) => {
     )}
 
     {/* Legacy subjective data display for backward compatibility */}
-    {(!patient.subjective?.intakes || patient.subjective.intakes.length === 0) && (
+    {(!patient.subjective?.intakes || patient.subjective.intakes.length === 0) && 
+     (!patient.subjective?.bodyPart || patient.subjective.bodyPart.length === 0) && (
       <div className="mt-4 pt-4 border-t border-gray-200">
         <h3 className="text-md font-medium text-gray-800 mb-3">Legacy Subjective Data</h3>
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
@@ -1328,18 +2185,6 @@ matches.forEach(([_, section, content]) => {
                       <dt className="text-sm font-medium text-gray-500">Case Number</dt>
                       <dd className="mt-1 text-sm text-gray-900">
                         {patient.attorney?.caseNumber || 'Not provided'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Marital Status</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {patient.maritalStatus || 'Not provided'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Injury Date</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {patient.injuryDate ? new Date(patient.injuryDate).toLocaleDateString() : 'Not provided'}
                       </dd>
                     </div>
     </dl>

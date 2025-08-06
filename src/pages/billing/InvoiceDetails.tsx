@@ -51,6 +51,7 @@ interface Invoice {
     quantity: number;
     unitPrice: number;
     total: number;
+    date?: string; // Added date field
   }[];
   subtotal: number;
   tax: number;
@@ -65,6 +66,19 @@ interface Invoice {
     notes: string;
   }[];
   notes: string;
+  attorney?: {
+    name?: string;
+    firm?: string;
+    phone?: string;
+    email?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      zipCode?: string;
+      country?: string;
+    };
+  };
 }
 
 const InvoiceDetails: React.FC = () => {
@@ -364,6 +378,27 @@ const InvoiceDetails: React.FC = () => {
                   <p>Phone: {invoice.patient.phone}</p>
                   <p>Email: {invoice.patient.email}</p>
                 </div>
+                {/* Attorney Info */}
+                {invoice.attorney && (invoice.attorney.name || invoice.attorney.firm || invoice.attorney.phone || invoice.attorney.email) && (
+                  <div className="mt-6">
+                    <h3 className="text-gray-600 font-medium mb-2">Attorney Information:</h3>
+                    <div className="text-gray-800">
+                      {invoice.attorney.name && <p><span className="font-medium">Name:</span> {invoice.attorney.name}</p>}
+                      {invoice.attorney.firm && <p><span className="font-medium">Firm:</span> {invoice.attorney.firm}</p>}
+                      {invoice.attorney.phone && <p><span className="font-medium">Phone:</span> {invoice.attorney.phone}</p>}
+                      {invoice.attorney.email && <p><span className="font-medium">Email:</span> {invoice.attorney.email}</p>}
+                      {invoice.attorney.address && (
+                        <>
+                          {invoice.attorney.address.street && <p>{invoice.attorney.address.street}</p>}
+                          {(invoice.attorney.address.city || invoice.attorney.address.state) && (
+                            <p>{invoice.attorney.address.city}, {invoice.attorney.address.state} {invoice.attorney.address.zipCode}</p>
+                          )}
+                          {invoice.attorney.address.country && <p>{invoice.attorney.address.country}</p>}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <div className="grid grid-cols-2 gap-4">
@@ -398,23 +433,19 @@ const InvoiceDetails: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quantity
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Unit Price
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {invoice.items.map((item, index) => (
                     <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                        {item.date ? new Date(item.date).toLocaleDateString() : 'N/A'}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
                         <div>
                           <p className="font-medium">{item.description}</p>

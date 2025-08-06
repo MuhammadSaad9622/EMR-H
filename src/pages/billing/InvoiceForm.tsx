@@ -37,13 +37,26 @@ const InvoiceForm: React.FC = () => {
   visit: '',
   dateIssued: new Date(),
   dueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
-  items: [{ description: '', code: '', quantity: 1, unitPrice: 0, total: 0 }],
+  items: [{ date: new Date().toISOString(), description: '', code: '', quantity: 1, unitPrice: 0, total: 0 }],
   subtotal: 0,
   tax: 0,
   discount: 0,
   total: 0,
   status: 'draft',
-  notes: ''
+  notes: '',
+  attorney: {
+    name: '',
+    firm: '',
+    phone: '',
+    email: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: ''
+    }
+  }
 });
 
   
@@ -74,7 +87,10 @@ const InvoiceForm: React.FC = () => {
   discount: invoiceData.discount || 0,
   total: invoiceData.total || 0,
   status: invoiceData.status || 'draft',
-  notes: invoiceData.notes || ''
+  notes: invoiceData.notes || '',
+  attorney: invoiceData.attorney || {
+    name: '', firm: '', phone: '', email: '', address: { street: '', city: '', state: '', zipCode: '', country: '' }
+  }
 });
 
           
@@ -84,6 +100,9 @@ const InvoiceForm: React.FC = () => {
             setVisits(visitsResponse.data);
           }
         } else {
+          // Fetch next invoice number from backend
+          const resp = await axios.get('http://localhost:5000/api/billing/next-invoice-number');
+          setFormData(prev => ({ ...prev, invoiceNumber: resp.data.invoiceNumber }));
           // Check if patient ID is provided in URL query params
           const searchParams = new URLSearchParams(location.search);
           const patientId = searchParams.get('patient');
@@ -164,7 +183,7 @@ const InvoiceForm: React.FC = () => {
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { description: '', code: '', quantity: 1, unitPrice: 0, total: 0 }]
+      items: [...prev.items, { date: new Date().toISOString(), description: '', code: '', quantity: 1, unitPrice: 0, total: 0 }]
     }));
   };
 
@@ -224,22 +243,29 @@ const InvoiceForm: React.FC = () => {
     setIsSaving(true);
     
     try {
+      // Always set dueDate to 30 days after dateIssued
+      const dateIssued = formData.dateIssued instanceof Date ? formData.dateIssued : new Date(formData.dateIssued);
+      const dueDate = new Date(dateIssued);
+      dueDate.setDate(dateIssued.getDate() + 30);
       const invoiceData = {
   ...formData,
-  dateIssued: formData.dateIssued.toISOString(),
-  dueDate: formData.dueDate.toISOString(),
+  dateIssued: dateIssued.toISOString(),
+  dueDate: dueDate.toISOString(),
   visit: formData.visit || undefined, // 👈 ensures empty string is not sent
-  patient: formData.patient || undefined
+  patient: formData.patient || undefined,
+  attorney: formData.attorney || undefined
 };
 
       
+      if (!isEditMode) {
+        delete (invoiceData as any).invoiceNumber;
+      }
       if (isEditMode) {
         await axios.put(`http://localhost:5000/api/billing/${id}`, invoiceData);
       } else {
         await axios.post('http://localhost:5000/api/billing', invoiceData);
       }
-      
-      navigate(`/patients/${formData.patient}`);
+      navigate('/billing');
 
     } catch (error) {
       console.error('Error saving invoice:', error);
@@ -255,6 +281,40 @@ const InvoiceForm: React.FC = () => {
       </div>
     );
   }
+
+  // Filter visits for allowed types
+  const allowedVisitTypes = ['initial', 'followup', 'consultation', 'discharge'];
+  const visitTypeLabels: Record<string, string> = {
+    initial: 'Initial Visit',
+    followup: 'Follow-up',
+    consultation: 'Consultation',
+    discharge: 'Discharge',
+  };
+
+  // Add the procedure list at the top of the file
+  const PROCEDURES = [
+    { description: 'Initial- Comprehensive', code: '99204', cost: 450 },
+    { description: 'Initial- Office Visit', code: '99203', cost: 250 },
+    { description: 'Doctors First report', code: 'WC001', cost: 15 },
+    { description: 'Reevaluation', code: '99213', cost: 200 },
+    { description: 'Reevaluation-Expanded problem', code: '99214', cost: 300 },
+    { description: 'PR-2', code: 'WC002', cost: 25 },
+    { description: 'Discharge-Management of established patient', code: '99211', cost: 100 },
+    { description: 'Chiropractic Manipulation (1-2)', code: '98940', cost: 80 },
+    { description: 'Chiropractic Manipulation (3-4)', code: '98941', cost: 100 },
+    { description: 'Chiropractic Manipulation (Extemity)', code: '98943', cost: 70 },
+    { description: 'Therapeutic Exercise', code: '97011', cost: 85 },
+    { description: 'Electric Stimulation', code: '97032', cost: 50 },
+    { description: 'Ultrasound', code: '97128', cost: 54 },
+    { description: 'Mechanical traction', code: '97032', cost: 50 },
+    { description: 'Parafin Wax', code: '97018', cost: 50 },
+    { description: 'Infrared', code: '97026', cost: 40 },
+    { description: 'Acupuncture with E-stim 15min', code: '97813', cost: 150 },
+    { description: 'Acupuncture with E-stim ADDTL 15min', code: '97814', cost: 85 },
+    { description: 'Acupuncture 15 min', code: '97810', cost: 100 },
+    { description: 'Acupuncture ADDTL 15min', code: '97811', cost: 70 },
+    { description: 'Cupping', code: '97016', cost: 75 },
+  ];
 
   return (
     <div className="container mx-auto px-4">
@@ -272,117 +332,123 @@ const InvoiceForm: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Patient Selection */}
-          <div>
-            <label htmlFor="patient" className="block text-sm font-medium text-gray-700 mb-1">
-              Patient*
-            </label>
-            <select
-              id="patient"
-              name="patient"
-              value={formData.patient}
-              onChange={handleChange}
-              className={`w-full px-3 py-2 border ${
-                errors.patient ? 'border-red-500' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-              disabled={isEditMode}
-            >
-              <option value="">Select a patient</option>
-              {patients.map((patient) => (
-                <option key={patient._id} value={patient._id}>
-                  {patient.firstName} {patient.lastName}
-                </option>
-              ))}
-            </select>
-            {errors.patient && <p className="mt-1 text-sm text-red-600">{errors.patient}</p>}
-          </div>
-
-          {/* Visit Selection */}
-          <div>
-            <label htmlFor="visit" className="block text-sm font-medium text-gray-700 mb-1">
-              Related Visit
-            </label>
-            <select
-              id="visit"
-              name="visit"
-              value={formData.visit}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              disabled={!formData.patient || isEditMode}
-            >
-              <option value="">Select a visit (optional)</option>
-              {visits.map((visit) => (
-                <option key={visit._id} value={visit._id}>
-                  {new Date(visit.date).toLocaleDateString()} - {visit.visitType === 'initial' ? 'Initial Visit' : visit.visitType === 'followup' ? 'Follow-up' : 'Discharge'}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Invoice Dates */}
-          <div>
-            <label htmlFor="dateIssued" className="block text-sm font-medium text-gray-700 mb-1">
-              Issue Date*
-            </label>
-            <DatePicker
-              selected={formData.dateIssued}
-              onChange={(date) => handleDateChange(date, 'dateIssued')}
-              dateFormat="MMMM d, yyyy"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
-              Due Date*
-            </label>
-            <DatePicker
-              selected={formData.dueDate}
-              onChange={(date) => handleDateChange(date, 'dueDate')}
-              dateFormat="MMMM d, yyyy"
-              className={`w-full px-3 py-2 border ${
-                errors.dueDate ? 'border-red-500' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-            />
-            {errors.dueDate && <p className="mt-1 text-sm text-red-600">{errors.dueDate}</p>}
-          </div>
-<div>
-  <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700 mb-1">
-    Invoice Number*
-  </label>
-  <input
-    type="text"
-    id="invoiceNumber"
-    name="invoiceNumber"
-    value={formData.invoiceNumber}
-    onChange={handleChange}
-    className={`w-full px-3 py-2 border ${errors.invoiceNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-  />
-  {errors.invoiceNumber && (
-    <p className="mt-1 text-sm text-red-600">{errors.invoiceNumber}</p>
-  )}
-</div>
-
-          {/* Status (for edit mode) */}
-          {isEditMode && (
+          {/* Left: Patient, Visit, Issue Date */}
+          <div className="space-y-6">
+            {/* Patient Selection */}
             <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                Status
+              <label htmlFor="patient" className="block text-sm font-medium text-gray-700 mb-1">
+                Patient*
               </label>
               <select
-                id="status"
-                name="status"
-                value={formData.status}
+                id="patient"
+                name="patient"
+                value={formData.patient}
+                onChange={handleChange}
+                className={`w-full px-3 py-2 border ${
+                  errors.patient ? 'border-red-500' : 'border-gray-300'
+                } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                disabled={isEditMode}
+              >
+                <option value="">Select a patient</option>
+                {patients.map((patient) => (
+                  <option key={patient._id} value={patient._id}>
+                    {patient.firstName} {patient.lastName}
+                  </option>
+                ))}
+              </select>
+              {errors.patient && <p className="mt-1 text-sm text-red-600">{errors.patient}</p>}
+            </div>
+
+            {/* Visit Selection */}
+            <div>
+              <label htmlFor="visit" className="block text-sm font-medium text-gray-700 mb-1">
+                Related Visit
+              </label>
+              <select
+                id="visit"
+                name="visit"
+                value={formData.visit}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                disabled={!formData.patient || isEditMode}
               >
-                <option value="draft">Draft</option>
-                <option value="sent">Sent</option>
-                <option value="paid">Paid</option>
-                <option value="overdue">Overdue</option>
+                <option value="">Select a visit (optional)</option>
+                {visits.filter(v => allowedVisitTypes.includes(v.visitType)).map((visit) => (
+                  <option key={visit._id} value={visit._id}>
+                    {new Date(visit.date).toLocaleDateString()} - {visitTypeLabels[visit.visitType] || visit.visitType}
+                  </option>
+                ))}
               </select>
             </div>
-          )}
+
+            {/* Invoice Dates */}
+            <div>
+              <label htmlFor="dateIssued" className="block text-sm font-medium text-gray-700 mb-1">
+                Issue Date*
+              </label>
+              <DatePicker
+                selected={formData.dateIssued}
+                onChange={(date) => handleDateChange(date, 'dateIssued')}
+                dateFormat="MMMM d, yyyy"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Only show the invoice number field in edit mode */}
+            {isEditMode && (
+              <div>
+                <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                  Invoice Number*
+                </label>
+                <input
+                  type="text"
+                  id="invoiceNumber"
+                  name="invoiceNumber"
+                  value={formData.invoiceNumber}
+                  readOnly
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                />
+              </div>
+            )}
+
+            {/* Status (for edit mode) */}
+            {isEditMode && (
+              <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="paid">Paid</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+              </div>
+            )}
+          </div>
+          {/* Right: Attorney Info */}
+          <div className="space-y-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <h3 className="text-md font-semibold text-gray-700 mb-2">Attorney Information</h3>
+            <input type="text" placeholder="Name" value={formData.attorney.name} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, name: e.target.value } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
+            <input type="text" placeholder="Firm" value={formData.attorney.firm} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, firm: e.target.value } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
+            <input type="text" placeholder="Phone" value={formData.attorney.phone} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, phone: e.target.value } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
+            <input type="email" placeholder="Email" value={formData.attorney.email} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, email: e.target.value } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
+            <input type="text" placeholder="Street" value={formData.attorney.address.street} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, street: e.target.value } } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <input type="text" placeholder="City" value={formData.attorney.address.city} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, city: e.target.value } } }))} className="px-3 py-2 border border-gray-300 rounded-md" />
+              <input type="text" placeholder="State" value={formData.attorney.address.state} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, state: e.target.value } } }))} className="px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="text" placeholder="Zip Code" value={formData.attorney.address.zipCode} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, zipCode: e.target.value } } }))} className="px-3 py-2 border border-gray-300 rounded-md" />
+              <input type="text" placeholder="Country" value={formData.attorney.address.country} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, country: e.target.value } } }))} className="px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+          </div>
         </div>
 
         {/* Invoice Items */}
@@ -405,24 +471,13 @@ const InvoiceForm: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description*
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Code
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity*
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Unit Price*
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Action
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Procedure*</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity*</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price*</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -430,26 +485,45 @@ const InvoiceForm: React.FC = () => {
                   <tr key={index}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
-                        type="text"
-                        value={item.description}
-                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        className={`w-full px-3 py-2 border ${
-                          errors[`items[${index}].description`] ? 'border-red-500' : 'border-gray-300'
-                        } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                        placeholder="Item description"
+                        type="date"
+                        value={item.date ? new Date(item.date).toISOString().split('T')[0] : ''}
+                        onChange={e => handleItemChange(index, 'date', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         required
                       />
-                      {errors[`items[${index}].description`] && (
-                        <p className="mt-1 text-sm text-red-600">{errors[`items[${index}].description`]}</p>
-                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select
+                        value={item.description}
+                        onChange={e => {
+                          const selected = PROCEDURES.find(p => p.description === e.target.value);
+                          setFormData(prev => {
+                            const updatedItems = [...prev.items];
+                            updatedItems[index] = {
+                              ...updatedItems[index],
+                              description: selected?.description || e.target.value,
+                              code: selected?.code || '',
+                              unitPrice: selected?.cost || 0,
+                              total: (selected?.cost || 0) * updatedItems[index].quantity,
+                            };
+                            return { ...prev, items: updatedItems };
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      >
+                        <option value="">Select procedure</option>
+                        {PROCEDURES.map(proc => (
+                          <option key={proc.code + proc.description} value={proc.description}>{proc.description}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="text"
                         value={item.code}
-                        onChange={(e) => handleItemChange(index, 'code', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Service code"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none"
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -457,10 +531,19 @@ const InvoiceForm: React.FC = () => {
                         type="number"
                         min="1"
                         value={item.quantity}
-                        onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
-                        className={`w-full px-3 py-2 border ${
-                          errors[`items[${index}].quantity`] ? 'border-red-500' : 'border-gray-300'
-                        } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                        onChange={e => {
+                          const qty = parseInt(e.target.value);
+                          setFormData(prev => {
+                            const updatedItems = [...prev.items];
+                            updatedItems[index] = {
+                              ...updatedItems[index],
+                              quantity: qty,
+                              total: (updatedItems[index].unitPrice || 0) * qty,
+                            };
+                            return { ...prev, items: updatedItems };
+                          });
+                        }}
+                        className={`w-full px-3 py-2 border ${errors[`items[${index}].quantity`] ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                         required
                       />
                       {errors[`items[${index}].quantity`] && (
@@ -468,25 +551,12 @@ const InvoiceForm: React.FC = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 sm:text-sm">$</span>
-                        </div>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.unitPrice}
-                          onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value))}
-                          className={`w-full pl-7 px-3 py-2 border ${
-                            errors[`items[${index}].unitPrice`] ? 'border-red-500' : 'border-gray-300'
-                          } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                          required
-                        />
-                      </div>
-                      {errors[`items[${index}].unitPrice`] && (
-                        <p className="mt-1 text-sm text-red-600">{errors[`items[${index}].unitPrice`]}</p>
-                      )}
+                      <input
+                        type="number"
+                        value={item.unitPrice}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none"
+                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${item.total.toFixed(2)}

@@ -97,23 +97,32 @@ interface InitialVisitFormData {
   disabilityDuration: string;
   otherNotes: string;
 
-  // NEWLY ADDED
+  // Updated AROM interface
   arom: {
     [region: string]: {
       [movement: string]: {
-        wnl: string;
-        exam: string;
-        pain: string;
+        wnl?: string;
+        exam?: string;
+        pain?: boolean;
+        left?: boolean;
+        right?: boolean;
+        bilateral?: boolean;
+        pain_left?: boolean;
+        pain_right?: boolean;
       };
     };
   };
+  
+  // Updated Ortho interface
   ortho: {
     [test: string]: {
       left: string;
       right: string;
-      ligLaxity?: string; // Optional field if applicable
+      bilateral?: boolean;
+      ligLaxity?: string;
     };
   };
+  
   tenderness: {
     [region: string]: string[];
   };
@@ -192,8 +201,15 @@ const { data: patientData, isLoading } = useQuery({
   dermatomes: {},
   muscleStrength: [],
   strength: {
-    C5: '', C6: '', C7: '', C8: '', T1: '',
-    L2: '', L3: '', L4: '', L5: '', S1: ''
+    'C5.right': '5/5', 'C5.left': '5/5',
+    'C5-C6.right': '5/5', 'C5-C6.left': '5/5',
+    'C7.right': '5/5', 'C7.left': '5/5',
+    'C6.right': '5/5', 'C6.left': '5/5',
+    'C8-T1.right': '5/5', 'C8-T1.left': '5/5',
+    'L2-L3.right': '5/5', 'L2-L3.left': '5/5',
+    'L3-L4.right': '5/5', 'L3-L4.left': '5/5',
+    'L4-L5.right': '5/5', 'L4-L5.left': '5/5',
+    'S1.right': '5/5', 'S1.left': '5/5',
   },
   oriented: false,
   neuroNote: '',
@@ -302,6 +318,17 @@ const { data: patientData, isLoading } = useQuery({
     const checked = (e.target as HTMLInputElement).checked;
 
     setFormData(prev => {
+      if (name.startsWith('strength.')) {
+        // For strength, use the full key after 'strength.'
+        const strengthKey = name.replace('strength.', '');
+        return {
+          ...prev,
+          strength: {
+            ...prev.strength,
+            [strengthKey]: value
+          }
+        };
+      }
       if (name.includes('.')) {
         const [group, field] = name.split('.') as [keyof InitialVisitFormData, string];
         const currentGroup = prev[group] as any;
@@ -343,14 +370,50 @@ const { data: patientData, isLoading } = useQuery({
     setAutoSaveTimer(timer);
   };
   
+  // Add this helper function above InitialVisitForm
+  function transformStrength(strength: Record<string, string>) {
+    const result: Record<string, { right: string, left: string }> = {};
+    Object.keys(strength).forEach(key => {
+      const match = key.match(/^(.+)\.(right|left)$/);
+      if (match) {
+        const [_, muscle, side] = match;
+        if (!result[muscle]) result[muscle] = { right: '', left: '' };
+        result[muscle][side as 'right' | 'left'] = strength[key];
+      }
+    });
+    return result;
+  }
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+  
+    let chiefComplaintValue = formData.chiefComplaint;
+    if (patientData?.subjective) {
+      if (Array.isArray(patientData.subjective.bodyPart) && patientData.subjective.bodyPart.length > 0) {
+        // Concatenate all body part complaints
+        chiefComplaintValue = patientData.subjective.bodyPart.map(bp => `${bp.part} (${bp.side}): ${bp.notes || ''}`).join('; ');
+      } else if (typeof patientData.subjective === 'object') {
+        // Fallback to legacy subjective fields
+        chiefComplaintValue = [
+          patientData.subjective.severity,
+          patientData.subjective.timing,
+          patientData.subjective.context,
+          patientData.subjective.quality?.join(', '),
+          patientData.subjective.exacerbatedBy?.join(', '),
+          patientData.subjective.symptoms?.join(', '),
+          patientData.subjective.radiatingTo,
+          patientData.subjective.notes
+        ].filter(Boolean).join(' | ');
+      }
+    }
   
     try {
       // First, save the visit data
       const response = await axios.post(`http://localhost:5000/api/visits`, {
          ...formData,
+         strength: transformStrength(formData.strength),
+         chiefComplaint: chiefComplaintValue,
          patient: id,
          doctor: user?._id,
          visitType: 'initial'
@@ -360,7 +423,7 @@ const { data: patientData, isLoading } = useQuery({
       
       // Then, generate AI narrative
       try {
-        const aiResponse = await axios.post(`http://localhost:5000/api/generate-narrative`, {
+        const aiResponse = await axios.post(`http://localhost:5000/api/ai/generate-narrative`, {
           ...formData,
           visitType: 'initial'
         });
@@ -460,6 +523,57 @@ const handleTendernessSpasmChange = (
   triggerAutoSave();
 };
 
+  // Move this handler above all uses
+  const handleOrthoCheckboxChange = (test: string, side: 'left' | 'right' | 'bilateral', checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      ortho: {
+        ...prev.ortho,
+        [test]: {
+          ...(prev.ortho?.[test] || {}),
+          [side]: checked
+        }
+      }
+    }));
+    triggerAutoSave();
+  };
+
+  // Add this handler above your return statement
+  const handleFootCheckboxChange = (movement: string, side: 'left' | 'right' | 'bilateral', checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      arom: {
+        ...prev.arom,
+        FOOT: {
+          ...(prev.arom?.FOOT || {}),
+          [movement]: {
+            ...(prev.arom?.FOOT?.[movement] || {}),
+            [side]: checked
+          }
+        }
+      }
+    }));
+    triggerAutoSave();
+  };
+
+  // Add this handler above your return statement
+  const handleAromCheckboxChange = (region: string, movement: string, field: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      arom: {
+        ...prev.arom,
+        [region]: {
+          ...(prev.arom?.[region] || {}),
+          [movement]: {
+            ...(prev.arom?.[region]?.[movement] || {}),
+            [field]: checked
+          }
+        }
+      }
+    }));
+    triggerAutoSave();
+  };
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex items-center mb-4">
@@ -488,19 +602,6 @@ const handleTendernessSpasmChange = (
           <h1 className="text-2xl font-bold mb-6 text-center">EXAM</h1>
           
           <form onSubmit={handleSubmit}>
-
-<section className="mt-4 text-sm text-black w-full">
-  <h2 className="text-lg font-semibold mb-2">Chief Complaint</h2>
-  <textarea
-    name="chiefComplaint"
-    value={formData.chiefComplaint}
-    onChange={handleInputChange}
-    rows={3}
-    className="w-full border rounded px-3 py-2"
-    placeholder="Enter chief complaint..."
-    required
-  />
-</section>
 
 <section className="mt-6 text-sm text-black w-full">
   <h2 className="text-lg font-semibold mb-2">Diagnosis</h2>
@@ -1094,32 +1195,32 @@ const handleTendernessSpasmChange = (
               <span className="text-xs">R:</span>
               <select
                 name={`strength.${key}.right`}
-                value={formData.strength?.[`${key}.right`] || ''}
+                value={formData.strength?.[`${key}.right`] || '5/5'}
                 onChange={handleInputChange}
                 className="border border-gray-400 rounded px-2 py-1 text-xs"
               >
                 <option value="">-</option>
-                <option value="1">1/5</option>
-                <option value="2">2/5</option>
-                <option value="3">3/5</option>
-                <option value="4">4/5</option>
-                <option value="5">5/5</option>
+                <option value="1/5">1/5</option>
+                <option value="2/5">2/5</option>
+                <option value="3/5">3/5</option>
+                <option value="4/5">4/5</option>
+                <option value="5/5">5/5</option>
               </select>
             </label>
             <label className="flex items-center gap-1">
               <span className="text-xs">L:</span>
               <select
                 name={`strength.${key}.left`}
-                value={formData.strength?.[`${key}.left`] || ''}
+                value={formData.strength?.[`${key}.left`] || '5/5'}
                 onChange={handleInputChange}
                 className="border border-gray-400 rounded px-2 py-1 text-xs"
               >
                 <option value="">-</option>
-                <option value="1">1/5</option>
-                <option value="2">2/5</option>
-                <option value="3">3/5</option>
-                <option value="4">4/5</option>
-                <option value="5">5/5</option>
+                <option value="1/5">1/5</option>
+                <option value="2/5">2/5</option>
+                <option value="3/5">3/5</option>
+                <option value="4/5">4/5</option>
+                <option value="5/5">5/5</option>
               </select>
             </label>
           </div>
@@ -1356,7 +1457,6 @@ const handleTendernessSpasmChange = (
       <tr className="bg-gray-100">
         <th className="border border-black px-2 py-1">CERVICAL</th>
         <th className="border border-black px-2 py-1">NL</th>
-        <th className="border border-black px-2 py-1">WNL</th>
         <th className="border border-black px-2 py-1">EXAM</th>
         <th className="border border-black px-2 py-1">PAIN</th>
       </tr>
@@ -1376,15 +1476,6 @@ const handleTendernessSpasmChange = (
           <td className="border border-black px-2 py-1">
             <input
               type="text"
-              name={`arom.CERVICAL.${label}.wnl`}
-              value={formData.arom?.CERVICAL?.[label]?.wnl || ''}
-              onChange={handleNestedInputChange}
-              className="w-full px-1 py-0.5"
-            />
-          </td>
-          <td className="border border-black px-2 py-1">
-            <input
-              type="text"
               name={`arom.CERVICAL.${label}.exam`}
               value={formData.arom?.CERVICAL?.[label]?.exam || ''}
               onChange={handleNestedInputChange}
@@ -1393,11 +1484,10 @@ const handleTendernessSpasmChange = (
           </td>
           <td className="border border-black px-2 py-1">
             <input
-              type="text"
+              type="checkbox"
               name={`arom.CERVICAL.${label}.pain`}
-              value={formData.arom?.CERVICAL?.[label]?.pain || ''}
-              onChange={handleNestedInputChange}
-              className="w-full px-1 py-0.5"
+              checked={!!formData.arom?.CERVICAL?.[label]?.pain}
+                              onChange={e => handleAromCheckboxChange('CERVICAL', label, 'pain', e.target.checked)}
             />
           </td>
         </tr>
@@ -1412,6 +1502,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -1420,20 +1511,26 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
-                className="w-full px-1 py-0.5"
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
-                className="w-full px-1 py-0.5"
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
+              />
+            </td>
+            <td className="border border-black px-2 py-1">
+              <input
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -1473,6 +1570,8 @@ const handleTendernessSpasmChange = (
   'C/S Paraspinal',
   'Trapezius',
   'Sub Occipital',
+  'Scalene',
+  'SCM',
   'Cervicothoracic'
 ].map(label => (
   <label key={label} className="mr-4 inline-flex items-center">
@@ -1497,7 +1596,6 @@ const handleTendernessSpasmChange = (
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">THORACIC</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">EXAM</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -1518,15 +1616,6 @@ const handleTendernessSpasmChange = (
               <input
                 type="text"
                 className="w-full px-1 py-0.5"
-                name={`arom.THORACIC.${label}.wnl`}
-                value={formData.arom?.THORACIC?.[label]?.wnl || ''}
-                onChange={handleNestedInputChange}
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
-                className="w-full px-1 py-0.5"
                 name={`arom.THORACIC.${label}.exam`}
                 value={formData.arom?.THORACIC?.[label]?.exam || ''}
                 onChange={handleNestedInputChange}
@@ -1534,11 +1623,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
-                className="w-full px-1 py-0.5"
+                type="checkbox"
                 name={`arom.THORACIC.${label}.pain`}
-                value={formData.arom?.THORACIC?.[label]?.pain || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.arom?.THORACIC?.[label]?.pain}
+                onChange={e => handleAromCheckboxChange('THORACIC', label, 'pain', e.target.checked)}
               />
             </td>
           </tr>
@@ -1553,6 +1641,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -1561,20 +1650,26 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
-                className="w-full px-1 py-0.5"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
-                className="w-full px-1 py-0.5"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
+              />
+            </td>
+            <td className="border border-black px-2 py-1">
+              <input
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -1644,7 +1739,6 @@ const handleTendernessSpasmChange = (
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">LUMBAR</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">EXAM</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -1665,15 +1759,6 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
-                name={`arom.LUMBAR.${label}.wnl`}
-                className="w-full px-1 py-0.5"
-                value={formData.arom?.LUMBAR?.[label]?.wnl || ''}
-                onChange={handleNestedInputChange}
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
                 name={`arom.LUMBAR.${label}.exam`}
                 className="w-full px-1 py-0.5"
                 value={formData.arom?.LUMBAR?.[label]?.exam || ''}
@@ -1682,11 +1767,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.LUMBAR.${label}.pain`}
-                className="w-full px-1 py-0.5"
-                value={formData.arom?.LUMBAR?.[label]?.pain || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.arom?.LUMBAR?.[label]?.pain}
+                onChange={e => handleAromCheckboxChange('LUMBAR', label, 'pain', e.target.checked)}
               />
             </td>
           </tr>
@@ -1701,6 +1785,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -1709,20 +1794,26 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                className="w-full px-1 py-0.5"
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                className="w-full px-1 py-0.5"
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
+              />
+            </td>
+            <td className="border border-black px-2 py-1">
+              <input
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -1781,10 +1872,8 @@ const handleTendernessSpasmChange = (
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">SHOULDER</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -1805,15 +1894,6 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
-                name={`arom.SHOULDER.${label}.wnl_left`}
-                className="w-full text-center outline-none"
-                value={formData.arom?.SHOULDER?.[label]?.wnl_left || ''}
-                onChange={handleNestedInputChange}
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
                 name={`arom.SHOULDER.${label}.left`}
                 className="w-full text-center outline-none"
                 value={formData.arom?.SHOULDER?.[label]?.left || ''}
@@ -1822,23 +1902,13 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.SHOULDER.${label}.pain_left`}
-                className="w-full text-center outline-none"
-                value={formData.arom?.SHOULDER?.[label]?.pain_left || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.arom?.SHOULDER?.[label]?.pain_left}
+                onChange={e => handleAromCheckboxChange('SHOULDER', label, 'pain_left', e.target.checked)}
               />
             </td>
             {/* RIGHT SIDE */}
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
-                name={`arom.SHOULDER.${label}.wnl_right`}
-                className="w-full text-center outline-none"
-                value={formData.arom?.SHOULDER?.[label]?.wnl_right || ''}
-                onChange={handleNestedInputChange}
-              />
-            </td>
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
@@ -1850,11 +1920,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.SHOULDER.${label}.pain_right`}
-                className="w-full text-center outline-none"
-                value={formData.arom?.SHOULDER?.[label]?.pain_right || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.arom?.SHOULDER?.[label]?.pain_right}
+                onChange={e => handleAromCheckboxChange('SHOULDER', label, 'pain_right', e.target.checked)}
               />
             </td>
           </tr>
@@ -1869,6 +1938,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -1884,20 +1954,26 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                className="w-full text-center outline-none"
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                className="w-full text-center outline-none"
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
+              />
+            </td>
+            <td className="border border-black px-2 py-1">
+              <input
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -1953,10 +2029,8 @@ const handleTendernessSpasmChange = (
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">ELBOW</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -1975,15 +2049,6 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
-                name={`arom.ELBOW.${label}.wnl_left`}
-                className="w-full text-center outline-none"
-                value={formData.arom?.ELBOW?.[label]?.wnl_left || ''}
-                onChange={handleNestedInputChange}
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
                 name={`arom.ELBOW.${label}.left`}
                 className="w-full text-center outline-none"
                 value={formData.arom?.ELBOW?.[label]?.left || ''}
@@ -1992,23 +2057,13 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.ELBOW.${label}.pain_left`}
-                className="w-full text-center outline-none"
-                value={formData.arom?.ELBOW?.[label]?.pain_left || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.arom?.ELBOW?.[label]?.pain_left}
+                onChange={e => handleAromCheckboxChange('ELBOW', label, 'pain_left', e.target.checked)}
               />
             </td>
             {/* RIGHT SIDE */}
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
-                name={`arom.ELBOW.${label}.wnl_right`}
-                className="w-full text-center outline-none"
-                value={formData.arom?.ELBOW?.[label]?.wnl_right || ''}
-                onChange={handleNestedInputChange}
-              />
-            </td>
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
@@ -2020,11 +2075,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.ELBOW.${label}.pain_right`}
-                className="w-full text-center outline-none"
-                value={formData.arom?.ELBOW?.[label]?.pain_right || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.arom?.ELBOW?.[label]?.pain_right}
+                onChange={e => handleAromCheckboxChange('ELBOW', label, 'pain_right', e.target.checked)}
               />
             </td>
           </tr>
@@ -2039,38 +2093,36 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
-          <th className="border border-black px-2 py-1">LIG LAXITY</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
-        {['Cozens', 'Varus/Valgus', "Mill's"].map(test => (
+        {[
+          'Cozens', 'Varus/Valgus', "Mill's"].map(test => (
           <tr key={test}>
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                className="w-full text-center outline-none"
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                className="w-full text-center outline-none"
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
-                name={`ortho.${test}.lig_laxity`}
-                className="w-full text-center outline-none"
-                value={formData.ortho?.[test]?.lig_laxity || ''}
-                onChange={handleNestedInputChange}
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -2123,10 +2175,8 @@ const handleTendernessSpasmChange = (
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">WRIST</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -2145,16 +2195,6 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
-                name={`arom.WRIST.${label}.wnl_left`}
-                className="w-full px-1 py-0.5 border-none text-center outline-none"
-                value={formData.arom?.WRIST?.[label]?.wnl_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
                 name={`arom.WRIST.${label}.left`}
                 className="w-full px-1 py-0.5 border-none text-center outline-none"
                 value={formData.arom?.WRIST?.[label]?.left || ''}
@@ -2164,25 +2204,13 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.WRIST.${label}.pain_left`}
-                className="w-full px-1 py-0.5 border-none text-center outline-none"
-                value={formData.arom?.WRIST?.[label]?.pain_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.WRIST?.[label]?.pain_left}
+                onChange={e => handleAromCheckboxChange('WRIST', label, 'pain_left', e.target.checked)}
               />
             </td>
             {/* RIGHT SIDE */}
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
-                name={`arom.WRIST.${label}.wnl_right`}
-                className="w-full px-1 py-0.5 border-none text-center outline-none"
-                value={formData.arom?.WRIST?.[label]?.wnl_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
@@ -2195,12 +2223,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.WRIST.${label}.pain_right`}
-                className="w-full px-1 py-0.5 border-none text-center outline-none"
-                value={formData.arom?.WRIST?.[label]?.pain_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.WRIST?.[label]?.pain_right}
+                onChange={e => handleAromCheckboxChange('WRIST', label, 'pain_right', e.target.checked)}
               />
             </td>
           </tr>
@@ -2215,6 +2241,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -2223,22 +2250,26 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                className="w-full px-1 py-0.5 border-none text-center outline-none"
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                className="w-full px-1 py-0.5 border-none text-center outline-none"
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
+              />
+            </td>
+            <td className="border border-black px-2 py-1">
+              <input
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -2297,10 +2328,8 @@ const handleTendernessSpasmChange = (
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">HAND</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -2329,16 +2358,6 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
-                name={`arom.HAND.${label}.wnl_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.HAND?.[label]?.wnl_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
                 name={`arom.HAND.${label}.left`}
                 className="w-full px-1 py-0.5 text-center outline-none"
                 value={formData.arom?.HAND?.[label]?.left || ''}
@@ -2348,25 +2367,13 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.HAND.${label}.pain_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.HAND?.[label]?.pain_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.HAND?.[label]?.pain_left}
+                onChange={e => handleAromCheckboxChange('HAND', label, 'pain_left', e.target.checked)}
               />
             </td>
             {/* RIGHT SIDE */}
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
-                name={`arom.HAND.${label}.wnl_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.HAND?.[label]?.wnl_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
@@ -2379,12 +2386,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.HAND.${label}.pain_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.HAND?.[label]?.pain_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.HAND?.[label]?.pain_right}
+                onChange={e => handleAromCheckboxChange('HAND', label, 'pain_right', e.target.checked)}
               />
             </td>
           </tr>
@@ -2399,6 +2404,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -2407,22 +2413,26 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
+              />
+            </td>
+            <td className="border border-black px-2 py-1">
+              <input
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -2468,17 +2478,15 @@ const handleTendernessSpasmChange = (
 </section>
 
 <section className="mt-10 text-sm text-black w-full">
-  <div className="grid grid-cols-2 gap-4">
+  <div className="grid grid-cols-2 gap-6">
     {/* HIP ROM Table */}
     <table className="table-fixed border border-black w-full text-center">
       <thead>
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">HIP</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -2499,16 +2507,6 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
-                name={`arom.HIP.${label}.wnl_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.HIP?.[label]?.wnl_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
                 name={`arom.HIP.${label}.left`}
                 className="w-full px-1 py-0.5 text-center outline-none"
                 value={formData.arom?.HIP?.[label]?.left || ''}
@@ -2518,25 +2516,13 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.HIP.${label}.pain_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.HIP?.[label]?.pain_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.HIP?.[label]?.pain_left}
+                onChange={e => handleAromCheckboxChange('HIP', label, 'pain_left', e.target.checked)}
               />
             </td>
             {/* RIGHT SIDE */}
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
-                name={`arom.HIP.${label}.wnl_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.HIP?.[label]?.wnl_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
@@ -2549,12 +2535,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.HIP.${label}.pain_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.HIP?.[label]?.pain_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.HIP?.[label]?.pain_right}
+                onChange={e => handleAromCheckboxChange('HIP', label, 'pain_right', e.target.checked)}
               />
             </td>
           </tr>
@@ -2569,6 +2553,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -2583,22 +2568,26 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
+              />
+            </td>
+            <td className="border border-black px-2 py-1">
+              <input
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -2648,10 +2637,8 @@ const handleTendernessSpasmChange = (
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">KNEE</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -2670,16 +2657,6 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
-                name={`arom.KNEE.${label}.wnl_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.KNEE?.[label]?.wnl_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
                 name={`arom.KNEE.${label}.left`}
                 className="w-full px-1 py-0.5 text-center outline-none"
                 value={formData.arom?.KNEE?.[label]?.left || ''}
@@ -2689,25 +2666,13 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.KNEE.${label}.pain_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.KNEE?.[label]?.pain_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.KNEE?.[label]?.pain_left}
+                onChange={e => handleAromCheckboxChange('KNEE', label, 'pain_left', e.target.checked)}
               />
             </td>
             {/* RIGHT SIDE */}
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
-                name={`arom.KNEE.${label}.wnl_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.KNEE?.[label]?.wnl_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
@@ -2720,12 +2685,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.KNEE.${label}.pain_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.KNEE?.[label]?.pain_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.KNEE?.[label]?.pain_right}
+                onChange={e => handleAromCheckboxChange('KNEE', label, 'pain_right', e.target.checked)}
               />
             </td>
           </tr>
@@ -2740,7 +2703,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
-          <th className="border border-black px-2 py-1">LIG LAXITY</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -2754,32 +2717,26 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
-                name={`ortho.${test}.lig_laxity`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.lig_laxity || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -2835,10 +2792,8 @@ const handleTendernessSpasmChange = (
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">ANKLE</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -2857,16 +2812,6 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
-                name={`arom.ANKLE.${label}.wnl_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.ANKLE?.[label]?.wnl_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
                 name={`arom.ANKLE.${label}.left`}
                 className="w-full px-1 py-0.5 text-center outline-none"
                 value={formData.arom?.ANKLE?.[label]?.left || ''}
@@ -2876,25 +2821,13 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.ANKLE.${label}.pain_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.ANKLE?.[label]?.pain_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.ANKLE?.[label]?.pain_left}
+                onChange={e => handleAromCheckboxChange('ANKLE', label, 'pain_left', e.target.checked)}
               />
             </td>
             {/* RIGHT SIDE */}
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
-                name={`arom.ANKLE.${label}.wnl_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.ANKLE?.[label]?.wnl_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
@@ -2907,12 +2840,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.ANKLE.${label}.pain_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.ANKLE?.[label]?.pain_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.ANKLE?.[label]?.pain_right}
+                onChange={e => handleAromCheckboxChange('ANKLE', label, 'pain_right', e.target.checked)}
               />
             </td>
           </tr>
@@ -2927,7 +2858,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
-          <th className="border border-black px-2 py-1">LIG LAXITY</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -2936,32 +2867,26 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">{test}</td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.left}
+                onChange={e => handleOrthoCheckboxChange(test, 'left', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`ortho.${test}.right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.ortho?.[test]?.right}
+                onChange={e => handleOrthoCheckboxChange(test, 'right', e.target.checked)}
               />
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
-                name={`ortho.${test}.lig_laxity`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.ortho?.[test]?.lig_laxity || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                type="checkbox"
+                name={`ortho.${test}.bilateral`}
+                checked={!!formData.ortho?.[test]?.bilateral}
+                onChange={e => handleOrthoCheckboxChange(test, 'bilateral', e.target.checked)}
               />
             </td>
           </tr>
@@ -3015,10 +2940,8 @@ const handleTendernessSpasmChange = (
         <tr className="bg-gray-100">
           <th className="border border-black px-2 py-1">FOOT</th>
           <th className="border border-black px-2 py-1">NL</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
-          <th className="border border-black px-2 py-1">WNL</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
@@ -3039,16 +2962,6 @@ const handleTendernessSpasmChange = (
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
-                name={`arom.FOOT.${label}.wnl_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.FOOT?.[label]?.wnl_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
                 name={`arom.FOOT.${label}.left`}
                 className="w-full px-1 py-0.5 text-center outline-none"
                 value={formData.arom?.FOOT?.[label]?.left || ''}
@@ -3058,25 +2971,13 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.FOOT.${label}.pain_left`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.FOOT?.[label]?.pain_left || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.FOOT?.[label]?.pain_left}
+                onChange={e => handleAromCheckboxChange('FOOT', label, 'pain_left', e.target.checked)}
               />
             </td>
             {/* RIGHT SIDE */}
-            <td className="border border-black px-2 py-1">
-              <input
-                type="text"
-                name={`arom.FOOT.${label}.wnl_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.FOOT?.[label]?.wnl_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
-              />
-            </td>
             <td className="border border-black px-2 py-1">
               <input
                 type="text"
@@ -3089,12 +2990,10 @@ const handleTendernessSpasmChange = (
             </td>
             <td className="border border-black px-2 py-1">
               <input
-                type="text"
+                type="checkbox"
                 name={`arom.FOOT.${label}.pain_right`}
-                className="w-full px-1 py-0.5 text-center outline-none"
-                value={formData.arom?.FOOT?.[label]?.pain_right || ''}
-                onChange={handleNestedInputChange}
-                placeholder="..."
+                checked={!!formData.arom?.FOOT?.[label]?.pain_right}
+                onChange={e => handleAromCheckboxChange('FOOT', label, 'pain_right', e.target.checked)}
               />
             </td>
           </tr>
@@ -3109,6 +3008,7 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">ORTHOPEDIC TEST</th>
           <th className="border border-black px-2 py-1">LEFT</th>
           <th className="border border-black px-2 py-1">RIGHT</th>
+          <th className="border border-black px-2 py-1">BILATERAL</th>
         </tr>
       </thead>
       <tbody>
@@ -3462,51 +3362,162 @@ const handleTendernessSpasmChange = (
       isOpen={modalIsOpen}
       onRequestClose={() => setModalIsOpen(false)}
       contentLabel="Chief Complaint Modal"
-      className="bg-white rounded-lg shadow-lg max-w-lg mx-auto mt-20 p-6"
-      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50"
+      className="bg-white rounded-lg shadow-lg w-11/12 max-w-4xl mx-auto mt-10 p-4 md:p-6 max-h-[90vh] overflow-y-auto"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50 pt-4"
     >
-      <h2 className="text-xl font-bold mb-4 text-gray-800">Chief Complaint Info</h2>
+      <div className="flex justify-between items-center mb-4 border-b pb-2">
+        <h2 className="text-xl font-bold text-gray-800">Subjective Intake</h2>
+        <button 
+          onClick={() => setModalIsOpen(false)}
+          className="text-gray-500 hover:text-gray-700 focus:outline-none"
+          aria-label="Close"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
 
       {isLoading ? (
         <p className="text-gray-500">Loading...</p>
-      ) : patientData?.subjective &&
-        Object.entries(patientData.subjective).some(([_, val]) =>
-          val !== null &&
-          val !== undefined &&
-          val !== '' &&
-          !(Array.isArray(val) && val.length === 0) &&
-          !(typeof val === 'boolean' && val === false) &&
-          !(typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0)
-        ) ? (
-        <div className="text-sm text-gray-700 space-y-2">
-          <p>
-            <strong>Body Part(s):</strong>{' '}
-            {Array.isArray(patientData.subjective.bodyPart)
-              ? patientData.subjective.bodyPart.map(bp => `${bp.part} (${bp.side})`).join(', ')
-              : 'N/A'}
-          </p>
-          <p><strong>Severity:</strong> {patientData.subjective.severity ?? 'N/A'}</p>
-          <p><strong>Timing:</strong> {patientData.subjective.timing || 'N/A'}</p>
-          <p><strong>Context:</strong> {patientData.subjective.context || 'N/A'}</p>
-          <p><strong>Quality:</strong> {patientData.subjective.quality?.join(', ') || 'N/A'}</p>
-          <p><strong>Exacerbated By:</strong> {patientData.subjective.exacerbatedBy?.join(', ') || 'N/A'}</p>
-          <p><strong>Symptoms:</strong> {patientData.subjective.symptoms?.join(', ') || 'N/A'}</p>
-          <p><strong>Radiating To:</strong> {patientData.subjective.radiatingTo || 'N/A'}</p>
-          <p><strong>Radiating Pain:</strong> {(patientData.subjective.radiatingLeft || patientData.subjective.radiatingRight)
-            ? [patientData.subjective.radiatingLeft && 'Left', patientData.subjective.radiatingRight && 'Right'].filter(Boolean).join(', ')
-            : 'None'}
-          </p>
-          <p><strong>Sciatica:</strong> {[patientData.subjective.sciaticaLeft && 'Left', patientData.subjective.sciaticaRight && 'Right'].filter(Boolean).join(', ') || 'None'}</p>
-          <p><strong>Notes:</strong> {patientData.subjective.notes || 'N/A'}</p>
+      ) : patientData?.subjective && patientData.subjective.bodyPart && patientData.subjective.bodyPart.length > 0 ? (
+        <div className="text-sm text-gray-700">
+          {/* Body Parts Section */}
+          <div className="mb-4">
+            <h3 className="font-semibold text-lg mb-2">Body Parts</h3>
+            {patientData.subjective.bodyPart.map((bp, index) => (
+              <div key={index} className="mb-4 border-b pb-4 rounded-lg bg-gray-50 p-3">
+                <p className="font-medium text-blue-600 text-lg border-b border-gray-200 pb-1 mb-2">{bp.part} ({bp.side})</p>
+                
+                {/* Display detailed subjective data for each body part */}
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+                  <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Severity</p>
+                    <p className="text-gray-900">{bp.severity || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Timing</p>
+                    <p className="text-gray-900">{bp.timing || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Context</p>
+                    <p className="text-gray-900">{bp.context || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Quality</p>
+                    <p className="text-gray-900">{bp.quality?.join(', ') || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Exacerbated By</p>
+                    <p className="text-gray-900">{bp.exacerbatedBy?.join(', ') || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Symptoms</p>
+                    <p className="text-gray-900">{bp.symptoms?.join(', ') || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Radiating To</p>
+                    <p className="text-gray-900">{bp.radiatingTo || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Radiating Pain</p>
+                    <p className="text-gray-900">
+                      {(bp.radiatingLeft || bp.radiatingRight)
+                        ? [bp.radiatingLeft && 'Left', bp.radiatingRight && 'Right'].filter(Boolean).join(', ')
+                        : 'None'}
+                    </p>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Sciatica</p>
+                    <p className="text-gray-900">
+                      {(bp.sciaticaLeft || bp.sciaticaRight)
+                        ? [bp.sciaticaLeft && 'Left', bp.sciaticaRight && 'Right'].filter(Boolean).join(', ')
+                        : 'None'}
+                    </p>
+                  </div>
+                  {bp.notes && (
+                    <div className="col-span-1 sm:col-span-2 md:col-span-3 bg-white p-2 rounded border border-gray-100 shadow-sm">
+                      <p className="font-medium text-gray-700 text-sm">Notes</p>
+                      <p className="text-gray-900">{bp.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Legacy Subjective Data - Display if no bodyPart data is available */}
+          {(!patientData.subjective.bodyPart || patientData.subjective.bodyPart.length === 0) && (
+            <div className="mt-4 rounded-lg bg-gray-50 p-3">
+              <h3 className="font-semibold text-lg mb-2 text-blue-600 border-b border-gray-200 pb-1">Legacy Subjective Data</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+                <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  <p className="font-medium text-gray-700 text-sm">Severity</p>
+                  <p className="text-gray-900">{patientData.subjective.severity || 'N/A'}</p>
+                </div>
+                <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  <p className="font-medium text-gray-700 text-sm">Timing</p>
+                  <p className="text-gray-900">{patientData.subjective.timing || 'N/A'}</p>
+                </div>
+                <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  <p className="font-medium text-gray-700 text-sm">Context</p>
+                  <p className="text-gray-900">{patientData.subjective.context || 'N/A'}</p>
+                </div>
+                <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  <p className="font-medium text-gray-700 text-sm">Quality</p>
+                  <p className="text-gray-900">{patientData.subjective.quality?.join(', ') || 'N/A'}</p>
+                </div>
+                <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  <p className="font-medium text-gray-700 text-sm">Exacerbated By</p>
+                  <p className="text-gray-900">{patientData.subjective.exacerbatedBy?.join(', ') || 'N/A'}</p>
+                </div>
+                <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  <p className="font-medium text-gray-700 text-sm">Symptoms</p>
+                  <p className="text-gray-900">{patientData.subjective.symptoms?.join(', ') || 'N/A'}</p>
+                </div>
+                <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  <p className="font-medium text-gray-700 text-sm">Radiating To</p>
+                  <p className="text-gray-900">{patientData.subjective.radiatingTo || 'N/A'}</p>
+                </div>
+                <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  <p className="font-medium text-gray-700 text-sm">Radiating Pain</p>
+                  <p className="text-gray-900">
+                    {(patientData.subjective.radiatingLeft || patientData.subjective.radiatingRight)
+                      ? [patientData.subjective.radiatingLeft && 'Left', patientData.subjective.radiatingRight && 'Right'].filter(Boolean).join(', ')
+                      : 'None'}
+                  </p>
+                </div>
+                <div className="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  <p className="font-medium text-gray-700 text-sm">Sciatica</p>
+                  <p className="text-gray-900">
+                    {(patientData.subjective.sciaticaLeft || patientData.subjective.sciaticaRight)
+                      ? [patientData.subjective.sciaticaLeft && 'Left', patientData.subjective.sciaticaRight && 'Right'].filter(Boolean).join(', ')
+                      : 'None'}
+                  </p>
+                </div>
+                {patientData.subjective.notes && (
+                  <div className="col-span-1 sm:col-span-2 md:col-span-3 bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <p className="font-medium text-gray-700 text-sm">Notes</p>
+                    <p className="text-gray-900">{patientData.subjective.notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-gray-500">No subjective data found.</p>
       )}
-
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-between">
+        <button 
+          onClick={() => setModalIsOpen(false)} 
+          className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+        >
+          Cancel
+        </button>
         <button
           onClick={() => setModalIsOpen(false)}
-          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Close
         </button>

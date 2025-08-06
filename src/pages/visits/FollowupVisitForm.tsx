@@ -26,7 +26,7 @@ interface FollowupVisitFormData {
   areasImproving: boolean;
   areasExacerbated: boolean;
   areasSame: boolean;
-  musclePalpation: string;
+  areasResolved: boolean;
   painRadiating: string;
   romWnlNoPain: boolean;
   romWnlWithPain: boolean;
@@ -41,7 +41,33 @@ interface FollowupVisitFormData {
   activitiesCausePainOther: string;
   treatmentPlan: {
     treatments: string;
-    timesPerWeek: string;
+    chiropractic: boolean;
+    acupuncture: boolean;
+    mechanicalTraction: boolean;
+    myofascialRelease: boolean;
+    ultrasound: boolean;
+    infraredElectricMuscleStimulation: boolean;
+    therapeuticExercise: boolean;
+    neuromuscularReeducation: boolean;
+    other: string;
+    frequency: {
+      timesPerWeek: {
+        '4x': boolean;
+        '3x': boolean;
+        '2x': boolean;
+        '1x': boolean;
+      };
+      duration: {
+        '4 wks': boolean;
+        '6 wks': boolean;
+        custom: string;
+      };
+      reEval: {
+        '4 wks': boolean;
+        '6 wks': boolean;
+        custom: string;
+      };
+    };
   };
   overallResponse: {
     improving: boolean;
@@ -54,7 +80,13 @@ interface FollowupVisitFormData {
     bodyPart: string;
     result: string;
   };
-  homeCare: string;
+  homeCare: {
+    coreProgram: boolean;
+    stretches: boolean;
+    icePackHotPack: boolean;
+    ligamentStabilityProgram: boolean;
+    other: string;
+  };
   homeCareSuggestions?: string;
   notes: string;
 
@@ -161,12 +193,16 @@ const [isMuscleModalOpen, setIsMuscleModalOpen] = useState(false); // State for 
 const [isOrthoModalOpen, setIsOrthoModalOpen] = useState(false);
   const [orthoTestsData, setOrthoTestsData] = useState<any>({});
   const [aromData, setAromData] = useState<any>({});
-  const [activitiesPainData, setActivitiesPainData] = useState<string[]>([]);
+  const [activitiesPainData, setActivitiesPainData] = useState<any>({});
 const [isActivitiesModalOpen, setIsActivitiesModalOpen] = useState(false);
 const [treatmentListData, setTreatmentListData] = useState<any>(null);
 const [isTreatmentModalOpen, setIsTreatmentModalOpen] = useState(false);
 const [imagingData, setImagingData] = useState<any>(null);
 const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
+
+  // State for Muscle Palpation modal interactive selections
+  const [muscleTendernessSelections, setMuscleTendernessSelections] = useState<{[region: string]: {[anatomicalPart: string]: string[]}}>({});
+  const [muscleSpasmSelections, setMuscleSpasmSelections] = useState<{[region: string]: {[anatomicalPart: string]: string[]}}>({});
 
   
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -187,7 +223,7 @@ const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
     areasImproving: false,
     areasExacerbated: false,
     areasSame: false,
-    musclePalpation: '',
+    areasResolved: false,
     painRadiating: '',
     romWnlNoPain: false,
     romWnlWithPain: false,
@@ -202,7 +238,33 @@ const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
     activitiesCausePainOther: '',
     treatmentPlan: {
       treatments: '',
-      timesPerWeek: ''
+      chiropractic: false,
+      acupuncture: false,
+      mechanicalTraction: false,
+      myofascialRelease: false,
+      ultrasound: false,
+      infraredElectricMuscleStimulation: false,
+      therapeuticExercise: false,
+      neuromuscularReeducation: false,
+      other: '',
+      frequency: {
+        timesPerWeek: {
+          '4x': false,
+          '3x': false,
+          '2x': false,
+          '1x': false,
+        },
+        duration: {
+          '4 wks': false,
+          '6 wks': false,
+          custom: '',
+        },
+        reEval: {
+          '4 wks': false,
+          '6 wks': false,
+          custom: '',
+        },
+      },
     },
     overallResponse: {
       improving: false,
@@ -215,7 +277,13 @@ const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
       bodyPart: '',
       result: ''
     },
-    homeCare: '',
+    homeCare: {
+      coreProgram: false,
+      stretches: false,
+      icePackHotPack: false,
+      ligamentStabilityProgram: false,
+      other: ''
+    },
     notes: ''
   });
   
@@ -223,6 +291,114 @@ const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
   // Update the type to include NodeJS.Timeout for compatibility
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | number | null>(null);
   const [localFormData, setLocalFormData] = useState<string | null>(null);
+
+
+
+  // Handler for frequency checkbox changes
+  const handleFrequencyChange = (category: 'timesPerWeek' | 'duration' | 'reEval', value: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      treatmentPlan: {
+        ...prev.treatmentPlan,
+        frequency: {
+          ...prev.treatmentPlan.frequency,
+          [category]: {
+            ...prev.treatmentPlan.frequency[category],
+            [value]: checked
+          }
+        }
+      }
+    }));
+  };
+
+  // Handler for frequency custom input changes
+  const handleFrequencyCustomChange = (category: 'duration' | 'reEval', value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      treatmentPlan: {
+        ...prev.treatmentPlan,
+        frequency: {
+          ...prev.treatmentPlan.frequency,
+          [category]: {
+            ...prev.treatmentPlan.frequency[category],
+            custom: value
+          }
+        }
+      }
+    }));
+  };
+
+  // Handlers for Muscle Palpation modal interactive checkboxes
+  const handleMuscleTendernessChange = (region: string, anatomicalPart: string, severity: string, checked: boolean) => {
+    setMuscleTendernessSelections(prev => {
+      const currentRegion = prev[region] || {};
+      const currentAnatomicalPart = currentRegion[anatomicalPart] || [];
+      let newSelections: string[];
+      
+      if (checked) {
+        newSelections = [...currentAnatomicalPart, severity];
+      } else {
+        newSelections = currentAnatomicalPart.filter(s => s !== severity);
+      }
+      
+      return {
+        ...prev,
+        [region]: {
+          ...currentRegion,
+          [anatomicalPart]: newSelections
+        }
+      };
+    });
+  };
+
+  const handleMuscleSpasmChange = (region: string, anatomicalPart: string, severity: string, checked: boolean) => {
+    setMuscleSpasmSelections(prev => {
+      const currentRegion = prev[region] || {};
+      const currentAnatomicalPart = currentRegion[anatomicalPart] || [];
+      let newSelections: string[];
+      
+      if (checked) {
+        newSelections = [...currentAnatomicalPart, severity];
+      } else {
+        newSelections = currentAnatomicalPart.filter(s => s !== severity);
+      }
+      
+      return {
+        ...prev,
+        [region]: {
+          ...currentRegion,
+          [anatomicalPart]: newSelections
+        }
+      };
+    });
+  };
+
+  // Handler for saving muscle palpation modal selections
+  const handleSaveMusclePalpation = () => {
+    // Update the muscle palpation data with the selections
+    const updatedMusclePalpationData = {
+      ...musclePalpationData,
+      tenderness: muscleTendernessSelections,
+      spasm: muscleSpasmSelections,
+    };
+
+    // Update the form data (local state only - no backend save)
+    setFormData((prev) => ({
+      ...prev,
+      fetchedData: {
+        ...prev.fetchedData,
+        musclePalpationData: updatedMusclePalpationData,
+      },
+    }));
+
+    // Also update the muscle palpation state for immediate use
+    setMusclePalpationData(updatedMusclePalpationData);
+
+    alert('Muscle palpation data updated! Click "Save Visit" at the bottom to save all changes.');
+    setIsMuscleModalOpen(false);
+  };
+
+
 
   useEffect(() => {
     let isMounted = true;
@@ -253,8 +429,8 @@ console.log('All sorted visits:', sortedVisits);
 setPreviousVisits(sortedVisits);
 
           
-          console.log('Filtered initial visits:', initialVisits);
-          setPreviousVisits(initialVisits);
+          console.log('Filtered initial visits:', sortedVisits);
+          setPreviousVisits(sortedVisits);
           setHasLoadedVisits(true);
           
           // Check for locally saved form data
@@ -290,7 +466,7 @@ setPreviousVisits(sortedVisits);
   const saveMusclePalpationData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`http://localhost:5000/api/patients/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         muscleStrength: data.muscleStrength,
         strength: data.strength,
         tenderness: data.tenderness,
@@ -305,7 +481,7 @@ setPreviousVisits(sortedVisits);
   const saveOrthoTestsData = async (visitId: string, data: any, arom: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`http://localhost:5000/api/patients/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         ortho: data,
         arom: arom,
       });
@@ -318,7 +494,7 @@ setPreviousVisits(sortedVisits);
   const saveTreatmentPlanData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`http://localhost:5000/api/patients/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         chiropracticAdjustment: data.chiropracticAdjustment,
         chiropracticOther: data.chiropracticOther,
         acupuncture: data.acupuncture,
@@ -338,7 +514,7 @@ setPreviousVisits(sortedVisits);
   const saveTreatmentListData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`http://localhost:5000/api/patients/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         chiropracticAdjustment: data.chiropracticAdjustment,
         chiropracticOther: data.chiropracticOther,
         acupuncture: data.acupuncture,
@@ -363,7 +539,7 @@ setPreviousVisits(sortedVisits);
   const saveImagingAndSpecialistData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`http://localhost:5000/api/patients/visits/${visitId}`, {
+      await axios.put(`http://localhost:5000/api/visits/${visitId}`, {
         physiotherapy: data.physiotherapy,
         rehabilitationExercises: data.rehabilitationExercises,
         durationFrequency: data.durationFrequency,
@@ -384,14 +560,17 @@ setPreviousVisits(sortedVisits);
         ...(formData.fetchedData || {}), // ⬅️ this line spreads fetched modal data into the main save body
       };
   
-      if (visitId) {
+      if (formData.previousVisit) {
         // PUT to update
-        await axios.put(`/api/visits/${visitId}`, saveData);
+        await axios.put(`http://localhost:5000/api/visits/${formData.previousVisit}`, saveData);
       } else {
         // POST to create
-        saveData.visitType = 'followup';
-        saveData.patient = patientId;
-        await axios.post('/api/visits', saveData);
+        const createData = {
+          ...saveData,
+          visitType: 'followup',
+          patient: id,
+        };
+        await axios.post('http://localhost:5000/api/visits', createData);
       }
   
       alert('Visit saved successfully!');
@@ -405,10 +584,13 @@ setPreviousVisits(sortedVisits);
   };
   
   const fetchMusclePalpationData = async (visitId: string) => {
-    if (!visitId) return alert("Please select a valid previous visit.");
+    if (!visitId) {
+      alert("Please select a valid previous visit.");
+      return;
+    }
   
     try {
-      const res = await axios.get(`http://localhost:5000/api/patients/visits/${visitId}`);
+      const res = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visit = res.data;
   
       // Check if data exists for followup or initial
@@ -421,6 +603,10 @@ setPreviousVisits(sortedVisits);
   
       setMusclePalpationData(musclePalpationData);
       setIsMuscleModalOpen(true);
+  
+      // Initialize selections for interactive checkboxes
+      setMuscleTendernessSelections({});
+      setMuscleSpasmSelections({});
   
       setFormData((prev) => ({
         ...prev,
@@ -437,15 +623,14 @@ setPreviousVisits(sortedVisits);
   
   const fetchOrthoTestsData = async (visitId: string) => {
     if (!visitId) {
-      console.error("Visit ID is missing.");
       alert("Please select a valid previous visit.");
       return;
     }
   
-    try {
-      const response = await axios.get(`http://localhost:5000/api/patients/visits/${visitId}`);
+        try {
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visitData = response.data;
-  
+
       if (!visitData) {
         console.error("Visit data is missing.");
         alert("Failed to load visit data.");
@@ -458,7 +643,7 @@ setPreviousVisits(sortedVisits);
           [testName: string]: { left: string; right: string; ligLaxity: string };
         };
       } = visitData.ortho
-        ? Object.entries(visitData.ortho).reduce((acc, [testName, testResult]) => {
+        ? Object.entries(visitData.ortho as Record<string, any>).reduce((acc: any, [testName, testResult]) => {
             const region = testName.split(" ")[0];
             const { left, right, ligLaxity } = testResult as {
               left: string;
@@ -483,8 +668,8 @@ setPreviousVisits(sortedVisits);
           [movementName: string]: { left: string; right: string; ligLaxity: string };
         };
       } = visitData.arom
-        ? Object.entries(visitData.arom).reduce((acc, [region, movements]) => {
-            acc[region] = Object.entries(movements).reduce((movementAcc, [movementName, movementData]) => {
+        ? Object.entries(visitData.arom as Record<string, any>).reduce((acc: any, [region, movements]) => {
+            acc[region] = Object.entries(movements as Record<string, any>).reduce((movementAcc: any, [movementName, movementData]) => {
               const { left, right, ligLaxity } = movementData as {
                 left: string;
                 right: string;
@@ -516,6 +701,10 @@ setPreviousVisits(sortedVisits);
           aromData,
         },
       }));
+
+      // Also update the state for immediate use
+      setOrthoTestsData(orthoTestsData);
+      setAromData(aromData);
     } catch (error) {
       console.error("Error fetching orthopedic tests data:", error);
       alert("Failed to load orthopedic tests data.");
@@ -524,15 +713,14 @@ setPreviousVisits(sortedVisits);
 
   const fetchTreatmentPlanData = async (visitId: string) => {
     if (!visitId) {
-      console.error("Visit ID is missing.");
       alert("Please select a valid previous visit.");
       return;
     }
   
-    try {
-      const response = await axios.get(`http://localhost:5000/api/patients/visits/${visitId}`);
+        try {
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visitData = response.data;
-  
+
       // Filter only treatment plan data
       const treatmentData = {
         chiropracticAdjustment: visitData.chiropracticAdjustment || [],
@@ -561,6 +749,9 @@ setPreviousVisits(sortedVisits);
           activitiesPainData: treatmentData,
         },
       }));
+
+      // Also update the state for immediate use
+      setActivitiesPainData(treatmentData);
     } catch (error) {
       console.error("Error fetching treatment plan data:", error);
       alert("Failed to load treatment plan data.");
@@ -569,15 +760,14 @@ setPreviousVisits(sortedVisits);
   
   const fetchTreatmentListData = async (visitId: string) => {
     if (!visitId) {
-      console.error("Visit ID is missing.");
       alert("Please select a valid previous visit.");
       return;
     }
   
-    try {
-      const response = await axios.get(`http://localhost:5000/api/patients/visits/${visitId}`);
+        try {
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visitData = response.data;
-  
+
       const treatmentList = {
         chiropracticAdjustment: visitData.chiropracticAdjustment || [],
         chiropracticOther: visitData.chiropracticOther || '',
@@ -611,6 +801,9 @@ setPreviousVisits(sortedVisits);
           treatmentListData: treatmentList,
         },
       }));
+
+      // Also update the state for immediate use
+      setTreatmentListData(treatmentList);
     } catch (error) {
       console.error("Error fetching treatment list:", error);
       alert("Failed to load treatment plan.");
@@ -619,15 +812,14 @@ setPreviousVisits(sortedVisits);
   
   const fetchImagingAndSpecialistData = async (visitId: string) => {
     if (!visitId) {
-      console.error("Visit ID is missing.");
       alert("Please select a valid previous visit.");
       return;
     }
   
-    try {
-      const response = await axios.get(`http://localhost:5000/api/patients/visits/${visitId}`);
+        try {
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       const visitData = response.data;
-  
+
       const imagingAndSpecialistData = {
         physiotherapy: visitData.physiotherapy || [],
         rehabilitationExercises: visitData.rehabilitationExercises || [],
@@ -655,6 +847,9 @@ setPreviousVisits(sortedVisits);
           imagingData: imagingAndSpecialistData,
         },
       }));
+
+      // Also update the state for immediate use
+      setImagingData(imagingAndSpecialistData);
     } catch (error) {
       console.error("Error fetching imaging and specialist data:", error);
       alert("Failed to load data.");
@@ -671,47 +866,75 @@ setPreviousVisits(sortedVisits);
         },
         body: JSON.stringify({
           model: "deepseek-chat",
-          temperature: 0.3,
-          max_tokens: 400, // Keep small to limit response size and time
+          temperature: 0.2,
+          max_tokens: 800, // Increased for more detailed home care instructions
           messages: [
             {
               role: "system",
               content: `
-You are a clinical therapist AI.
+You are a highly experienced clinical therapist AI specializing in chiropractic and physical therapy home care programs.
 
-Based on the patient's clinical data, return a short, visually clean home care summary in raw HTML.
+Based on the patient's clinical data, generate comprehensive, detailed home care instructions in raw HTML format. The instructions should be specific to the patient's condition, treatment plan, and clinical findings.
 
-Format:
+Format with detailed sections:
 
-<h3 class='text-md font-semibold mt-4 mb-2'>Exercises</h3>
-<ul class='list-disc list-inside text-gray-800'>
-  <li><strong>Neck Retractions</strong> – 10 reps, 3x/day to improve posture.</li>
-  <li>...</li>
+<h2 class='text-lg font-bold text-blue-600 mb-3'>Home Exercise Program</h2>
+<h3 class='text-md font-semibold mt-4 mb-2 text-gray-700'>Strengthening Exercises</h3>
+<ul class='list-disc list-inside text-gray-800 space-y-1'>
+  <li><strong>Exercise Name</strong> – Detailed description, sets/reps, frequency, and specific instructions</li>
+  <li>Include progression guidelines and modifications based on patient's condition</li>
 </ul>
 
-<h3 class='text-md font-semibold mt-4 mb-2'>Ergonomic Tips</h3>
-<ul class='list-disc list-inside text-gray-800'>
-  <li>...</li>
+<h3 class='text-md font-semibold mt-4 mb-2 text-gray-700'>Stretching & Flexibility</h3>
+<ul class='list-disc list-inside text-gray-800 space-y-1'>
+  <li>Specific stretches with duration, frequency, and technique instructions</li>
+  <li>Include modifications for pain levels and mobility restrictions</li>
 </ul>
 
-<h3 class='text-md font-semibold mt-4 mb-2'>Pain Relief</h3>
-<ul class='list-disc list-inside text-gray-800'>
-  <li>...</li>
+<h2 class='text-lg font-bold text-blue-600 mb-3'>Pain Management</h2>
+<h3 class='text-md font-semibold mt-4 mb-2 text-gray-700'>Modalities</h3>
+<ul class='list-disc list-inside text-gray-800 space-y-1'>
+  <li>Ice/heat application with specific timing and technique</li>
+  <li>Other pain relief methods based on patient's condition</li>
 </ul>
 
-<h3 class='text-md font-semibold mt-4 mb-2'>Follow-up & Safety</h3>
-<ul class='list-disc list-inside text-gray-800'>
-  <li>...</li>
+<h2 class='text-lg font-bold text-blue-600 mb-3'>Ergonomic & Lifestyle Modifications</h2>
+<h3 class='text-md font-semibold mt-4 mb-2 text-gray-700'>Posture & Body Mechanics</h3>
+<ul class='list-disc list-inside text-gray-800 space-y-1'>
+  <li>Specific posture corrections for patient's condition</li>
+  <li>Workstation and daily activity modifications</li>
 </ul>
 
-Rules:
-- Use <h2> and <h3> for headings with Tailwind classes.
-- Use <ul><li> with list-disc, list-inside, text-gray-800.
-- No paragraphs, no extra commentary.
-- Max 3 bullet points per section.
-- Response must be in under 250 words and generated in 2 seconds.
+<h3 class='text-md font-semibold mt-4 mb-2 text-gray-700'>Activity Modifications</h3>
+<ul class='list-disc list-inside text-gray-800 space-y-1'>
+  <li>Specific activities to avoid or modify</li>
+  <li>Safe alternatives and gradual return to activities</li>
+</ul>
 
-Now generate this summary using the provided patient data:
+<h2 class='text-lg font-bold text-blue-600 mb-3'>Safety & Follow-up</h2>
+<h3 class='text-md font-semibold mt-4 mb-2 text-gray-700'>Precautions</h3>
+<ul class='list-disc list-inside text-gray-800 space-y-1'>
+  <li>Warning signs to watch for</li>
+  <li>When to stop exercises or contact provider</li>
+</ul>
+
+<h3 class='text-md font-semibold mt-4 mb-2 text-gray-700'>Progress Tracking</h3>
+<ul class='list-disc list-inside text-gray-800 space-y-1'>
+  <li>How to monitor progress and symptoms</li>
+  <li>When to advance or modify the program</li>
+</ul>
+
+Guidelines:
+- Base recommendations on the patient's specific diagnosis, pain patterns, and treatment plan
+- Include specific exercises with detailed instructions (sets, reps, frequency, technique)
+- Address the patient's specific areas of concern and treatment modalities
+- Provide clear progression guidelines and safety precautions
+- Use professional medical terminology while remaining patient-friendly
+- Include modifications for different pain levels and mobility restrictions
+- Reference specific body parts and conditions mentioned in the patient data
+- Provide comprehensive but practical instructions suitable for home use
+
+Generate detailed, personalized home care instructions based on the provided patient data:
 `.trim(),
 
             },
@@ -737,6 +960,9 @@ Now generate this summary using the provided patient data:
           homeCareSuggestions: aiText,
         }
       }));
+
+      // Also update the state for immediate use
+      setHomeCareSuggestions(aiText);
   
     } catch (error) {
       console.error("Error calling DeepSeek:", error);
@@ -747,7 +973,7 @@ Now generate this summary using the provided patient data:
   const fetchInitialVisitData = async (visitId: string) => {
     try {
       // Get the visit details using the correct endpoint
-      const response = await axios.get(`http://localhost:5000/api/patients/visits/${visitId}`);
+      const response = await axios.get(`http://localhost:5000/api/visits/${visitId}`);
       
       // Check if it's an initial visit (check both __t and visitType for compatibility)
       const isInitialVisit = response.data.__t === 'InitialVisit' || response.data.visitType === 'initial';
@@ -769,6 +995,9 @@ Now generate this summary using the provided patient data:
           initialVisitData: response.data,
         },
       }));
+
+      // Also update the state for immediate use
+      setInitialVisitData(response.data);
     } catch (err: any) {
       console.error('Error fetching initial visit data:', err);
       if (err.response?.status === 404) {
@@ -833,6 +1062,12 @@ Now generate this summary using the provided patient data:
       alert('Please select a previous visit');
       return;
     }
+
+    // Validate that required fields are present
+    if (!id || !_user?._id) {
+      alert('Missing required patient or doctor information');
+      return;
+    }
     
     setIsSaving(true);
     
@@ -848,41 +1083,123 @@ Now generate this summary using the provided patient data:
         homeCareSuggestions
       } = formData.fetchedData || {};
       
-      const flattenedData = {
-        ...formData,
-      
-        // ✅ Muscle Palpation
-        ...musclePalpationData,
-      
-        // ✅ Ortho and AROM
-        ortho: orthoTestsData,
-        arom: aromData,
-      
-        // ✅ Activities & Treatment Plan
-        ...(activitiesPainData || {}),
-      
-        // ✅ Full Treatment Plan List
-        ...(treatmentListData || {}),
-      
-        // ✅ Imaging & Referrals
-        ...(imagingData || {}),
-      
-        // ✅ Home Care AI
-        homeCare: homeCareSuggestions || '',
-      
+      // Structure the data according to FollowupVisit schema
+      const visitData = {
+        // Required fields
+        previousVisit: formData.previousVisit,
         patient: id,
         doctor: _user?._id,
-        visitType: 'followup'
+        visitType: 'followup',
+        
+        // Basic form fields
+        areas: formData.areas || 'Auto-generated from initial visit',
+        areasImproving: formData.areasImproving || false,
+        areasExacerbated: formData.areasExacerbated || false,
+        areasSame: formData.areasSame || false,
+        areasResolved: formData.areasResolved || false,
+        painRadiating: formData.painRadiating || '',
+        romWnlNoPain: formData.romWnlNoPain || false,
+        romWnlWithPain: formData.romWnlWithPain || false,
+        romImproved: formData.romImproved || false,
+        romDecreased: formData.romDecreased || false,
+        romSame: formData.romSame || false,
+        orthos: {
+          tests: formData.orthos.tests || '',
+          result: formData.orthos.result || ''
+        },
+        activitiesCausePain: formData.activitiesCausePain || '',
+        activitiesCausePainOther: formData.activitiesCausePainOther || '',
+        treatmentPlan: {
+          treatments: formData.treatmentPlan.treatments || '',
+          timesPerWeek: Object.keys(formData.treatmentPlan.frequency.timesPerWeek)
+            .filter(key => formData.treatmentPlan.frequency.timesPerWeek[key as keyof typeof formData.treatmentPlan.frequency.timesPerWeek])
+            .join(', ') || '',
+          chiropractic: formData.treatmentPlan.chiropractic || false,
+          acupuncture: formData.treatmentPlan.acupuncture || false,
+          mechanicalTraction: formData.treatmentPlan.mechanicalTraction || false,
+          myofascialRelease: formData.treatmentPlan.myofascialRelease || false,
+          ultrasound: formData.treatmentPlan.ultrasound || false,
+          infraredElectricMuscleStimulation: formData.treatmentPlan.infraredElectricMuscleStimulation || false,
+          therapeuticExercise: formData.treatmentPlan.therapeuticExercise || false,
+          neuromuscularReeducation: formData.treatmentPlan.neuromuscularReeducation || false,
+          other: formData.treatmentPlan.other || ''
+        },
+        overallResponse: {
+          improving: formData.overallResponse.improving || false,
+          worse: formData.overallResponse.worse || false,
+          same: formData.overallResponse.same || false
+        },
+        referrals: Array.isArray(formData.referrals) ? formData.referrals.join(', ') : (formData.referrals || ''),
+        diagnosticStudy: {
+          study: formData.diagnosticStudy.study || '',
+          bodyPart: formData.diagnosticStudy.bodyPart || '',
+          result: formData.diagnosticStudy.result || ''
+        },
+        homeCare: {
+          coreProgram: formData.homeCare.coreProgram || false,
+          stretches: formData.homeCare.stretches || false,
+          icePackHotPack: formData.homeCare.icePackHotPack || false,
+          ligamentStabilityProgram: formData.homeCare.ligamentStabilityProgram || false,
+          other: formData.homeCare.other || ''
+        },
+        notes: formData.notes || '',
+        
+        // Muscle Palpation Modal Data
+        muscleStrength: musclePalpationData?.muscleStrength || [],
+        strength: musclePalpationData?.strength || {},
+        tenderness: musclePalpationData?.tenderness || {},
+        spasm: musclePalpationData?.spasm || {},
+        
+        // Ortho Tests Modal Data
+        ortho: orthoTestsData || {},
+        arom: aromData || {},
+        
+        // Activities/Treatment Plan Modal Data
+        chiropracticAdjustment: activitiesPainData?.chiropracticAdjustment || [],
+        chiropracticOther: activitiesPainData?.chiropracticOther || '',
+        acupuncture: activitiesPainData?.acupuncture || [],
+        acupunctureOther: activitiesPainData?.acupunctureOther || '',
+        physiotherapy: activitiesPainData?.physiotherapy || [],
+        rehabilitationExercises: activitiesPainData?.rehabilitationExercises || [],
+        durationFrequency: activitiesPainData?.durationFrequency || { timesPerWeek: '', reEvalInWeeks: '' },
+        diagnosticUltrasound: activitiesPainData?.diagnosticUltrasound || '',
+        disabilityDuration: activitiesPainData?.disabilityDuration || '',
+        
+        // Treatment List Modal Data
+        nerveStudy: treatmentListData?.nerveStudy || [],
+        restrictions: treatmentListData?.restrictions || { avoidActivityWeeks: '', liftingLimitLbs: '', avoidProlongedSitting: false },
+        otherNotes: treatmentListData?.otherNotes || '',
+        
+        // Imaging and Referrals Modal Data
+        imaging: imagingData?.imaging || { xray: [], mri: [], ct: [] },
+        
+        // Home Care AI Suggestions
+        homeCareSuggestions: homeCareSuggestions || '',
       };
       
-      const response = await axios.post(`http://localhost:5000/api/visits`, flattenedData);
+      // Final validation
+      if (!visitData.previousVisit || !visitData.patient || !visitData.doctor) {
+        alert('Missing required fields: previousVisit, patient, or doctor');
+        return;
+      }
+
+      console.log('Sending visit data:', visitData);
+      console.log('Modal data summary:');
+      console.log('- Muscle palpation data:', !!musclePalpationData);
+      console.log('- Ortho tests data:', !!orthoTestsData);
+      console.log('- AROM data:', !!aromData);
+      console.log('- Activities pain data:', !!activitiesPainData);
+      console.log('- Treatment list data:', !!treatmentListData);
+      console.log('- Imaging data:', !!imagingData);
+      console.log('- Home care suggestions:', !!homeCareSuggestions);
       
+      const response = await axios.post(`http://localhost:5000/api/visits`, visitData);
       
-      const savedVisitId = response.data.visit._id; // Assuming the saved visit ID is returned
+      const savedVisitId = response.data.visit._id;
 
       // 2. Generate AI narrative
       try {
-        const aiResponse = await axios.post(`http://localhost:5000/api/generate-narrative`, {
+        const aiResponse = await axios.post(`http://localhost:5000/api/ai/generate-narrative`, {
           ...formData,
           visitType: 'followup'
         });
@@ -901,10 +1218,33 @@ Now generate this summary using the provided patient data:
       // Clear local storage after successful submission
       localStorage.removeItem(`followupVisit_${id}`);
       
+      // Show success message with data summary
+      const dataSummary = [];
+      if (musclePalpationData) dataSummary.push('Muscle palpation data');
+      if (orthoTestsData) dataSummary.push('Ortho tests data');
+      if (aromData) dataSummary.push('AROM data');
+      if (activitiesPainData) dataSummary.push('Activities pain data');
+      if (treatmentListData) dataSummary.push('Treatment list data');
+      if (imagingData) dataSummary.push('Imaging data');
+      if (homeCareSuggestions) dataSummary.push('Home care suggestions');
+      
+      alert(`Visit saved successfully!\n\nModal data saved: ${dataSummary.length > 0 ? dataSummary.join(', ') : 'None'}`);
+      
       navigate(`/patients/${id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving visit:', error);
+      
+      // Show more specific error messages
+      if (error.response?.data?.errors) {
+        const errorMessages = Array.isArray(error.response.data.errors) 
+          ? error.response.data.errors.join('\n')
+          : error.response.data.errors;
+        alert(`Validation errors:\n${errorMessages}`);
+      } else if (error.response?.data?.message) {
+        alert(`Error: ${error.response.data.message}`);
+      } else {
       alert('Failed to save visit. Please try again.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -1047,9 +1387,24 @@ Now generate this summary using the provided patient data:
         <div className="section">
           <h4 className="font-semibold text-lg text-gray-800 mb-2">Strength:</h4>
           <div className="grid grid-cols-2 gap-4">
-            {Object.keys(initialVisitData?.strength || {}).map((key) => (
-              <p key={key}><span className="font-medium">{key}:</span> {initialVisitData?.strength?.[key] || 'N/A'}</p>
-            ))}
+            {Object.keys(initialVisitData?.strength || {}).map((key) => {
+              const strengthValue = initialVisitData?.strength?.[key];
+              if (typeof strengthValue === 'object' && strengthValue !== null) {
+                return (
+                  <div key={key} className="col-span-2">
+                    <p><span className="font-medium">{key}:</span></p>
+                    <div className="ml-4">
+                      <p><span className="font-medium">Right:</span> {strengthValue.right || 'N/A'}</p>
+                      <p><span className="font-medium">Left:</span> {strengthValue.left || 'N/A'}</p>
+                    </div>
+                  </div>
+                );
+              } else {
+                return (
+                  <p key={key}><span className="font-medium">{key}:</span> {strengthValue || 'N/A'}</p>
+                );
+              }
+            })}
           </div>
         </div>
 
@@ -1071,14 +1426,17 @@ Now generate this summary using the provided patient data:
             </tr>
           </thead>
           <tbody>
-            {Object.entries(initialVisitData.arom[region]).map(([movement, movementData]) => (
+            {Object.entries(initialVisitData.arom[region]).map(([movement, movementData]) => {
+              const data = movementData as { left?: string; right?: string; ligLaxity?: string };
+              return (
               <tr key={movement}>
                 <td className="border-b p-2 text-sm text-gray-600">{movement}</td>
-                <td className="border-b p-2 text-sm text-gray-600">{movementData.left || 'N/A'}</td>
-                <td className="border-b p-2 text-sm text-gray-600">{movementData.right || 'N/A'}</td>
-                <td className="border-b p-2 text-sm text-gray-600">{movementData.ligLaxity || 'N/A'}</td>
+                  <td className="border-b p-2 text-sm text-gray-600">{data.left || 'N/A'}</td>
+                  <td className="border-b p-2 text-sm text-gray-600">{data.right || 'N/A'}</td>
+                  <td className="border-b p-2 text-sm text-gray-600">{data.ligLaxity || 'N/A'}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -1124,26 +1482,61 @@ Now generate this summary using the provided patient data:
 
         {/* Displaying Tenderness */}
         <div className="section">
-          <h4 className="font-semibold text-lg text-gray-800 mb-2">Tenderness:</h4>
+          <h4 className="font-semibold text-lg text-gray-800 mb-3">Tenderness:</h4>
           {initialVisitData?.tenderness ? (
-            Object.keys(initialVisitData.tenderness).map((region) => (
-              <p key={region}><span className="font-medium">{region}:</span> {initialVisitData.tenderness[region].join(', ')}</p>
-            ))
+            <div className="space-y-3">
+              {Object.entries(initialVisitData.tenderness).map(([region, labels]) => {
+                const displayLabels = Array.isArray(labels) ? labels : [labels];
+                
+                return (
+                  <div key={region} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center mb-2">
+                          <h5 className="font-semibold text-gray-800 text-base mr-3">{region}:</h5>
+                          <span className="text-sm text-blue-700 font-medium bg-blue-100 px-2 py-1 rounded">
+                            {Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
-            <p>N/A</p>
+            <p className="text-gray-500 italic">N/A</p>
           )}
         </div>
 
         {/* Displaying Spasm */}
         <div className="section">
-          <h4 className="font-semibold text-lg text-gray-800 mb-2">Spasm:</h4>
+          <h4 className="font-semibold text-lg text-gray-800 mb-3">Spasm:</h4>
           {initialVisitData?.spasm ? (
-            Object.keys(initialVisitData.spasm).map((region) => (
-              <p key={region}><span className="font-medium">{region}:</span> {initialVisitData.spasm[region].join(', ')}</p>
-            ))
+            <div className="space-y-3">
+              {Object.entries(initialVisitData.spasm).map(([region, labels]) => {
+                const displayLabels = Array.isArray(labels) ? labels : [labels];
+                
+                return (
+                  <div key={region} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center mb-2">
+                          <h5 className="font-semibold text-gray-800 text-base mr-3">{region}:</h5>
+                          <span className="text-sm text-blue-700 font-medium bg-blue-100 px-2 py-1 rounded">
+                            {Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
-            <p>N/A</p>
+            <p className="text-gray-500 italic">N/A</p>
           )}
+
         </div>
 
         {/* Displaying Lumbar Touching Toes Movement */}
@@ -1227,6 +1620,25 @@ Now generate this summary using the provided patient data:
       {autoSaveStatus && (
         <div className="fixed bottom-4 right-4 bg-green-100 text-green-800 px-4 py-2 rounded-md shadow-md">
           {autoSaveStatus}
+        </div>
+      )}
+
+      {/* Data Summary */}
+      {(musclePalpationData || orthoTestsData || activitiesPainData || treatmentListData || imagingData || homeCareSuggestions) && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+          <div className="flex">
+            <div className="ml-3">
+              <p className="text-sm text-blue-700 font-medium">Loaded Data Summary:</p>
+              <div className="mt-2 text-xs text-blue-600">
+                {musclePalpationData && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Muscle Palpation ✓</span>}
+                {orthoTestsData && Object.keys(orthoTestsData).length > 0 && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Ortho Tests ✓</span>}
+                {activitiesPainData && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Activities Pain ✓</span>}
+                {treatmentListData && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Treatment List ✓</span>}
+                {imagingData && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Imaging ✓</span>}
+                {homeCareSuggestions && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Home Care ✓</span>}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1320,6 +1732,17 @@ Now generate this summary using the provided patient data:
                 />
                 <label htmlFor="areasSame" className="ml-2 block text-sm text-gray-900">Same</label>
               </div>
+              <div className="flex items-center">
+                <input
+                  id="areasResolved"
+                  name="areasResolved"
+                  type="checkbox"
+                  checked={formData.areasResolved}
+                  onChange={handleChange}
+                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                />
+                <label htmlFor="areasResolved" className="ml-2 block text-sm text-gray-900">Resolved</label>
+              </div>
             </div>
           </div>
 
@@ -1329,9 +1752,11 @@ Now generate this summary using the provided patient data:
   <button
   type="button"
   onClick={() => fetchMusclePalpationData(formData.previousVisit)}
-  className="bg-white text-blue-600 font-medium underline hover:text-blue-800 focus:outline-none"
+  className={`bg-white font-medium underline focus:outline-none ${
+    musclePalpationData ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+  }`}
 >
-  List of muscles specific to that body part
+  List of muscles specific to that body part {musclePalpationData && '✓'}
 </button>
 
 </div>
@@ -1372,11 +1797,25 @@ Now generate this summary using the provided patient data:
         <div>
           <h4 className="font-bold text-lg text-gray-800">Strength:</h4>
           {musclePalpationData?.strength ? (
-            Object.entries(musclePalpationData.strength).map(([key, value]) => (
-              <p key={key} className="text-sm text-gray-700">
-                <span className="font-semibold">{key}:</span> {value || 'N/A'}
-              </p>
-            ))
+            Object.entries(musclePalpationData.strength).map(([key, value]) => {
+              if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
+                return (
+                  <div key={key} className="text-sm text-gray-700 mb-2">
+                    <span className="font-semibold">{key}:</span>
+                    <div className="ml-4">
+                      <p><span className="font-medium">Right:</span> {(value as any).right || 'N/A'}</p>
+                      <p><span className="font-medium">Left:</span> {(value as any).left || 'N/A'}</p>
+                    </div>
+                  </div>
+                );
+              } else {
+                return (
+                  <p key={key} className="text-sm text-gray-700">
+                    <span className="font-semibold">{key}:</span> {String(value || 'N/A')}
+                  </p>
+                );
+              }
+            })
           ) : (
             <p>N/A</p>
           )}
@@ -1384,35 +1823,383 @@ Now generate this summary using the provided patient data:
 
         {/* Tenderness */}
         <div>
-          <h4 className="font-bold text-lg text-gray-800">Tenderness:</h4>
-          {musclePalpationData?.tenderness ? (
-            Object.entries(musclePalpationData.tenderness).map(([region, labels]) => (
-              <p key={region} className="text-sm text-gray-700">
-                <span className="font-semibold">{region}:</span> {labels.join(', ') || 'N/A'}
-              </p>
-            ))
-          ) : (
-            <p>N/A</p>
-          )}
+          <h4 className="font-bold text-lg text-gray-800 mb-3">Tenderness:</h4>
+          <div className="space-y-4">
+            {/* Cervical Region */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-white">
+              <h5 className="font-semibold text-gray-800 text-base mb-3">Cervical:</h5>
+              <div className="space-y-4">
+                {/* Sub Occipital */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Sub Occipital:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`tenderness-cervical-suboccipital-${severity}`}
+                          checked={muscleTendernessSelections.cervical?.subOccipital?.includes(severity) || false}
+                          onChange={(e) => handleMuscleTendernessChange('cervical', 'subOccipital', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`tenderness-cervical-suboccipital-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Scalene */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Scalene:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`tenderness-cervical-scalene-${severity}`}
+                          checked={muscleTendernessSelections.cervical?.scalene?.includes(severity) || false}
+                          onChange={(e) => handleMuscleTendernessChange('cervical', 'scalene', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`tenderness-cervical-scalene-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SCM */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">SCM:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`tenderness-cervical-scm-${severity}`}
+                          checked={muscleTendernessSelections.cervical?.scm?.includes(severity) || false}
+                          onChange={(e) => handleMuscleTendernessChange('cervical', 'scm', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`tenderness-cervical-scm-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Thoracic Region */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-white">
+              <h5 className="font-semibold text-gray-800 text-base mb-3">Thoracic:</h5>
+              <div className="space-y-4">
+                {/* Facets */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Facets:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`tenderness-thoracic-facets-${severity}`}
+                          checked={muscleTendernessSelections.thoracic?.facets?.includes(severity) || false}
+                          onChange={(e) => handleMuscleTendernessChange('thoracic', 'facets', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`tenderness-thoracic-facets-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trapezius */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Trapezius:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`tenderness-thoracic-trapezius-${severity}`}
+                          checked={muscleTendernessSelections.thoracic?.trapezius?.includes(severity) || false}
+                          onChange={(e) => handleMuscleTendernessChange('thoracic', 'trapezius', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`tenderness-thoracic-trapezius-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lumbar Region */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-white">
+              <h5 className="font-semibold text-gray-800 text-base mb-3">Lumbar:</h5>
+              <div className="space-y-4">
+                {/* Facets */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Facets:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`tenderness-lumbar-facets-${severity}`}
+                          checked={muscleTendernessSelections.lumbar?.facets?.includes(severity) || false}
+                          onChange={(e) => handleMuscleTendernessChange('lumbar', 'facets', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`tenderness-lumbar-facets-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* QL */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">QL:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`tenderness-lumbar-ql-${severity}`}
+                          checked={muscleTendernessSelections.lumbar?.ql?.includes(severity) || false}
+                          onChange={(e) => handleMuscleTendernessChange('lumbar', 'ql', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`tenderness-lumbar-ql-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Spasm */}
         <div>
-          <h4 className="font-bold text-lg text-gray-800">Spasm:</h4>
-          {musclePalpationData?.spasm ? (
-            Object.entries(musclePalpationData.spasm).map(([region, labels]) => (
-              <p key={region} className="text-sm text-gray-700">
-                <span className="font-semibold">{region}:</span> {labels.join(', ') || 'N/A'}
-              </p>
-            ))
-          ) : (
-            <p>N/A</p>
-          )}
+          <h4 className="font-bold text-lg text-gray-800 mb-3">Spasm:</h4>
+          <div className="space-y-4">
+            {/* Cervical Region */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-white">
+              <h5 className="font-semibold text-gray-800 text-base mb-3">Cervical:</h5>
+              <div className="space-y-4">
+                {/* Sub Occipital */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Sub Occipital:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`spasm-cervical-suboccipital-${severity}`}
+                          checked={muscleSpasmSelections.cervical?.subOccipital?.includes(severity) || false}
+                          onChange={(e) => handleMuscleSpasmChange('cervical', 'subOccipital', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`spasm-cervical-suboccipital-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Scalene */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Scalene:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`spasm-cervical-scalene-${severity}`}
+                          checked={muscleSpasmSelections.cervical?.scalene?.includes(severity) || false}
+                          onChange={(e) => handleMuscleSpasmChange('cervical', 'scalene', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`spasm-cervical-scalene-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SCM */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">SCM:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`spasm-cervical-scm-${severity}`}
+                          checked={muscleSpasmSelections.cervical?.scm?.includes(severity) || false}
+                          onChange={(e) => handleMuscleSpasmChange('cervical', 'scm', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`spasm-cervical-scm-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Thoracic Region */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-white">
+              <h5 className="font-semibold text-gray-800 text-base mb-3">Thoracic:</h5>
+              <div className="space-y-4">
+                {/* Facets */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Facets:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`spasm-thoracic-facets-${severity}`}
+                          checked={muscleSpasmSelections.thoracic?.facets?.includes(severity) || false}
+                          onChange={(e) => handleMuscleSpasmChange('thoracic', 'facets', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`spasm-thoracic-facets-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trapezius */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Trapezius:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`spasm-thoracic-trapezius-${severity}`}
+                          checked={muscleSpasmSelections.thoracic?.trapezius?.includes(severity) || false}
+                          onChange={(e) => handleMuscleSpasmChange('thoracic', 'trapezius', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`spasm-thoracic-trapezius-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lumbar Region */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-white">
+              <h5 className="font-semibold text-gray-800 text-base mb-3">Lumbar:</h5>
+              <div className="space-y-4">
+                {/* Facets */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Facets:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`spasm-lumbar-facets-${severity}`}
+                          checked={muscleSpasmSelections.lumbar?.facets?.includes(severity) || false}
+                          onChange={(e) => handleMuscleSpasmChange('lumbar', 'facets', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`spasm-lumbar-facets-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* QL */}
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">QL:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Mild', 'Mild to moderate', 'Moderate', 'Moderate to severe', 'Severe', 'Resolved'].map((severity) => (
+                      <div key={severity} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`spasm-lumbar-ql-${severity}`}
+                          checked={muscleSpasmSelections.lumbar?.ql?.includes(severity) || false}
+                          onChange={(e) => handleMuscleSpasmChange('lumbar', 'ql', severity, e.target.checked)}
+                          className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor={`spasm-lumbar-ql-${severity}`} className="ml-2 text-xs text-gray-600">
+                          {severity}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Close Button */}
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-end space-x-2">
+        <button
+          onClick={handleSaveMusclePalpation}
+          className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+        >
+          Save
+        </button>
         <button
           onClick={() => setIsMuscleModalOpen(false)}
           className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
@@ -1507,9 +2294,11 @@ Now generate this summary using the provided patient data:
             <button
   type="button"
   onClick={() => fetchOrthoTestsData(formData.previousVisit)}
-  className="bg-white text-blue-600 font-medium underline hover:text-blue-800 focus:outline-none"
+  className={`bg-white font-medium underline focus:outline-none ${
+    orthoTestsData && Object.keys(orthoTestsData).length > 0 ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+  }`}
 >
-List of tests specific for body part    
+List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsData).length > 0 && '✓'}
 </button>
 {isOrthoModalOpen && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1530,11 +2319,11 @@ List of tests specific for body part
         {/* Orthopedic Tests */}
         <div>
           <h4 className="font-bold text-lg text-gray-800 mb-2">Orthopedic Tests:</h4>
-          {Object.entries(orthoTestsData).length > 0 ? (
-            Object.entries(orthoTestsData).map(([region, tests]) => (
+          {Object.entries(orthoTestsData as Record<string, any>).length > 0 ? (
+            Object.entries(orthoTestsData as Record<string, any>).map(([region, tests]) => (
               <div key={region} className="mb-6">
                 <h5 className="font-semibold text-lg text-gray-800">{region}</h5>
-                {Object.entries(tests).map(([testName, testResult]) => (
+                {Object.entries(tests as Record<string, any>).map(([testName, testResult]) => (
                   <div key={testName} className="space-y-4">
                     <div className="flex items-center justify-between">
                       {/* Test Name */}
@@ -1544,19 +2333,19 @@ List of tests specific for body part
                       <div className="flex space-x-4">
                         <input
                           type="text"
-                          value={testResult.left || 'N/A'}
+                          value={(testResult as any).left || 'N/A'}
                           readOnly
                           className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none"
                         />
                         <input
                           type="text"
-                          value={testResult.right || 'N/A'}
+                          value={(testResult as any).right || 'N/A'}
                           readOnly
                           className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none"
                         />
                         <input
                           type="text"
-                          value={testResult.ligLaxity || 'N/A'}
+                          value={(testResult as any).ligLaxity || 'N/A'}
                           readOnly
                           className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none"
                         />
@@ -1606,9 +2395,11 @@ List of tests specific for body part
           <button
   type="button"
   onClick={() => fetchTreatmentPlanData(formData.previousVisit)}
-  className="bg-white text-blue-600 font-medium underline hover:text-blue-800 focus:outline-none mt-2"
+  className={`bg-white font-medium underline focus:outline-none mt-2 ${
+    activitiesPainData ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+  }`}
 >
-  List of activities that still cause pain
+  List of activities that still cause pain {activitiesPainData && '✓'}
 </button>
 
 {isActivitiesModalOpen && (
@@ -1726,15 +2517,17 @@ List of tests specific for body part
               <button
   type="button"
   onClick={() => fetchTreatmentListData(formData.previousVisit)}
-  className="bg-white text-blue-600 font-medium underline hover:text-blue-800 focus:outline-none mt-2"
+  className={`bg-white font-medium underline focus:outline-none mt-2 ${
+    treatmentListData ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+  }`}
 >
-  List of treatments
+  List of treatments {treatmentListData && '✓'}
 </button>
 {isTreatmentModalOpen && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
     <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-semibold text-gray-800">Complete Treatment Plan</h3>
+        {/* <h3 className="text-xl font-semibold text-gray-800">Complete Treatment Plan</h3> */}
         <button
           onClick={() => setIsTreatmentModalOpen(false)}
           className="text-gray-500 hover:text-gray-700"
@@ -1744,108 +2537,145 @@ List of tests specific for body part
         </button>
       </div>
 
-      <div className="space-y-4 text-sm text-gray-700">
-        {/* Chiropractic */}
-        <div>
-          <h4 className="font-semibold">Chiropractic Adjustment:</h4>
-          <ul className="list-disc ml-5">
-            {treatmentListData?.chiropracticAdjustment?.map((item: string, i: number) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
-          <p><strong>Other:</strong> {treatmentListData?.chiropracticOther || 'N/A'}</p>
+      <div className="space-y-6 text-sm text-gray-700">
+        <h4 className="font-semibold text-lg text-gray-800 mb-4">TREATMENT PLAN</h4>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Chiropractic */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="treatmentPlan.chiropractic"
+              name="treatmentPlan.chiropractic"
+              checked={formData.treatmentPlan.chiropractic}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="treatmentPlan.chiropractic" className="ml-2 text-sm text-gray-700">
+              Chiropractic
+            </label>
+          </div>
+
+          {/* Acupuncture */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="treatmentPlan.acupuncture"
+              name="treatmentPlan.acupuncture"
+              checked={formData.treatmentPlan.acupuncture}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="treatmentPlan.acupuncture" className="ml-2 text-sm text-gray-700">
+              Acupuncture
+            </label>
+          </div>
+
+          {/* Mechanical Traction */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="treatmentPlan.mechanicalTraction"
+              name="treatmentPlan.mechanicalTraction"
+              checked={formData.treatmentPlan.mechanicalTraction}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="treatmentPlan.mechanicalTraction" className="ml-2 text-sm text-gray-700">
+              Mechanical Traction
+            </label>
+          </div>
+
+          {/* Myofascial Release */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="treatmentPlan.myofascialRelease"
+              name="treatmentPlan.myofascialRelease"
+              checked={formData.treatmentPlan.myofascialRelease}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="treatmentPlan.myofascialRelease" className="ml-2 text-sm text-gray-700">
+              Myofascial Release
+            </label>
+          </div>
+
+          {/* Ultrasound */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="treatmentPlan.ultrasound"
+              name="treatmentPlan.ultrasound"
+              checked={formData.treatmentPlan.ultrasound}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="treatmentPlan.ultrasound" className="ml-2 text-sm text-gray-700">
+              Ultrasound
+            </label>
+          </div>
+
+          {/* Infrared Electric Muscle Stimulation */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="treatmentPlan.infraredElectricMuscleStimulation"
+              name="treatmentPlan.infraredElectricMuscleStimulation"
+              checked={formData.treatmentPlan.infraredElectricMuscleStimulation}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="treatmentPlan.infraredElectricMuscleStimulation" className="ml-2 text-sm text-gray-700">
+              Infrared Electric Muscle Stimulation
+            </label>
+          </div>
+
+          {/* Therapeutic Exercise */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="treatmentPlan.therapeuticExercise"
+              name="treatmentPlan.therapeuticExercise"
+              checked={formData.treatmentPlan.therapeuticExercise}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="treatmentPlan.therapeuticExercise" className="ml-2 text-sm text-gray-700">
+              Therapeutic Exercise
+            </label>
+          </div>
+
+          {/* Neuromuscular re-education */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="treatmentPlan.neuromuscularReeducation"
+              name="treatmentPlan.neuromuscularReeducation"
+              checked={formData.treatmentPlan.neuromuscularReeducation}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="treatmentPlan.neuromuscularReeducation" className="ml-2 text-sm text-gray-700">
+              Neuromuscular re-education
+            </label>
+          </div>
         </div>
 
-        {/* Acupuncture */}
-        <div>
-          <h4 className="font-semibold">Acupuncture:</h4>
-          <ul className="list-disc ml-5">
-            {treatmentListData?.acupuncture?.map((item: string, i: number) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
-          <p><strong>Other:</strong> {treatmentListData?.acupunctureOther || 'N/A'}</p>
-        </div>
-
-        {/* Physiotherapy */}
-        <div>
-          <h4 className="font-semibold">Physiotherapy:</h4>
-          <ul className="list-disc ml-5">
-            {treatmentListData?.physiotherapy?.map((item: string, i: number) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Rehab Exercises */}
-        <div>
-          <h4 className="font-semibold">Rehabilitation Exercises:</h4>
-          <ul className="list-disc ml-5">
-            {treatmentListData?.rehabilitationExercises?.map((item: string, i: number) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Duration & Frequency */}
-        <div>
-          <h4 className="font-semibold">Duration & Frequency:</h4>
-          <p>Times per Week: {treatmentListData?.durationFrequency?.timesPerWeek || 'N/A'}</p>
-          <p>Re-evaluation in Weeks: {treatmentListData?.durationFrequency?.reEvalInWeeks || 'N/A'}</p>
-        </div>
-
-        {/* Referrals */}
-        <div>
-          <h4 className="font-semibold">Referrals:</h4>
-          <ul className="list-disc ml-5">
-            {treatmentListData?.referrals?.map((item: string, i: number) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Imaging */}
-        <div>
-          <h4 className="font-semibold">Imaging:</h4>
-          <p><strong>X-ray:</strong> {treatmentListData?.imaging?.xray?.join(', ') || 'N/A'}</p>
-          <p><strong>MRI:</strong> {treatmentListData?.imaging?.mri?.join(', ') || 'N/A'}</p>
-          <p><strong>CT:</strong> {treatmentListData?.imaging?.ct?.join(', ') || 'N/A'}</p>
-        </div>
-
-        {/* Diagnostic Ultrasound */}
-        <div>
-          <h4 className="font-semibold">Diagnostic Ultrasound:</h4>
-          <p>{treatmentListData?.diagnosticUltrasound || 'N/A'}</p>
-        </div>
-
-        {/* Nerve Study */}
-        <div>
-          <h4 className="font-semibold">Nerve Study:</h4>
-          <ul className="list-disc ml-5">
-            {treatmentListData?.nerveStudy?.map((item: string, i: number) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Restrictions */}
-        <div>
-          <h4 className="font-semibold">Restrictions:</h4>
-          <p>Avoid Activity (Weeks): {treatmentListData?.restrictions?.avoidActivityWeeks || 'N/A'}</p>
-          <p>Lifting Limit (lbs): {treatmentListData?.restrictions?.liftingLimitLbs || 'N/A'}</p>
-          <p>Avoid Prolonged Sitting: {treatmentListData?.restrictions?.avoidProlongedSitting ? 'Yes' : 'No'}</p>
-        </div>
-
-        {/* Disability Duration */}
-        <div>
-          <h4 className="font-semibold">Disability Duration:</h4>
-          <p>{treatmentListData?.disabilityDuration || 'N/A'}</p>
-        </div>
-
-        {/* Other Notes */}
-        <div>
-          <h4 className="font-semibold">Other Notes:</h4>
-          <p>{treatmentListData?.otherNotes || 'N/A'}</p>
+        {/* Other Treatment */}
+        <div className="mt-4">
+          <label htmlFor="treatmentPlan.other" className="block text-sm font-medium text-gray-700 mb-2">
+            Other:
+          </label>
+          <input
+            type="text"
+            id="treatmentPlan.other"
+            name="treatmentPlan.other"
+            value={formData.treatmentPlan.other}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter other treatments..."
+          />
         </div>
       </div>
 
@@ -1865,15 +2695,91 @@ List of tests specific for body part
 
               </div>
               <div>
-                <input
-                  type="text"
-                  id="treatmentPlan.timesPerWeek"
-                  name="treatmentPlan.timesPerWeek"
-                  value={formData.treatmentPlan.timesPerWeek}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Times per week"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Frequency:</label>
+                <div className="space-y-4">
+                  {/* Times per week */}
+                  <div>
+                    <div className="flex items-center space-x-4 mb-2">
+                      <span className="text-sm font-medium text-gray-700">Times per week:</span>
+                      {['4x', '3x', '2x', '1x'].map((times) => (
+                        <div key={times} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id={`frequency-timesPerWeek-${times}`}
+                            checked={formData.treatmentPlan.frequency.timesPerWeek[times as keyof typeof formData.treatmentPlan.frequency.timesPerWeek]}
+                            onChange={(e) => handleFrequencyChange('timesPerWeek', times, e.target.checked)}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor={`frequency-timesPerWeek-${times}`} className="ml-2 text-sm text-gray-700">
+                            {times}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Duration */}
+                  <div>
+                    <div className="flex items-center space-x-4 mb-2">
+                      <span className="text-sm font-medium text-gray-700">Duration:</span>
+                      {['4 wks', '6 wks'].map((duration) => (
+                        <div key={duration} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id={`frequency-duration-${duration}`}
+                            checked={typeof formData.treatmentPlan.frequency.duration[duration as keyof typeof formData.treatmentPlan.frequency.duration] === 'boolean' ? formData.treatmentPlan.frequency.duration[duration as keyof typeof formData.treatmentPlan.frequency.duration] as boolean : false}
+                            onChange={(e) => handleFrequencyChange('duration', duration, e.target.checked)}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor={`frequency-duration-${duration}`} className="ml-2 text-sm text-gray-700">
+                            {duration}
+                          </label>
+                        </div>
+                      ))}
+                      <div className="flex items-center">
+                        <input
+                          type="text"
+                          value={formData.treatmentPlan.frequency.duration.custom}
+                          onChange={(e) => handleFrequencyCustomChange('duration', e.target.value)}
+                          className="w-16 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="___"
+                        />
+                        <span className="ml-1 text-sm text-gray-700">weeks</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Re-evaluation */}
+                  <div>
+                    <div className="flex items-center space-x-4 mb-2">
+                      <span className="text-sm font-medium text-gray-700">Re-eval in:</span>
+                      {['4 wks', '6 wks'].map((reEval) => (
+                        <div key={reEval} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id={`frequency-reEval-${reEval}`}
+                            checked={typeof formData.treatmentPlan.frequency.reEval[reEval as keyof typeof formData.treatmentPlan.frequency.reEval] === 'boolean' ? formData.treatmentPlan.frequency.reEval[reEval as keyof typeof formData.treatmentPlan.frequency.reEval] as boolean : false}
+                            onChange={(e) => handleFrequencyChange('reEval', reEval, e.target.checked)}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor={`frequency-reEval-${reEval}`} className="ml-2 text-sm text-gray-700">
+                            {reEval}
+                          </label>
+                        </div>
+                      ))}
+                      <div className="flex items-center">
+                        <input
+                          type="text"
+                          value={formData.treatmentPlan.frequency.reEval.custom}
+                          onChange={(e) => handleFrequencyCustomChange('reEval', e.target.value)}
+                          className="w-16 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="___"
+                        />
+                        <span className="ml-1 text-sm text-gray-700">weeks</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1924,9 +2830,11 @@ List of tests specific for body part
             <button
   type="button"
   onClick={() => fetchImagingAndSpecialistData(formData.previousVisit)}
-  className="bg-white text-blue-600 font-medium underline hover:text-blue-800 focus:outline-none mt-2"
+  className={`bg-white font-medium underline focus:outline-none mt-2 ${
+    imagingData ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+  }`}
 >
-  List of Imaging and Specialists
+  List of Imaging and Specialists {imagingData && '✓'}
 </button>
 {isImagingModalOpen && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -2056,46 +2964,124 @@ List of tests specific for body part
             </div>
           </div>
 
-          {/* Home Care */}
+          {/* Home Care/Recommendations */}
           <div>
-            <label htmlFor="homeCare" className="block text-sm font-medium text-gray-700 mb-1">Home Care: </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Home Care/Recommendations: </label>
             <button
-  type="button"
-  onClick={handleHomeCareAI}
-  className="bg-white text-blue-600 font-medium underline hover:text-blue-800 focus:outline-none mt-2"
->
-  Suggest Home Care (AI)
-</button>
-{isHomeCareModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-lg p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-gray-800"> Home Care </h3>
-        <button
-          onClick={() => setIsHomeCareModalOpen(false)}
-          className="text-gray-500 hover:text-gray-700"
-          aria-label="Close modal"
-        >
-          <X size={24} />
-        </button>
-      </div>
-      <div className="prose prose-sm max-w-none text-gray-800">
-  <div dangerouslySetInnerHTML={{ __html: homeCareSuggestions }} />
-</div>
+              type="button"
+              onClick={() => setIsHomeCareModalOpen(true)}
+              className={`bg-white font-medium underline focus:outline-none mt-2 ${
+                homeCareSuggestions ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+              }`}
+            >
+              Home Care/Recommendations {homeCareSuggestions && '✓'}
+            </button>
+            
+            {isHomeCareModalOpen && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold text-gray-800">Home Care/Recommendations</h3>
+                    <button
+                      onClick={() => setIsHomeCareModalOpen(false)}
+                      className="text-gray-500 hover:text-gray-700"
+                      aria-label="Close modal"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-6 text-sm text-gray-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Core Program */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="homeCare.coreProgram"
+                          name="homeCare.coreProgram"
+                          checked={formData.homeCare.coreProgram}
+                          onChange={handleChange}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="homeCare.coreProgram" className="ml-2 text-sm text-gray-700">
+                          Core Program
+                        </label>
+                      </div>
 
+                      {/* Stretches */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="homeCare.stretches"
+                          name="homeCare.stretches"
+                          checked={formData.homeCare.stretches}
+                          onChange={handleChange}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="homeCare.stretches" className="ml-2 text-sm text-gray-700">
+                          Stretches
+                        </label>
+                      </div>
 
-      <div className="mt-4 flex justify-end">
-        <button
-          onClick={() => setIsHomeCareModalOpen(false)}
-          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+                      {/* Ice Pack/Hot Pack */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="homeCare.icePackHotPack"
+                          name="homeCare.icePackHotPack"
+                          checked={formData.homeCare.icePackHotPack}
+                          onChange={handleChange}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="homeCare.icePackHotPack" className="ml-2 text-sm text-gray-700">
+                          Ice Pack/Hot Pack
+                        </label>
+                      </div>
 
+                      {/* Ligament Stability Program */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="homeCare.ligamentStabilityProgram"
+                          name="homeCare.ligamentStabilityProgram"
+                          checked={formData.homeCare.ligamentStabilityProgram}
+                          onChange={handleChange}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="homeCare.ligamentStabilityProgram" className="ml-2 text-sm text-gray-700">
+                          Ligament Stability Program
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Other Recommendations */}
+                    <div className="mt-4">
+                      <label htmlFor="homeCare.other" className="block text-sm font-medium text-gray-700 mb-2">
+                        Other:
+                      </label>
+                      <input
+                        type="text"
+                        id="homeCare.other"
+                        name="homeCare.other"
+                        value={formData.homeCare.other}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter other recommendations..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={() => setIsHomeCareModalOpen(false)}
+                      className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Additional Notes */}

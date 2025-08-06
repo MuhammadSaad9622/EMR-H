@@ -112,6 +112,24 @@ const AppointmentCalendar: React.FC = () => {
     }
   };
 
+  // Returns a color class for the left border and background based on status
+  const getAppointmentCardColor = (status: string) => {
+    switch (status) {
+      case 'scheduled':
+        return 'border-blue-400 bg-blue-50';
+      case 'confirmed':
+        return 'border-green-400 bg-green-50';
+      case 'completed':
+        return 'border-purple-400 bg-purple-50';
+      case 'cancelled':
+        return 'border-red-400 bg-red-50';
+      case 'no-show':
+        return 'border-yellow-400 bg-yellow-50';
+      default:
+        return 'border-gray-400 bg-gray-50';
+    }
+  };
+
   const renderWeekView = () => {
     const startDate = startOfWeek(currentDate, { weekStartsOn: 0 });
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
@@ -171,7 +189,7 @@ const AppointmentCalendar: React.FC = () => {
                         <Link
                           key={appointment._id}
                           to={`/appointments/${appointment._id}/edit`}
-                          className="block p-2 mb-2 rounded-md border border-gray-200 hover:bg-gray-50"
+                          className={`block p-2 mb-2 rounded-lg shadow-sm border-l-4 hover:shadow-md transition-all duration-150 border border-gray-200 hover:bg-gray-100 ${getAppointmentCardColor(appointment.status)}`}
                         >
                           <div className="flex justify-between items-start">
                             <div>
@@ -280,7 +298,7 @@ const AppointmentCalendar: React.FC = () => {
                         <Link
                           key={appointment._id}
                           to={`/appointments/${appointment._id}/edit`}
-                          className="block p-3 rounded-md border border-gray-200 hover:bg-gray-50"
+                          className={`block p-3 rounded-lg shadow-sm border-l-4 hover:shadow-md transition-all duration-150 border border-gray-200 hover:bg-gray-100 ${getAppointmentCardColor(appointment.status)}`}
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1">

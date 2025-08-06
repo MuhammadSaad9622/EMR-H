@@ -71,16 +71,15 @@ const initialVisitSchema = new mongoose.Schema({
 
   muscleStrength: [String],
   strength: {
-    C5: String,
-    C6: String,
-    C7: String,
-    C8: String,
-    T1: String,
-    L2: String,
-    L3: String,
-    L4: String,
-    L5: String,
-    S1: String
+    C5: { right: String, left: String },
+    'C5-C6': { right: String, left: String },
+    C7: { right: String, left: String },
+    C6: { right: String, left: String },
+    'C8-T1': { right: String, left: String },
+    'L2-L3': { right: String, left: String },
+    'L3-L4': { right: String, left: String },
+    'L4-L5': { right: String, left: String },
+    S1: { right: String, left: String }
   },
 
   oriented: Boolean,
@@ -182,6 +181,7 @@ const followupVisitSchema = new mongoose.Schema({
   areasImproving: Boolean,
   areasExacerbated: Boolean,
   areasSame: Boolean,
+  areasResolved: Boolean,
   musclePalpation: String,
   painRadiating: String,
   romWnlNoPain: Boolean,
@@ -200,7 +200,16 @@ const followupVisitSchema = new mongoose.Schema({
 
   treatmentPlan: {
     treatments: String,
-    timesPerWeek: String
+    timesPerWeek: String,
+    chiropractic: Boolean,
+    acupuncture: Boolean,
+    mechanicalTraction: Boolean,
+    myofascialRelease: Boolean,
+    ultrasound: Boolean,
+    infraredElectricMuscleStimulation: Boolean,
+    therapeuticExercise: Boolean,
+    neuromuscularReeducation: Boolean,
+    other: String
   },
 
   overallResponse: {
@@ -217,9 +226,16 @@ const followupVisitSchema = new mongoose.Schema({
     result: String
   },
 
-  homeCare: String,
+  homeCare: {
+    coreProgram: Boolean,
+    stretches: Boolean,
+    icePackHotPack: Boolean,
+    ligamentStabilityProgram: Boolean,
+    other: String
+  },
 
   notes: String, // ⬅️ if not included in base schema, add it here
+  homeCareSuggestions: String, // AI-generated home care suggestions
 
   // ✅ ADDITIONS FOR MODAL-FETCHED DATA
 
@@ -271,14 +287,24 @@ const dischargeVisitSchema = new mongoose.Schema({
   areasImproving: Boolean,
   areasExacerbated: Boolean,
   areasSame: Boolean,
+  areasResolved: Boolean,
 
   musclePalpation: String,
   painRadiating: String,
   romPercent: Number,
+  romWnlNoPain: Boolean,
+  romWnlWithPain: Boolean,
+  romImproved: Boolean,
+  romDecreased: Boolean,
+  romSame: Boolean,
+  
   orthos: {
     tests: String,
     result: String
   },
+  ortho: mongoose.Schema.Types.Mixed,
+  arom: mongoose.Schema.Types.Mixed,
+  
   activitiesCausePain: String,
   otherNotes: String,
 
@@ -292,7 +318,13 @@ const dischargeVisitSchema = new mongoose.Schema({
   croftCriteria: String,
   amaDisability: String,
   homeCare: [String],
-  referralsNotes: String
+  referralsNotes: String,
+  
+  // Additional fields from followup data
+  muscleStrength: [String],
+  tenderness: mongoose.Schema.Types.Mixed,
+  spasm: mongoose.Schema.Types.Mixed,
+  homeCareSuggestions: String
 });
 
 

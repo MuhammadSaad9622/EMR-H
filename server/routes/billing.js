@@ -2,6 +2,7 @@ import express from 'express';
 import Billing from '../models/Billing.js';
 import Patient from '../models/Patient.js';
 import { authenticateToken } from '../middleware/authMiddleware.js'; // make sure this is at the top
+import Counter from '../models/Counter.js';
 const router = express.Router();
 
 // Get all invoices (with filtering)
@@ -94,6 +95,18 @@ router.get('/count/:patientId', authenticateToken, async (req, res) => {
 
 
 // Get invoice by ID
+router.get('/next-invoice-number', authenticateToken, async (req, res) => {
+  try {
+    const counter = await Counter.findOne({ name: 'invoice' });
+    const nextValue = counter ? counter.value + 1 : 1;
+    const padded = nextValue.toString().padStart(5, '0');
+    res.json({ invoiceNumber: `INV-${padded}` });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch next invoice number' });
+  }
+});
+
+// Get invoice by ID
 router.get('/:id', authenticateToken, async (req, res) => {
 
   try {
@@ -145,6 +158,18 @@ router.post('/', authenticateToken, async (req, res) => {
   
   try {
     const invoiceData = req.body;
+
+    // Auto-generate invoice number if not provided
+    if (!invoiceData.invoiceNumber) {
+      // Find and update the counter atomically
+      const counter = await Counter.findOneAndUpdate(
+        { name: 'invoice' },
+        { $inc: { value: 1 } },
+        { new: true, upsert: true }
+      );
+      const padded = counter.value.toString().padStart(5, '0');
+      invoiceData.invoiceNumber = `INV-${padded}`;
+    }
     
     // Check if patient exists
     const patient = await Patient.findById(invoiceData.patient);
@@ -194,6 +219,9 @@ router.post('/', authenticateToken, async (req, res) => {
     // Calculate totals
     let subtotal = 0;
     invoiceData.items.forEach(item => {
+      if (item.date && typeof item.date === 'string') {
+        item.date = new Date(item.date);
+      }
       item.total = item.quantity * item.unitPrice;
       subtotal += item.total;
     });
@@ -322,6 +350,9 @@ router.put('/:id', async (req, res) => {
     // Calculate totals
     let subtotal = 0;
     req.body.items.forEach(item => {
+      if (item.date && typeof item.date === 'string') {
+        item.date = new Date(item.date);
+      }
       item.total = item.quantity * item.unitPrice;
       subtotal += item.total;
     });
@@ -448,6 +479,27 @@ router.get('/summary/dashboard', async (req, res) => {
     });
   } catch (error) {
     console.error('Get billing summary error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const invoice = await Billing.findById(req.params.id);
+    if (!invoice) {
+      return res.status(404).json({ message: 'Invoice not found' });
+    }
+    // If user is a doctor, check if invoice is for their patient
+    if (req.user.role === 'doctor') {
+      const patient = await Patient.findById(invoice.patient);
+      if (!patient || patient.assignedDoctor.toString() !== req.user.id) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+    await Billing.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Invoice deleted successfully' });
+  } catch (error) {
+    console.error('Delete invoice error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

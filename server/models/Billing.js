@@ -25,6 +25,10 @@ const billingSchema = new mongoose.Schema({
     required: true
   },
   items: [{
+    date: {
+      type: Date,
+      required: false
+    },
     description: {
       type: String,
       required: true
@@ -78,6 +82,19 @@ const billingSchema = new mongoose.Schema({
     reference: String,
     notes: String
   }],
+  attorney: {
+    name: { type: String },
+    firm: { type: String },
+    phone: { type: String },
+    email: { type: String },
+    address: {
+      street: { type: String },
+      city: { type: String },
+      state: { type: String },
+      zipCode: { type: String },
+      country: { type: String }
+    }
+  },
   notes: String,
   createdAt: {
     type: Date,

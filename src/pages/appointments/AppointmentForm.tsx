@@ -209,7 +209,8 @@ const AppointmentForm: React.FC = () => {
       console.error('Error saving appointment:', error);
       console.error('Error details:', error.response?.data);
       if (error.response?.data?.message === 'Conflicting appointment exists') {
-        setShowConflictModal(true);
+        // No longer relevant: backend allows overlapping appointments
+        // setShowConflictModal(true); // Remove this line
       } else if (error.response?.data?.message) {
         window.alert(error.response.data.message);
       } else {
@@ -660,6 +661,7 @@ const AppointmentForm: React.FC = () => {
         </div>
       )}
       {/* Conflict Appointment Modal */}
+      {/*
       {showConflictModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 flex flex-col items-center animate-fadeIn">
@@ -689,6 +691,7 @@ const AppointmentForm: React.FC = () => {
           </div>
         </div>
       )}
+      */}
     </div>
   );
 };
