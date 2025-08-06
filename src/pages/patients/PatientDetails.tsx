@@ -588,12 +588,20 @@ const PatientDetails: React.FC<{}> = () => {
     const fetchPatientData = async () => {
       setIsLoading(true);
       try {
-        // Fetch patient details
-        const patientResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${id}`);
-        setPatient(patientResponse.data);
+        // Fetch all patient data in parallel for faster loading
+        const [
+          patientResponse,
+          visitsResponse,
+          appointmentsResponse,
+          invoiceCountResponse
+        ] = await Promise.all([
+          axios.get(`https://emr-h.onrender.com/api/patients/${id}`),
+          axios.get(`https://emr-h.onrender.com/api/patients/${id}/visits`),
+          axios.get(`https://emr-h.onrender.com/api/appointments?patient=${id}`),
+          axios.get(`https://emr-h.onrender.com/api/billing/count/${id}`)
+        ]);
         
-        // Fetch patient visits
-        const visitsResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${id}/visits`);
+        setPatient(patientResponse.data);
         
         const parsedVisits = visitsResponse.data.map((visit: any) => ({
           ...visit,
@@ -601,17 +609,9 @@ const PatientDetails: React.FC<{}> = () => {
         }));
         setVisits(parsedVisits);
         
-        // Fetch patient appointments
-        const appointmentsResponse = await axios.get(`https://emr-h.onrender.com/api/appointments?patient=${id}`);
         setAppointments(appointmentsResponse.data);
-        
-        // Fetch invoice count for the patient using the dedicated endpoint
-        const invoiceCountResponse = await axios.get(`https://emr-h.onrender.com/api/billing/count/${id}`);
         setInvoiceCount(invoiceCountResponse.data.totalInvoices);
-
         
-        // We don't need to fetch invoices here anymore as BillingList will handle it
-        // setInvoices([]); // Clear the local invoices state
       } catch (error) {
         console.error('Error fetching patient data:', error);
       } finally {
@@ -965,9 +965,7 @@ const PatientDetails: React.FC<{}> = () => {
               `${patient.attorney.address.street || ''}${patient.attorney.address.street && (patient.attorney.address.city || patient.attorney.address.state) ? ', ' : ''}${patient.attorney.address.city || ''}${patient.attorney.address.city && patient.attorney.address.state ? ', ' : ''}${patient.attorney.address.state || ''} ${patient.attorney.address.zipCode || ''}${patient.attorney.address.country ? `, ${patient.attorney.address.country}` : ''}`.trim() || 'N/A' : 'N/A']
           ],
           theme: 'grid',
-          margin: { left: margin, right: margin },
-          lineWidth: 0.5,
-          lineColor: [200, 200, 200]
+          margin: { left: margin, right: margin }
         });
   
         y = (doc as any).lastAutoTable.finalY + 20;
@@ -1013,9 +1011,7 @@ const PatientDetails: React.FC<{}> = () => {
           ['Type of Accident', patient.accidentType || 'N/A']
         ],
         theme: 'grid',
-        margin: { left: margin, right: margin },
-        lineWidth: 0.5,
-        lineColor: [200, 200, 200]
+        margin: { left: margin, right: margin }
       });
   
       y = (doc as any).lastAutoTable.finalY + 20;

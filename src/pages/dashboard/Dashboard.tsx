@@ -50,26 +50,61 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
+      
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.warn('Dashboard data fetch timeout - setting default values');
+        setStats({
+          patientCount: 0,
+          appointmentsToday: 0,
+          appointmentsUpcoming: 0,
+          overdueFollowups: 0
+        });
+        setBillingStats({
+          billedThisMonth: 0,
+          collectedThisMonth: 0,
+          outstanding: 0,
+          statusCounts: {
+            draft: 0,
+            sent: 0,
+            paid: 0,
+            overdue: 0,
+            partial: 0
+          }
+        });
+        setRecentAppointments([]);
+        setAppointmentStats({
+          scheduled: 0,
+          completed: 0,
+          cancelled: 0,
+          noShow: 0
+        });
+        setIsLoading(false);
+      }, 10000); // 10 second timeout
+      
       try {
         // Get today's date
         const today = new Date().toISOString().split('T')[0];
         const tomorrow = new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0];
         const nextWeek = new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0];
         
-        // Fetch patients count
-        const patientsResponse = await axios.get('https://emr-h.onrender.com/api/patients?limit=1');
+        // Fetch all data in parallel for faster loading
+        const [
+          patientsResponse,
+          todayAppointmentsResponse,
+          upcomingAppointmentsResponse,
+          billingSummaryResponse,
+          recentAppointmentsResponse
+        ] = await Promise.all([
+          axios.get('https://emr-h.onrender.com/api/patients?limit=1'),
+          axios.get(`https://emr-h.onrender.com/api/appointments?startDate=${today}&endDate=${tomorrow}`),
+          axios.get(`https://emr-h.onrender.com/api/appointments?startDate=${tomorrow}&endDate=${nextWeek}`),
+          axios.get('https://emr-h.onrender.com/api/billing/summary/dashboard'),
+          axios.get('https://emr-h.onrender.com/api/appointments?limit=5')
+        ]);
         
-        // Fetch today's appointments
-        const todayAppointmentsResponse = await axios.get(`https://emr-h.onrender.com/api/appointments?startDate=${today}&endDate=${tomorrow}`);
-        
-        // Fetch upcoming appointments
-        const upcomingAppointmentsResponse = await axios.get(`https://emr-h.onrender.com/api/appointments?startDate=${tomorrow}&endDate=${nextWeek}`);
-        
-        // Fetch billing summary
-        const billingSummaryResponse = await axios.get('https://emr-h.onrender.com/api/billing/summary/dashboard');
-        
-        // Fetch recent appointments
-        const recentAppointmentsResponse = await axios.get('https://emr-h.onrender.com/api/appointments?limit=5');
+        // Clear timeout since we got the data
+        clearTimeout(timeoutId);
         
         // Calculate appointment stats
         const allAppointments = [...todayAppointmentsResponse.data, ...upcomingAppointmentsResponse.data];
@@ -93,6 +128,34 @@ const Dashboard: React.FC = () => {
         
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        clearTimeout(timeoutId);
+        
+        // Set default values on error to prevent loading state from hanging
+        setStats({
+          patientCount: 0,
+          appointmentsToday: 0,
+          appointmentsUpcoming: 0,
+          overdueFollowups: 0
+        });
+        setBillingStats({
+          billedThisMonth: 0,
+          collectedThisMonth: 0,
+          outstanding: 0,
+          statusCounts: {
+            draft: 0,
+            sent: 0,
+            paid: 0,
+            overdue: 0,
+            partial: 0
+          }
+        });
+        setRecentAppointments([]);
+        setAppointmentStats({
+          scheduled: 0,
+          completed: 0,
+          cancelled: 0,
+          noShow: 0
+        });
       } finally {
         setIsLoading(false);
       }
@@ -151,8 +214,57 @@ const Dashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold text-gray-800">
+              Welcome, {user?.firstName} {user?.lastName}
+            </h1>
+            <p className="text-gray-600">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
+          
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-b-4 border-blue-500 mb-6"></div>
+            <h2 className="text-2xl font-bold text-gray-700 mb-3">Loading Your Dashboard</h2>
+            <p className="text-gray-500 text-center max-w-lg mb-8">
+              Please wait while we fetch your latest data, appointments, patient information, and statistics...
+            </p>
+            
+            {/* Loading skeleton for stats cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-6xl">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white rounded-lg shadow-lg p-6 animate-pulse">
+                  <div className="flex items-center">
+                    <div className="p-3 rounded-full bg-gray-200">
+                      <div className="h-6 w-6 bg-gray-300 rounded"></div>
+                    </div>
+                    <div className="ml-4 flex-1">
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-8 bg-gray-200 rounded"></div>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <div className="h-3 bg-gray-200 rounded w-20"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Loading skeleton for charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl mt-12">
+              <div className="bg-white rounded-lg shadow-lg p-6 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded mb-4 w-32"></div>
+                <div className="h-64 bg-gray-200 rounded"></div>
+              </div>
+              <div className="bg-white rounded-lg shadow-lg p-6 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded mb-4 w-32"></div>
+                <div className="h-64 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
