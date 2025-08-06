@@ -2,7 +2,7 @@
 
 // Replace the AI call section with this for testing:
 try {
-  const response = await axios.post('http://localhost:5000/api/ai/generate-narrative', {
+  const response = await axios.post('https://emr-h.onrender.com/api/ai/generate-narrative', {
     patient,
     visits,
   });

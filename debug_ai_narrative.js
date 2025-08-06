@@ -34,7 +34,7 @@ const testAIGeneration = async () => {
     }];
 
     console.log('Sending request to AI endpoint...');
-    const response = await axios.post('http://localhost:5000/api/ai/generate-narrative', {
+    const response = await axios.post('https://emr-h.onrender.com/api/ai/generate-narrative', {
       patient: testPatient,
       visits: testVisits
     });
