@@ -118,8 +118,8 @@ const DischargeVisitForm: React.FC = () => {
       setIsLoading(true);
       try {
         const [patientResponse, visitsResponse] = await Promise.all([
-          axios.get(`http://localhost:5000/api/patients/${id}`),
-          axios.get(`http://localhost:5000/api/patients/${id}/visits`)
+          axios.get(`https://emr-h.onrender.com/api/patients/${id}`),
+          axios.get(`https://emr-h.onrender.com/api/patients/${id}/visits`)
         ]);
         
         setPatient(patientResponse.data);
@@ -183,7 +183,7 @@ const DischargeVisitForm: React.FC = () => {
     }
 
     try {
-      const response = await axios.get(`http://localhost:5000/api/visits/${lastFollowupVisit._id}`);
+      const response = await axios.get(`https://emr-h.onrender.com/api/visits/${lastFollowupVisit._id}`);
       const data = response.data;
       setFollowupData(data);
       setIsModalOpen(true);
@@ -327,7 +327,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       patient: id,
     };
 
-    await axios.post('http://localhost:5000/api/visits', payload);
+    await axios.post('https://emr-h.onrender.com/api/visits', payload);
 
     navigate(`/patients/${id}`);
   } catch (err) {

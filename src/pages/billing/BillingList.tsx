@@ -73,7 +73,7 @@ const BillingList: React.FC<BillingListProps> = ({
 const fetchInvoices = async () => {
   setIsLoading(true);
   try {
-    let url = `http://localhost:5000/api/billing?page=${currentPage}`;
+    let url = `https://emr-h.onrender.com/api/billing?page=${currentPage}`;
     
     if (searchTerm) url += `&search=${searchTerm}`;
     if (statusFilter) url += `&status=${statusFilter}`;
@@ -99,7 +99,7 @@ const fetchInvoices = async () => {
 
   const fetchBillingSummary = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/billing/summary/dashboard');
+      const response = await axios.get('https://emr-h.onrender.com/api/billing/summary/dashboard');
       setBillingStats(response.data);
     } catch (error) {
       console.error('Error fetching billing summary:', error);
@@ -168,7 +168,7 @@ const fetchInvoices = async () => {
   const handleDownload = async (invoiceId: string) => {
     // Fetch invoice details
     try {
-      const response = await axios.get(`http://localhost:5000/api/billing/${invoiceId}`);
+      const response = await axios.get(`https://emr-h.onrender.com/api/billing/${invoiceId}`);
       const invoice = response.data;
       const doc = new jsPDF();
       doc.setFontSize(20);
@@ -226,7 +226,7 @@ const fetchInvoices = async () => {
   const handleDelete = async (invoiceId: string) => {
     if (!window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/billing/${invoiceId}`);
+      await axios.delete(`https://emr-h.onrender.com/api/billing/${invoiceId}`);
       fetchInvoices(); // Refresh the list
     } catch (error) {
       window.alert('Failed to delete invoice.');
