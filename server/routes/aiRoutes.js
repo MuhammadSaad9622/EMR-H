@@ -8,30 +8,30 @@ const router = express.Router();
 
 // POST endpoint to generate narrative text from form data using OpenAI
 router.post('/generate-narrative', async (req, res) => {
+  console.log('AI Narrative Generation Request:', {
+    hasPatient: !!req.body.patient,
+    hasVisits: !!req.body.visits,
+    patientKeys: req.body.patient ? Object.keys(req.body.patient) : [],
+    visitsCount: req.body.visits ? req.body.visits.length : 0
+  });
+  
   const { patient, visits } = req.body;
   if (!patient) {
+    console.error('Missing patient data in request');
     return res.status(400).json({ success: false, error: "Missing patient data" });
   }
   const apiKey = process.env.OPENAI_API_KEY;
+  
+  if (!apiKey) {
+    console.error('OpenAI API key not found in environment variables');
+    return res.status(500).json({ success: false, error: "OpenAI API key not configured" });
+  }
 
-  // Build a comprehensive, detailed prompt for professional medical documentation
-  let prompt = `Generate a comprehensive, detailed medical narrative report for the following patient. This should be a professional medical document suitable for legal and insurance purposes. Write in a formal, clinical style with detailed sections. Include all relevant clinical findings, assessments, and treatment plans.\n\n`;
-
-  // Patient Demographics
-  prompt += `PATIENT DEMOGRAPHICS:\n`;
-  prompt += `- Name: ${patient.firstName} ${patient.lastName}\n`;
-  prompt += `- Date of Birth: ${patient.dateOfBirth}\n`;
-  prompt += `- Gender: ${patient.gender}\n`;
-  prompt += `- Age: ${calculateAge(patient.dateOfBirth)}\n`;
-  prompt += `- Contact: ${patient.email || 'N/A'}, ${patient.phone || 'N/A'}\n`;
-  prompt += `- Address: ${patient.address?.street || ''}, ${patient.address?.city || ''}, ${patient.address?.state || ''} ${patient.address?.zipCode || ''}\n`;
-  if (patient.accidentDate) prompt += `- Date of Injury/Accident: ${patient.accidentDate}\n`;
-  if (patient.accidentType) prompt += `- Type of Accident: ${patient.accidentType}\n`;
-  if (patient.injuryDate) prompt += `- Injury Date: ${patient.injuryDate}\n`;
-  prompt += `\n`;
+  // Build patient data for JSON-based medical narrative generation
+  let prompt = `PATIENT DATA:\n\n`;
 
   // Medical History - Detailed
-  prompt += `MEDICAL HISTORY:\n`;
+  prompt += `PAST MEDICAL HISTORY:\n`;
   prompt += `- Allergies: ${patient.medicalHistory?.allergies?.length > 0 ? patient.medicalHistory.allergies.join(', ') : 'None reported'}\n`;
   prompt += `- Current Medications: ${patient.medicalHistory?.medications?.length > 0 ? patient.medicalHistory.medications.join(', ') : 'None reported'}\n`;
   prompt += `- Medical Conditions: ${patient.medicalHistory?.conditions?.length > 0 ? patient.medicalHistory.conditions.join(', ') : 'None reported'}\n`;
@@ -52,8 +52,8 @@ router.post('/generate-narrative', async (req, res) => {
 
   // Subjective Intake - Detailed
   if (patient.subjective) {
-    prompt += `SUBJECTIVE INTAKE:\n`;
-    prompt += `- Chief Complaint: ${patient.subjective.fullName || 'N/A'}\n`;
+    prompt += `CHIEF COMPLAINT:\n`;
+    prompt += `- Primary Complaint: ${patient.subjective.fullName || 'N/A'}\n`;
     prompt += `- Date of Onset: ${patient.subjective.date || 'N/A'}\n`;
     prompt += `- Pain Severity: ${patient.subjective.severity || 'N/A'}\n`;
     prompt += `- Timing: ${patient.subjective.timing || 'N/A'}\n`;
@@ -73,65 +73,72 @@ router.post('/generate-narrative', async (req, res) => {
     prompt += `- Affected Body Parts: ${patient.subjective.bodyPart?.map(bp => `${bp.part} (${bp.side})`).join(', ') || 'N/A'}\n`;
     prompt += `- Additional Notes: ${patient.subjective.notes || 'N/A'}\n`;
     prompt += `\n`;
+    
+    prompt += `HISTORY OF PRESENT ILLNESS:\n`;
+    prompt += `- Mechanism of Injury: ${patient.accidentType || 'N/A'}\n`;
+    prompt += `- Date of Injury: ${patient.accidentDate || patient.injuryDate || 'N/A'}\n`;
+    prompt += `- Initial Symptoms: ${patient.subjective.symptoms?.join(', ') || 'N/A'}\n`;
+    prompt += `- Progression of Symptoms: ${patient.subjective.timing || 'N/A'}\n`;
+    prompt += `- Aggravating Factors: ${patient.subjective.exacerbatedBy?.join(', ') || 'N/A'}\n`;
+    prompt += `- Relieving Factors: ${patient.subjective.context || 'N/A'}\n`;
+    prompt += `- Impact on Daily Activities: ${patient.subjective.notes || 'N/A'}\n`;
+    prompt += `\n`;
   }
 
   // Process visits in chronological order
   if (visits && visits.length > 0) {
     const sortedVisits = visits.sort((a, b) => new Date(a.date) - new Date(b.date));
     
-    prompt += `\nCLINICAL VISIT HISTORY (${visits.length} visits):\n`;
-    prompt += `The patient has been seen for ${visits.length} clinical visits. Below is the detailed chronological record of each visit:\n\n`;
-    
     sortedVisits.forEach((visit, idx) => {
       const visitType = visit.visitType || 'Visit';
       const visitDate = new Date(visit.date).toLocaleDateString();
       const provider = `Dr. ${visit.doctor?.firstName || ''} ${visit.doctor?.lastName || ''}`;
       
-      prompt += `VISIT #${idx + 1} - ${visitType.toUpperCase()} (${visitDate}):\n`;
+      prompt += `${visitType.toUpperCase()} #${idx + 1} - ${visitDate}:\n`;
       prompt += `Provider: ${provider}\n`;
       
       // Initial Visit Details
       if (visit.visitType === 'initial' || visit.__t === 'InitialVisit') {
-        prompt += `CHIEF COMPLAINT: ${visit.chiefComplaint || 'N/A'}\n`;
-        prompt += `ASSESSMENT: ${visit.assessment || 'N/A'}\n`;
-        prompt += `DIAGNOSIS: ${visit.diagnosis?.join(', ') || 'N/A'}\n`;
+        prompt += `PHYSICAL EXAMINATION:\n`;
+        prompt += `- Chief Complaint: ${visit.chiefComplaint || 'N/A'}\n`;
+        prompt += `- Assessment: ${visit.assessment || 'N/A'}\n`;
+        prompt += `- Diagnosis: ${visit.diagnosis?.join(', ') || 'N/A'}\n`;
         
         // Vitals
         if (visit.vitals) {
-          prompt += `VITAL SIGNS:\n`;
+          prompt += `- Vital Signs:\n`;
           if (visit.vitals.heightFeet || visit.vitals.heightInches) {
-            prompt += `- Height: ${visit.vitals.heightFeet || 0}'${visit.vitals.heightInches || 0}"\n`;
+            prompt += `  * Height: ${visit.vitals.heightFeet || 0}'${visit.vitals.heightInches || 0}"\n`;
           }
-          if (visit.vitals.weight) prompt += `- Weight: ${visit.vitals.weight} lbs\n`;
-          if (visit.vitals.temp) prompt += `- Temperature: ${visit.vitals.temp}°F\n`;
+          if (visit.vitals.weight) prompt += `  * Weight: ${visit.vitals.weight} lbs\n`;
+          if (visit.vitals.temp) prompt += `  * Temperature: ${visit.vitals.temp}°F\n`;
           if (visit.vitals.bpSystolic || visit.vitals.bpDiastolic) {
-            prompt += `- Blood Pressure: ${visit.vitals.bpSystolic || 0}/${visit.vitals.bpDiastolic || 0} mmHg\n`;
+            prompt += `  * Blood Pressure: ${visit.vitals.bpSystolic || 0}/${visit.vitals.bpDiastolic || 0} mmHg\n`;
           }
-          if (visit.vitals.pulse) prompt += `- Pulse: ${visit.vitals.pulse} bpm\n`;
+          if (visit.vitals.pulse) prompt += `  * Pulse: ${visit.vitals.pulse} bpm\n`;
         }
         
         // Physical Examination
         if (visit.appearance || visit.orientation || visit.posture || visit.gait) {
-          prompt += `PHYSICAL EXAMINATION:\n`;
-          if (visit.appearance?.length > 0) prompt += `- Appearance: ${visit.appearance.join(', ')}\n`;
-          if (visit.appearanceOther) prompt += `- Appearance Notes: ${visit.appearanceOther}\n`;
-          if (visit.orientation?.timePlacePerson) prompt += `- Orientation: ${visit.orientation.timePlacePerson}\n`;
-          if (visit.orientation?.other) prompt += `- Orientation Notes: ${visit.orientation.other}\n`;
-          if (visit.posture?.length > 0) prompt += `- Posture: ${visit.posture.join(', ')}\n`;
-          if (visit.gait?.length > 0) prompt += `- Gait: ${visit.gait.join(', ')}\n`;
-          if (visit.gaitDevice) prompt += `- Gait Device: ${visit.gaitDevice}\n`;
+          prompt += `- General Appearance: ${visit.appearance?.length > 0 ? visit.appearance.join(', ') : 'Normal'}\n`;
+          if (visit.appearanceOther) prompt += `  * Additional Notes: ${visit.appearanceOther}\n`;
+          prompt += `- Mental Status: ${visit.orientation?.timePlacePerson || 'Alert and oriented'}\n`;
+          if (visit.orientation?.other) prompt += `  * Orientation Notes: ${visit.orientation.other}\n`;
+          prompt += `- Posture: ${visit.posture?.length > 0 ? visit.posture.join(', ') : 'Normal'}\n`;
+          prompt += `- Gait: ${visit.gait?.length > 0 ? visit.gait.join(', ') : 'Normal'}\n`;
+          if (visit.gaitDevice) prompt += `  * Gait Device: ${visit.gaitDevice}\n`;
         }
         
         // Neurological Examination
         if (visit.dtr || visit.neuroTests || visit.romberg || visit.pronatorDrift) {
-          prompt += `NEUROLOGICAL EXAMINATION:\n`;
-          if (visit.dtr?.length > 0) prompt += `- Deep Tendon Reflexes: ${visit.dtr.join(', ')}\n`;
-          if (visit.dtrOther) prompt += `- DTR Notes: ${visit.dtrOther}\n`;
-          if (visit.neuroTests?.length > 0) prompt += `- Neurological Tests: ${visit.neuroTests.join(', ')}\n`;
-          if (visit.walkTests?.length > 0) prompt += `- Walk Tests: ${visit.walkTests.join(', ')}\n`;
-          if (visit.romberg?.length > 0) prompt += `- Romberg Test: ${visit.romberg.join(', ')}\n`;
-          if (visit.rombergNotes) prompt += `- Romberg Notes: ${visit.rombergNotes}\n`;
-          if (visit.pronatorDrift) prompt += `- Pronator Drift: ${visit.pronatorDrift}\n`;
+          prompt += `- Neurological Examination:\n`;
+          if (visit.dtr?.length > 0) prompt += `  * Deep Tendon Reflexes: ${visit.dtr.join(', ')}\n`;
+          if (visit.dtrOther) prompt += `  * DTR Notes: ${visit.dtrOther}\n`;
+          if (visit.neuroTests?.length > 0) prompt += `  * Neurological Tests: ${visit.neuroTests.join(', ')}\n`;
+          if (visit.walkTests?.length > 0) prompt += `  * Walk Tests: ${visit.walkTests.join(', ')}\n`;
+          if (visit.romberg?.length > 0) prompt += `  * Romberg Test: ${visit.romberg.join(', ')}\n`;
+          if (visit.rombergNotes) prompt += `  * Romberg Notes: ${visit.rombergNotes}\n`;
+          if (visit.pronatorDrift) prompt += `  * Pronator Drift: ${visit.pronatorDrift}\n`;
         }
         
         // Dermatomes
@@ -208,33 +215,39 @@ router.post('/generate-narrative', async (req, res) => {
         
         // Treatment Plan
         prompt += `TREATMENT PLAN:\n`;
-        if (visit.chiropracticAdjustment?.length > 0) prompt += `- Chiropractic Adjustments: ${visit.chiropracticAdjustment.join(', ')}\n`;
-        if (visit.chiropracticOther) prompt += `- Chiropractic Notes: ${visit.chiropracticOther}\n`;
-        if (visit.acupuncture?.length > 0) prompt += `- Acupuncture: ${visit.acupuncture.join(', ')}\n`;
-        if (visit.acupunctureOther) prompt += `- Acupuncture Notes: ${visit.acupunctureOther}\n`;
-        if (visit.physiotherapy?.length > 0) prompt += `- Physiotherapy: ${visit.physiotherapy.join(', ')}\n`;
-        if (visit.rehabilitationExercises?.length > 0) prompt += `- Rehabilitation Exercises: ${visit.rehabilitationExercises.join(', ')}\n`;
+        prompt += `- Chiropractic Care:\n`;
+        if (visit.chiropracticAdjustment?.length > 0) prompt += `  * Adjustments: ${visit.chiropracticAdjustment.join(', ')}\n`;
+        if (visit.chiropracticOther) prompt += `  * Additional Notes: ${visit.chiropracticOther}\n`;
+        prompt += `- Therapeutic Modalities:\n`;
+        if (visit.acupuncture?.length > 0) prompt += `  * Acupuncture: ${visit.acupuncture.join(', ')}\n`;
+        if (visit.acupunctureOther) prompt += `  * Acupuncture Notes: ${visit.acupunctureOther}\n`;
+        if (visit.physiotherapy?.length > 0) prompt += `  * Physiotherapy: ${visit.physiotherapy.join(', ')}\n`;
+        if (visit.rehabilitationExercises?.length > 0) prompt += `  * Rehabilitation Exercises: ${visit.rehabilitationExercises.join(', ')}\n`;
+        prompt += `- Treatment Schedule:\n`;
         if (visit.durationFrequency) {
-          prompt += `- Treatment Frequency: ${visit.durationFrequency.timesPerWeek || 0} times/week\n`;
-          prompt += `- Re-evaluation: ${visit.durationFrequency.reEvalInWeeks || 0} weeks\n`;
+          prompt += `  * Frequency: ${visit.durationFrequency.timesPerWeek || 0} times per week\n`;
+          prompt += `  * Duration: ${visit.durationFrequency.reEvalInWeeks || 0} weeks\n`;
+          prompt += `  * Re-evaluation: Every ${visit.durationFrequency.reEvalInWeeks || 0} weeks\n`;
         }
-        if (visit.referrals?.length > 0) prompt += `- Referrals: ${visit.referrals.join(', ')}\n`;
+        prompt += `- Diagnostic Studies:\n`;
+        if (visit.referrals?.length > 0) prompt += `  * Referrals: ${visit.referrals.join(', ')}\n`;
         if (visit.imaging) {
           const imagingTypes = [];
           if (visit.imaging.xray?.length > 0) imagingTypes.push(`X-ray: ${visit.imaging.xray.join(', ')}`);
           if (visit.imaging.mri?.length > 0) imagingTypes.push(`MRI: ${visit.imaging.mri.join(', ')}`);
           if (visit.imaging.ct?.length > 0) imagingTypes.push(`CT: ${visit.imaging.ct.join(', ')}`);
-          if (imagingTypes.length > 0) prompt += `- Imaging: ${imagingTypes.join('; ')}\n`;
+          if (imagingTypes.length > 0) prompt += `  * Imaging: ${imagingTypes.join('; ')}\n`;
         }
-        if (visit.diagnosticUltrasound) prompt += `- Diagnostic Ultrasound: ${visit.diagnosticUltrasound}\n`;
-        if (visit.nerveStudy?.length > 0) prompt += `- Nerve Studies: ${visit.nerveStudy.join(', ')}\n`;
+        if (visit.diagnosticUltrasound) prompt += `  * Diagnostic Ultrasound: ${visit.diagnosticUltrasound}\n`;
+        if (visit.nerveStudy?.length > 0) prompt += `  * Nerve Studies: ${visit.nerveStudy.join(', ')}\n`;
+        prompt += `- Activity Restrictions:\n`;
         if (visit.restrictions) {
-          prompt += `- Activity Restrictions: Avoid activity for ${visit.restrictions.avoidActivityWeeks || 0} weeks\n`;
-          prompt += `- Lifting Limit: ${visit.restrictions.liftingLimitLbs || 0} lbs\n`;
-          if (visit.restrictions.avoidProlongedSitting) prompt += `- Avoid Prolonged Sitting: Yes\n`;
+          prompt += `  * Avoid Activity: ${visit.restrictions.avoidActivityWeeks || 0} weeks\n`;
+          prompt += `  * Lifting Limit: ${visit.restrictions.liftingLimitLbs || 0} lbs\n`;
+          if (visit.restrictions.avoidProlongedSitting) prompt += `  * Avoid Prolonged Sitting: Yes\n`;
         }
-        if (visit.disabilityDuration) prompt += `- Disability Duration: ${visit.disabilityDuration}\n`;
-        if (visit.otherNotes) prompt += `- Additional Notes: ${visit.otherNotes}\n`;
+        if (visit.disabilityDuration) prompt += `  * Disability Duration: ${visit.disabilityDuration}\n`;
+        if (visit.otherNotes) prompt += `- Additional Treatment Notes: ${visit.otherNotes}\n`;
       }
       
       // Follow-up Visit Details
@@ -341,81 +354,100 @@ router.post('/generate-narrative', async (req, res) => {
       
       prompt += `\n`;
     });
-    
-    // Add summary information
-    const initialVisit = sortedVisits.find(v => v.visitType === 'initial' || v.__t === 'InitialVisit');
-    const followupVisits = sortedVisits.filter(v => v.visitType === 'followup' || v.__t === 'FollowupVisit');
-    const dischargeVisit = sortedVisits.find(v => v.visitType === 'discharge' || v.__t === 'DischargeVisit');
-    
-    prompt += `\nTREATMENT SUMMARY:\n`;
-    prompt += `- Initial Evaluation: ${initialVisit ? `Completed on ${new Date(initialVisit.date).toLocaleDateString()}` : 'Not completed'}\n`;
-    prompt += `- Follow-up Visits: ${followupVisits.length} visits completed\n`;
-    prompt += `- Discharge Status: ${dischargeVisit ? `Discharged on ${new Date(dischargeVisit.date).toLocaleDateString()}` : 'Patient remains under active care'}\n`;
-    prompt += `- Total Treatment Duration: ${sortedVisits.length > 1 ? `${Math.round((new Date(sortedVisits[sortedVisits.length - 1].date) - new Date(sortedVisits[0].date)) / (1000 * 60 * 60 * 24))} days` : 'Single visit'}\n`;
   }
 
-  prompt += `\nPlease generate a comprehensive, detailed medical narrative report using all the above information. The report should be written in a professional medical style suitable for legal and insurance purposes. 
+  prompt += `\n\nGENERATE MEDICAL NARRATIVE AS JSON:
 
-IMPORTANT FORMATTING REQUIREMENTS:
-- Use **bold headings** for each major section
-- Write in a narrative, flowing style with complete sentences and paragraphs
-- Include detailed clinical findings, assessments, treatment plans, and progress notes
-- Use professional medical terminology and clinical language
-- Structure the report with the following sections:
+Based on the patient data above, create a comprehensive medical narrative. Each content item should be a detailed paragraph of 4-5 sentences with comprehensive medical information. DO NOT include patient demographics or personal information. Return ONLY valid JSON in this exact format:
 
-**PATIENT DEMOGRAPHICS AND HISTORY**
-Provide a comprehensive overview of the patient's demographic information, including age, gender, occupation, and relevant personal history. Include details about the mechanism of injury, date of onset, and any contributing factors.
+{
+  "title": "",
+  "sections": [
+    {
+      "heading": "CHIEF COMPLAINT",
+      "icon": "🩺",
+      "content": [
+        "The patient presents with [detailed description of primary complaint from patient data]. The onset of symptoms occurred on [specific date] under the following circumstances: [detailed mechanism and context]. The patient describes the pain/discomfort as [quality, severity, location] which significantly impacts their daily functioning. Current symptom severity is rated as [pain level] on a 0-10 scale, with symptoms being [constant/intermittent] and [progressive/stable/improving]. The chief complaint has resulted in [specific functional limitations] affecting the patient's ability to perform activities of daily living, work responsibilities, and recreational activities."
+      ]
+    },
+    {
+      "heading": "HISTORY OF PRESENT ILLNESS",
+      "icon": "📋", 
+      "content": [
+        "The mechanism of injury involved [detailed description of accident/incident from patient data] which occurred on [specific date]. Following the initial injury, the patient experienced [immediate symptoms and their progression]. Over the course of [time period], symptoms have [evolved/worsened/improved] with the patient noting [specific changes in pain patterns, functional capacity, and symptom distribution]. Previous treatment attempts have included [list any prior treatments, medications, or interventions] with [outcomes and patient response]. The patient reports that symptoms are [aggravated by specific activities/positions] and [relieved by certain measures/positions], indicating [clinical significance of these patterns]."
+      ]
+    },
+    {
+      "heading": "PAST MEDICAL HISTORY",
+      "icon": "📖",
+      "content": [
+        "The patient's medical history reveals [comprehensive list of allergies or 'no known allergies']. Current medications include [detailed list with dosages and frequencies, or 'no current medications']. Past medical conditions encompass [list of chronic conditions, previous injuries, or 'no significant past medical history']. Surgical history includes [previous surgeries with dates and outcomes, or 'no previous surgeries']. Family medical history is significant for [relevant hereditary conditions or 'non-contributory']. Social history indicates [occupation, lifestyle factors, smoking/alcohol use] which may impact recovery and treatment planning."
+      ]
+    },
+    {
+      "heading": "PHYSICAL EXAMINATION",
+      "icon": "🔍",
+      "content": [
+        "Physical examination reveals vital signs within normal limits with [specific measurements when available]. General appearance shows [patient's overall condition, posture, and demeanor]. Neurological examination demonstrates [specific findings including reflexes, sensation, motor function]. Range of motion testing indicates [specific limitations, measurements, and pain responses]. Orthopedic testing reveals [positive/negative findings for specific tests]. Palpation findings include [areas of tenderness, muscle spasm, or other abnormalities]. Strength testing demonstrates [specific deficits or normal findings with grades]. Overall examination findings are consistent with [clinical impression based on objective findings]."
+      ]
+    },
+    {
+      "heading": "ASSESSMENT",
+      "icon": "⚕️",
+      "content": [
+        "Based on the comprehensive evaluation, the primary diagnosis is [specific diagnosis from visit data]. The clinical presentation is consistent with [pathophysiology and mechanism of injury]. Differential diagnoses considered include [other possible conditions ruled out]. The severity of the condition is assessed as [mild/moderate/severe] based on [specific clinical criteria]. Contributing factors include [biomechanical, occupational, or lifestyle factors]. The patient's functional capacity is currently limited by [specific restrictions] which impacts their [work, daily activities, quality of life]. Prognosis is [favorable/guarded/poor] based on [specific prognostic indicators and patient factors]."
+      ]
+    },
+    {
+      "heading": "TREATMENT PLAN",
+      "icon": "💊",
+      "content": [
+        "The comprehensive treatment plan includes chiropractic adjustments utilizing [specific techniques and regions treated]. Therapeutic modalities will consist of [detailed list of modalities with parameters, frequency, and duration]. Rehabilitation exercises will focus on [specific muscle groups, movement patterns, and functional goals]. Treatment frequency is recommended at [specific schedule] for an initial period of [duration] with re-evaluation planned. Additional interventions may include [diagnostic studies, referrals, or specialized treatments]. Patient education will address [posture, ergonomics, activity modification] to optimize recovery. Home care instructions include [specific exercises, self-care measures, and precautions]. Activity restrictions include [specific limitations and timeline for modification]."
+      ]
+    },
+    {
+      "heading": "PROGNOSIS",
+      "icon": "📈",
+      "content": [
+        "The prognosis for recovery is [favorable/guarded/poor] based on [specific patient factors and condition characteristics]. Expected timeline for significant improvement is [specific timeframe] with full recovery anticipated within [timeframe]. Factors that may positively influence recovery include [patient compliance, age, overall health]. Potential complications or factors that may delay recovery include [specific risk factors]. Functional goals include [return to work, activities of daily living, recreational activities] with expected timeline of [specific milestones]. Long-term maintenance care may be necessary to [prevent recurrence, maintain improvements]. Success will be measured by [specific objective and subjective outcome measures]. Patient education regarding [lifestyle modifications, ergonomics] will be crucial for long-term success."
+      ]
+    },
+    {
+      "heading": "RECOMMENDATIONS",
+      "icon": "✅",
+      "content": [
+        "Follow-up appointments are recommended [specific frequency and duration] to monitor progress and adjust treatment as needed. Home care recommendations include [detailed exercise program, self-care measures, and activity modifications]. The patient should avoid [specific activities, positions, or movements] for [timeframe] to prevent exacerbation. Return precautions include [warning signs that would necessitate immediate medical attention]. Work modifications may include [ergonomic adjustments, lifting restrictions, or schedule modifications]. Long-term recommendations encompass [ongoing exercise, lifestyle modifications, and preventive measures]. The patient should contact the clinic if [specific symptoms or concerns arise]. Coordination with other healthcare providers may be necessary for [specific aspects of care or if complications arise]."
+      ]
+    }
+  ],
+  "summary": "This comprehensive medical narrative documents the patient's condition, examination findings, and treatment plan. The structured approach ensures thorough documentation suitable for legal, insurance, and clinical purposes while providing clear guidance for ongoing care and expected outcomes.",
+  "generatedAt": "${new Date().toISOString()}"
+}
 
-**CHIEF COMPLAINT AND PRESENTING SYMPTOMS**
-Describe in detail the patient's primary complaints, including the nature, location, intensity, and characteristics of pain or symptoms. Include information about onset, duration, frequency, and any aggravating or relieving factors.
+CRITICAL INSTRUCTIONS:
+- Return ONLY the JSON object above - no other text
+- Your response must start with { and end with }
+- Each content item must be a detailed paragraph of 4-5 sentences
+- Use actual patient data to fill in all bracketed placeholders
+- Make each paragraph comprehensive and professionally written
+- DO NOT include any "PATIENT INFORMATION" section or demographics
+- Focus only on medical findings, not personal information
 
-**MEDICAL HISTORY REVIEW**
-Comprehensive review of the patient's medical history, including relevant past injuries, surgeries, medications, allergies, and family history that may impact current treatment.
+RESPOND WITH ONLY THE JSON OBJECT NOW:`;
 
-**PHYSICAL EXAMINATION FINDINGS**
-Detailed documentation of all physical examination findings, including vital signs, range of motion measurements, strength testing, neurological findings, orthopedic test results, and any other relevant clinical observations.
-
-**CLINICAL ASSESSMENT AND DIAGNOSIS**
-Professional clinical assessment including differential diagnoses, working diagnoses, and clinical impressions based on examination findings and patient history.
-
-**TREATMENT PLAN AND INTERVENTIONS**
-Comprehensive treatment plan including specific interventions, modalities, exercises, frequency of care, and rationale for each treatment approach. Include expected outcomes and treatment goals.
-
-**PROGRESS NOTES AND OUTCOMES**
-Detailed documentation of patient progress, response to treatment, functional improvements, and any changes in symptoms or clinical findings over the course of care.
-
-**RECOMMENDATIONS AND FOLLOW-UP**
-Specific recommendations for continued care, home exercises, activity modifications, and follow-up scheduling. Include any referrals or additional diagnostic studies if indicated.
-
-Each section should be comprehensive and detailed, providing a complete clinical picture suitable for medical-legal documentation. Write in a professional narrative style that flows naturally from one section to the next.`;
+  console.log('Generated prompt length:', prompt.length);
+  console.log('Prompt preview (first 500 chars):', prompt.substring(0, 500));
 
   try {
     const openai = new OpenAI({ apiKey });
 
     console.log('Attempting to generate comprehensive narrative with OpenAI...');
-    console.log('API Key available:', !!apiKey);
-    console.log('Patient data received:', !!patient);
-    console.log('Visits count:', visits?.length || 0);
     const response = await openai.chat.completions.create({
-      model: 'gpt-4', // Using GPT-4 for better quality
+      model: 'gpt-4o-mini', // Using GPT-4o-mini for better performance
       messages: [
         {
           role: 'system',
-          content: `You are a highly experienced medical documentation specialist who creates comprehensive, detailed medical narratives for chiropractic and physical therapy practices. Your reports should be thorough, professional, and suitable for legal and insurance purposes.
-
-WRITING STYLE REQUIREMENTS:
-- Write in a narrative, flowing style with complete sentences and paragraphs
-- Use professional medical terminology and clinical language
-- Provide detailed descriptions of all clinical findings and interventions
-- Include comprehensive assessments and treatment rationales
-- Structure information logically with clear transitions between sections
-- Write as if documenting for medical-legal purposes with attention to detail
-- Use active voice and present tense for current findings
-- Include specific measurements, ranges, and clinical observations
-- Provide detailed treatment plans with rationale and expected outcomes
-- Document progress and response to treatment comprehensively
-
-Your narrative should read like a professional medical report that would be suitable for insurance companies, legal proceedings, and other healthcare providers.`
+          content: 'You are a medical AI that MUST return ONLY valid JSON. Your response must start with { and end with }. No explanations, no markdown, no extra text. Use the exact JSON structure shown in the user prompt. Each content array item should be a detailed medical paragraph of 4-5 sentences. Do NOT include patient demographics. Focus on clinical findings, assessments, and treatments using the provided patient data.'
         },
         {
           role: 'user',
@@ -428,11 +460,50 @@ Your narrative should read like a professional medical report that would be suit
 
     const generatedText = response.choices[0]?.message?.content || "Unable to generate narrative at this time.";
     console.log('Successfully generated comprehensive narrative');
-    console.log('Generated text length:', generatedText.length);
-    console.log('Generated text preview:', generatedText.substring(0, 200) + '...');
+    console.log('Raw AI response (first 500 chars):', generatedText.substring(0, 500));
+    console.log('Raw AI response (last 500 chars):', generatedText.substring(Math.max(0, generatedText.length - 500)));
+    console.log('Full AI response length:', generatedText.length);
+    
+    // Check if response starts with JSON
+    const startsWithJson = generatedText.trim().startsWith('{');
+    const endsWithJson = generatedText.trim().endsWith('}');
+    console.log('Response starts with {:', startsWithJson);
+    console.log('Response ends with }:', endsWithJson);
+    
+    // Try to parse as JSON, fall back to plain text if parsing fails
+    let narrativeData;
+    try {
+      // Clean the response - remove any potential markdown formatting
+      let cleanedText = generatedText.trim();
+      if (cleanedText.startsWith('```json')) {
+        cleanedText = cleanedText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      }
+      if (cleanedText.startsWith('```')) {
+        cleanedText = cleanedText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      narrativeData = JSON.parse(cleanedText);
+      console.log('Successfully parsed JSON response');
+      console.log('Parsed sections count:', narrativeData.sections?.length || 0);
+    } catch (parseError) {
+      console.log('Failed to parse JSON:', parseError.message);
+      console.log('Failed text:', generatedText);
+      narrativeData = {
+        title: "Medical Narrative Report",
+        sections: [{
+          heading: "NARRATIVE",
+          icon: "📋",
+          content: [generatedText]
+        }],
+        summary: "AI-generated medical narrative",
+        generatedAt: new Date().toISOString(),
+        isPlainText: true
+      };
+    }
+    
     res.json({ 
       success: true,
-      narrative: generatedText 
+      narrative: narrativeData 
     });
 
   } catch (error) {

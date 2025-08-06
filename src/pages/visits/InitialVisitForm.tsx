@@ -423,9 +423,17 @@ const { data: patientData, isLoading } = useQuery({
       
       // Then, generate AI narrative
       try {
+        // Get patient data
+        const patientResponse = await axios.get(`http://localhost:5000/api/patients/${id}`);
+        const patient = patientResponse.data;
+        
+        // Get all visits for this patient
+        const visitsResponse = await axios.get(`http://localhost:5000/api/patients/${id}/visits`);
+        const visits = visitsResponse.data;
+        
         const aiResponse = await axios.post(`http://localhost:5000/api/ai/generate-narrative`, {
-          ...formData,
-          visitType: 'initial'
+          patient,
+          visits
         });
 
         if (aiResponse.data.success) {

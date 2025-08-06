@@ -1197,11 +1197,19 @@ Generate detailed, personalized home care instructions based on the provided pat
       
       const savedVisitId = response.data.visit._id;
 
-      // 2. Generate AI narrative
-      try {
-        const aiResponse = await axios.post(`http://localhost:5000/api/ai/generate-narrative`, {
-          ...formData,
-          visitType: 'followup'
+              // 2. Generate AI narrative
+        try {
+          // Get patient data
+          const patientResponse = await axios.get(`http://localhost:5000/api/patients/${id}`);
+          const patient = patientResponse.data;
+          
+          // Get all visits for this patient
+          const visitsResponse = await axios.get(`http://localhost:5000/api/patients/${id}/visits`);
+          const visits = visitsResponse.data;
+          
+          const aiResponse = await axios.post(`http://localhost:5000/api/ai/generate-narrative`, {
+            patient,
+            visits
         });
 
         if (aiResponse.data.success) {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
@@ -17,8 +18,6 @@ import {
   FileText, 
   DollarSign, 
   Printer,
-  ChevronDown,
-  ChevronUp,
   Download,
   FileArchive
 } from 'lucide-react';
@@ -36,55 +35,7 @@ const toBase64 = async (url: string): Promise<string> => {
   });
 };
 
-const drawSection = (doc: any, title: string, content: { [key: string]: any }, y: number): number => {
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 20;
 
-  doc.setFont('times', 'bold');
-  doc.setFontSize(13);
-  doc.text(title, margin, y);
-  y += 6;
-
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(200);
-  let boxHeight = 0;
-  const keys = Object.keys(content);
-
-  keys.forEach(key => {
-    const value = typeof content[key] === 'object'
-      ? JSON.stringify(content[key], null, 2)
-      : content[key] || 'N/A';
-
-    const splitText = doc.splitTextToSize(`${key.replace(/([A-Z])/g, ' $1')}: ${value}`, 170);
-    doc.setFont('times', 'normal');
-    doc.setFontSize(10);
-    doc.text(splitText, margin, y);
-    y += splitText.length * 5 + 2;
-    boxHeight += splitText.length * 5 + 2;
-  });
-
-  y += 4;
-  return y;
-};
-const formatRestrictions = (restrictionsObj: any) => {
-  if (!restrictionsObj || typeof restrictionsObj !== 'object') return 'N/A';
-
-  const lines = [];
-
-  if (restrictionsObj.avoidActivityWeeks) {
-    lines.push(`Avoid activity for: ${restrictionsObj.avoidActivityWeeks} week(s)`);
-  }
-
-  if (restrictionsObj.liftingLimitLbs) {
-    lines.push(`Lifting limit: ${restrictionsObj.liftingLimitLbs} lbs`);
-  }
-
-  if (restrictionsObj.avoidProlongedSitting !== undefined) {
-    lines.push(`Avoid prolonged sitting: ${restrictionsObj.avoidProlongedSitting ? 'Yes' : 'No'}`);
-  }
-
-  return lines.length ? lines.join('\n') : 'No restrictions provided';
-};
 
 interface Patient {
   _id: string;
@@ -546,14 +497,7 @@ interface Appointment {
   notes?: string; // Added notes field
 }
 
-interface Invoice {
-  _id: string;
-  invoiceNumber: string;
-  dateIssued: string;
-  dueDate: string;
-  total: number;
-  status: string;
-}
+
 
 const PatientDetails: React.FC<{}> = () => {
   const { id } = useParams<{ id: string }>();
@@ -581,6 +525,36 @@ const PatientDetails: React.FC<{}> = () => {
 
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [aiNarrativePreview, setAiNarrativePreview] = useState<any>(null);
+  const [showAiPreview, setShowAiPreview] = useState(false);
+
+  // Icon mapping for better display
+  const getIconForSection = (iconText: string, heading: string) => {
+    const iconMap: { [key: string]: string } = {
+      '🩺': '🩺',
+      '📋': '📋', 
+      '📖': '📖',
+      '🔍': '🔍',
+      '⚕️': '⚕️',
+      '💊': '💊',
+      '📈': '📈',
+      '✅': '✅'
+    };
+    
+    // Fallback based on heading if icon is not recognized
+    if (iconMap[iconText]) return iconMap[iconText];
+    
+    if (heading.includes('CHIEF')) return '🩺';
+    if (heading.includes('HISTORY')) return '📋';
+    if (heading.includes('MEDICAL')) return '📖';
+    if (heading.includes('EXAMINATION')) return '🔍';
+    if (heading.includes('ASSESSMENT')) return '⚕️';
+    if (heading.includes('TREATMENT')) return '💊';
+    if (heading.includes('PROGNOSIS')) return '📈';
+    if (heading.includes('RECOMMENDATIONS')) return '✅';
+    
+    return '•'; // Default bullet
+  };
 
   Modal.setAppElement('#root');
 
@@ -635,56 +609,36 @@ const PatientDetails: React.FC<{}> = () => {
     return age;
   };
 
+  const generateAiPreview = async () => {
+    if (!patient) return;
+    setIsGeneratingReport(true);
+    
+    try {
+      console.log('Generating AI narrative preview:', { patient: patient._id, visitsCount: visits.length });
+      const response = await axios.post('http://localhost:5000/api/ai/generate-narrative', {
+        patient,
+        visits,
+      });
+      
+      const aiNarrative = response.data.narrative;
+      console.log('AI narrative preview generated:', aiNarrative ? 'Success' : 'Failed');
+      
+      setAiNarrativePreview(aiNarrative);
+      setShowAiPreview(true);
+    } catch (error) {
+      console.error('Error generating AI preview:', error);
+      toast.error('Failed to generate AI narrative preview');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
     documentTitle: `Patient_${patient?.firstName}_${patient?.lastName}`,
   });
 
-  const generatePDF = () => {
-    if (!patient) return;
-    
-    const doc = new jsPDF();
-    
-    // Add title
-    doc.setFontSize(20);
-    doc.text('Patient Summary', 105, 15, { align: 'center' });
-    
-    // Add patient name
-    doc.setFontSize(16);
-    doc.text(`${patient.firstName} ${patient.lastName}`, 105, 25, { align: 'center' });
-    
-    // Add basic info
-    doc.setFontSize(12);
-    doc.text(`Date of Birth: ${new Date(patient.dateOfBirth).toLocaleDateString()}`, 20, 40);
-    doc.text(`Gender: ${patient.gender}`, 20, 50);
-    doc.text(`Status: ${patient.status}`, 20, 60);
-    doc.text(`Email: ${patient.email}`, 20, 70);
-    doc.text(`Phone: ${patient.phone}`, 20, 80);
-    doc.text(`Date of Accident: ${patient.accidentDate ? new Date(patient.accidentDate).toLocaleDateString() : 'N/A'}`, 20, 90);
-    doc.text(`Type of Accident: ${patient.accidentType || 'N/A'}`, 20, 100);
-    
-    // Add address
-    doc.text('Address:', 20, 115);
-    if (patient.address.street) doc.text(`${patient.address.street}`, 30, 125);
-    if (patient.address.city || patient.address.state) {
-      doc.text(`${patient.address.city}, ${patient.address.state} ${patient.address.zipCode}`, 30, 135);
-    }
-    if (patient.address.country) doc.text(`${patient.address.country}`, 30, 145);
-    
-    // Add medical history
-    doc.text('Medical History:', 20, 160);
-    
-    // Allergies
-    if (patient.medicalHistory.allergies.length > 0) {
-      doc.text('Allergies:', 30, 170);
-      patient.medicalHistory.allergies.forEach((allergy, index) => {
-        if (allergy) doc.text(`- ${allergy}`, 40, 180 + (index * 10));
-      });
-    }
-    
-    // Save the PDF
-    doc.save(`Patient_${patient.firstName}_${patient.lastName}.pdf`);
-  };
+
 
   const generateFullReport = async () => {
     if (!patient) return;
@@ -884,6 +838,7 @@ const PatientDetails: React.FC<{}> = () => {
   
       const aiNarrative = response.data.narrative;
       console.log('AI narrative generated:', aiNarrative ? 'Success' : 'Failed');
+      console.log('AI narrative type:', typeof aiNarrative);
   
       // ATTORNEY INFORMATION
       if (patient.attorney) {
@@ -1231,14 +1186,93 @@ const PatientDetails: React.FC<{}> = () => {
         ]);
       }
   
-      // AI NARRATIVE (formatted) - Always include as comprehensive summary
-      if (aiNarrative && aiNarrative.trim()) {
+      // AI NARRATIVE (Enhanced formatting) - Always include as comprehensive summary
+      if (aiNarrative) {
         // Add a separator before AI narrative
         if (y > 250) {
           doc.addPage();
           y = 30;
         }
         
+        // Handle structured JSON response
+        if (typeof aiNarrative === 'object' && aiNarrative.sections) {
+          // Add main AI narrative heading with enhanced styling
+          doc.setFontSize(16);
+          doc.setTextColor(colors.purple[0], colors.purple[1], colors.purple[2]);
+          doc.setFont('helvetica', 'bold');
+          doc.text(aiNarrative.title || 'COMPREHENSIVE MEDICAL NARRATIVE', pageWidth / 2, y, { align: 'center' });
+          y += 20;
+          
+          // Add summary if available
+          if (aiNarrative.summary) {
+            doc.setFontSize(11);
+            doc.setTextColor(60, 60, 60);
+            doc.setFont('helvetica', 'italic');
+            const summaryText = doc.splitTextToSize(aiNarrative.summary, pageWidth - margin * 2);
+            doc.text(summaryText, margin, y);
+            y += summaryText.length * 6 + 15;
+          }
+          
+          // Process each section with enhanced formatting
+          aiNarrative.sections.forEach((section: any) => {
+            if (y > 240) {
+              doc.addPage();
+              y = 30;
+            }
+            
+            // Section header with icon and enhanced styling
+            doc.setFontSize(13);
+            doc.setTextColor(colors.purple[0], colors.purple[1], colors.purple[2]);
+            doc.setFont('helvetica', 'bold');
+            
+            // Add colored background for section headers
+            doc.setFillColor(250, 248, 255); // Light purple background
+            doc.rect(margin - 5, y - 8, pageWidth - margin * 2 + 10, 16, 'F');
+            
+            // Use simple bullet instead of emoji for PDF compatibility
+            const headerText = `• ${section.heading}`;
+            doc.text(headerText, margin, y);
+            y += 18;
+            
+            // Section content with improved paragraph formatting
+            if (section.content && Array.isArray(section.content)) {
+              section.content.forEach((item: string) => {
+                if (y > 250) {
+                  doc.addPage();
+                  y = 30;
+                }
+                
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.setTextColor(50, 50, 50);
+                
+                // Add bullet point with paragraph formatting
+                const bulletText = `• ${item}`;
+                const wrappedText = doc.splitTextToSize(bulletText, pageWidth - margin * 2 - 15);
+                doc.text(wrappedText, margin + 8, y);
+                y += wrappedText.length * 5.5 + 8; // Extra spacing between paragraphs
+              });
+            }
+            
+            // Add spacing between sections
+            y += 10;
+          });
+          
+          // Add generation timestamp
+          if (aiNarrative.generatedAt) {
+            if (y > 260) {
+              doc.addPage();
+              y = 30;
+            }
+            doc.setFontSize(8);
+            doc.setTextColor(120, 120, 120);
+            doc.setFont('helvetica', 'italic');
+            doc.text(`Generated: ${new Date(aiNarrative.generatedAt).toLocaleString()}`, margin, y);
+            y += 15;
+          }
+        } 
+        // Handle plain text response (fallback)
+        else if (typeof aiNarrative === 'string' && aiNarrative.trim()) {
         // Add main AI narrative heading
         doc.setFontSize(14);
         doc.setTextColor(colors.purple[0], colors.purple[1], colors.purple[2]);
@@ -1257,7 +1291,7 @@ const PatientDetails: React.FC<{}> = () => {
         } else {
           // If AI returned unstructured text, format it as paragraphs
           const paragraphs = aiNarrative.split('\n\n').filter((p: string) => p.trim());
-          paragraphs.forEach((paragraph: string, index: number) => {
+            paragraphs.forEach((paragraph: string) => {
             if (y > 260) {
               doc.addPage();
               y = 30;
@@ -1271,6 +1305,7 @@ const PatientDetails: React.FC<{}> = () => {
             doc.text(wrappedText, margin, y);
             y += wrappedText.length * 6 + 8;
           });
+          }
         }
       }
   
@@ -1433,11 +1468,22 @@ const PatientDetails: React.FC<{}> = () => {
           </button>
           <button
             onClick={generateFullReport}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            disabled={isGeneratingReport}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
           >
             <Download className="mr-2 h-4 w-4" />
-            Export PDF
+            {isGeneratingReport ? 'Generating...' : 'Export PDF'}
           </button>
+          {/* <button
+            onClick={generateAiPreview}
+            disabled={isGeneratingReport}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+          >
+            <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            {isGeneratingReport ? 'Generating...' : 'AI Preview'}
+          </button> */}
           <button
             onClick={async () => {
               // Refresh patient data before opening modal
@@ -1708,18 +1754,18 @@ const PatientDetails: React.FC<{}> = () => {
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
-              {/* Severity */}
+              {/* Body Part Info - these properties exist on the subjective level, not body part level */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Severity</dt>
-                <dd className="mt-1 text-sm text-gray-900">{bp.severity || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.severity || 'N/A'}</dd>
               </div>
               
               {/* Quality */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Quality</dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  {bp.quality?.length
-                    ? bp.quality.join(', ')
+                  {patient.subjective?.quality?.length
+                    ? patient.subjective.quality.join(', ')
                     : 'N/A'}
                 </dd>
               </div>
@@ -1727,21 +1773,21 @@ const PatientDetails: React.FC<{}> = () => {
               {/* Timing */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Timing</dt>
-                <dd className="mt-1 text-sm text-gray-900">{bp.timing || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.timing || 'N/A'}</dd>
               </div>
               
               {/* Context */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Context</dt>
-                <dd className="mt-1 text-sm text-gray-900">{bp.context || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.context || 'N/A'}</dd>
               </div>
               
               {/* Exacerbated By */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Exacerbated By</dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  {bp.exacerbatedBy?.length
-                    ? bp.exacerbatedBy.join(', ')
+                  {patient.subjective?.exacerbatedBy?.length
+                    ? patient.subjective.exacerbatedBy.join(', ')
                     : 'N/A'}
                 </dd>
               </div>
@@ -1750,8 +1796,8 @@ const PatientDetails: React.FC<{}> = () => {
               <div>
                 <dt className="text-sm font-medium text-gray-500">Symptoms</dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  {bp.symptoms?.length
-                    ? bp.symptoms.join(', ')
+                  {patient.subjective?.symptoms?.length
+                    ? patient.subjective.symptoms.join(', ')
                     : 'N/A'}
                 </dd>
               </div>
@@ -1759,7 +1805,7 @@ const PatientDetails: React.FC<{}> = () => {
               {/* Radiating To */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Radiating To</dt>
-                <dd className="mt-1 text-sm text-gray-900">{bp.radiatingTo || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.radiatingTo || 'N/A'}</dd>
               </div>
               
               {/* Radiating Pain */}
@@ -1767,8 +1813,8 @@ const PatientDetails: React.FC<{}> = () => {
                 <dt className="text-sm font-medium text-gray-500">Radiating Pain</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {[
-                    bp.radiatingLeft && 'Left',
-                    bp.radiatingRight && 'Right',
+                    patient.subjective?.radiatingLeft && 'Left',
+                    patient.subjective?.radiatingRight && 'Right',
                   ].filter(Boolean).join(', ') || 'None'}
                 </dd>
               </div>
@@ -1778,8 +1824,8 @@ const PatientDetails: React.FC<{}> = () => {
                 <dt className="text-sm font-medium text-gray-500">Sciatica</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {[
-                    bp.sciaticaLeft && 'Left',
-                    bp.sciaticaRight && 'Right',
+                    patient.subjective?.sciaticaLeft && 'Left',
+                    patient.subjective?.sciaticaRight && 'Right',
                   ].filter(Boolean).join(', ') || 'None'}
                 </dd>
               </div>
@@ -1787,7 +1833,7 @@ const PatientDetails: React.FC<{}> = () => {
               {/* Notes */}
               <div className="md:col-span-2">
                 <dt className="text-sm font-medium text-gray-500">Notes</dt>
-                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{bp.notes || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{patient.subjective?.notes || 'N/A'}</dd>
               </div>
             </div>
           </div>
@@ -2406,7 +2452,7 @@ const PatientDetails: React.FC<{}> = () => {
                 <h3 className="text-md font-semibold text-blue-700 mb-2">Body Part Information</h3>
                 <div className="font-medium">
                   {patient.subjective.bodyPart && Array.isArray(patient.subjective.bodyPart) && patient.subjective.bodyPart.length > 0 ? 
-                    patient.subjective.bodyPart.map((bp, index) => 
+                    patient.subjective.bodyPart.map((bp) => 
                       typeof bp === 'object' && bp.part ? 
                         `${bp.part}${bp.side ? ` (${bp.side})` : ''}` : 
                         String(bp)
@@ -2529,6 +2575,107 @@ const PatientDetails: React.FC<{}> = () => {
           >
             Close
           </button>
+        </div>
+      </Modal>
+
+      {/* AI Narrative Preview Modal */}
+      <Modal
+        isOpen={showAiPreview}
+        onRequestClose={() => setShowAiPreview(false)}
+        className="fixed inset-0 flex items-center justify-center p-4 z-50"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50"
+        contentLabel="AI Narrative Preview"
+      >
+        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+              <svg className="mr-2 h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              AI Medical Narrative Preview
+            </h2>
+            <button
+              onClick={() => setShowAiPreview(false)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+            {aiNarrativePreview && typeof aiNarrativePreview === 'object' && aiNarrativePreview.sections ? (
+              <div className="space-y-6">
+                {/* Title and Summary */}
+                <div className="text-center border-b pb-4">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                    {aiNarrativePreview.title}
+                  </h1>
+                  {aiNarrativePreview.summary && (
+                    <p className="text-gray-600 italic max-w-3xl mx-auto">
+                      {aiNarrativePreview.summary}
+                    </p>
+                  )}
+                  {aiNarrativePreview.generatedAt && (
+                    <p className="text-xs text-gray-400 mt-2">
+                      Generated: {new Date(aiNarrativePreview.generatedAt).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+
+                {/* Sections */}
+                {aiNarrativePreview.sections.map((section: any, index: number) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-4">
+                    <h2 className="text-lg font-semibold text-purple-700 mb-3 flex items-center">
+                      <span className="mr-2 text-xl">{getIconForSection(section.icon, section.heading)}</span>
+                      {section.heading}
+                    </h2>
+                    <div className="space-y-2">
+                      {section.content && Array.isArray(section.content) && section.content.map((item: string, itemIndex: number) => (
+                        <div key={itemIndex} className="mb-4">
+                          <div className="flex items-start">
+                            <span className="text-purple-500 mr-3 mt-1 flex-shrink-0 text-lg">•</span>
+                            <p className="text-gray-700 text-sm leading-relaxed text-justify">{item}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-500">
+                  {aiNarrativePreview ? (
+                    <div className="whitespace-pre-wrap text-left bg-gray-50 p-4 rounded-lg">
+                      {typeof aiNarrativePreview === 'string' ? aiNarrativePreview : JSON.stringify(aiNarrativePreview, null, 2)}
+                    </div>
+                  ) : (
+                    <p>No AI narrative generated yet. Click "AI Preview" to generate one.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+            <button
+              onClick={() => setShowAiPreview(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              Close
+            </button>
+            <button
+              onClick={() => {
+                setShowAiPreview(false);
+                generateFullReport();
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              Generate Full PDF Report
+            </button>
+          </div>
         </div>
       </Modal>
     </div>
