@@ -55,6 +55,14 @@ type FormData = {
   ortho?: any;
   arom?: any;
   homeCareSuggestions?: string;
+  individualAreaStatus?: {
+    [key: string]: {
+      improving: boolean;
+      exacerbated: boolean;
+      same: boolean;
+      resolved: boolean;
+    };
+  };
 };
 
 const DischargeVisitForm: React.FC = () => {
@@ -66,6 +74,7 @@ const DischargeVisitForm: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [lastFollowupVisit, setLastFollowupVisit] = useState<any>(null);
   const [followupData, setFollowupData] = useState<any>(null);
+  const [showSideBySide, setShowSideBySide] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     areasImproving: false,
     areasExacerbated: false,
@@ -111,6 +120,35 @@ const DischargeVisitForm: React.FC = () => {
   const [isOrthosModalOpen, setIsOrthosModalOpen] = useState(false);
   const [isActivitiesModalOpen, setIsActivitiesModalOpen] = useState(false);
   const [isCroftModalOpen, setIsCroftModalOpen] = useState(false);
+
+  // State for individual area status checkboxes
+  const [individualAreaStatus, setIndividualAreaStatus] = useState<{
+    [key: string]: {
+      improving: boolean;
+      exacerbated: boolean;
+      same: boolean;
+      resolved: boolean;
+    };
+  }>({});
+
+  // State for editable additional assessment data
+  const [editableAdditionalData, setEditableAdditionalData] = useState<{
+    tenderness: any;
+    spasm: any;
+    ortho: any;
+    arom: any;
+    muscleStrength: string[];
+    activities: any;
+    croftCriteria: any;
+  }>({
+    tenderness: {},
+    spasm: {},
+    ortho: {},
+    arom: {},
+    muscleStrength: [],
+    activities: {},
+    croftCriteria: {}
+  });
 
   // Fetch patient data and visits on component mount
   useEffect(() => {
@@ -175,6 +213,282 @@ const DischargeVisitForm: React.FC = () => {
     });
   };
 
+  // Handler for individual area status checkboxes
+  const handleIndividualAreaStatusChange = (elementKey: string, status: 'improving' | 'exacerbated' | 'same' | 'resolved', checked: boolean) => {
+    setIndividualAreaStatus(prev => ({
+      ...prev,
+      [elementKey]: {
+        ...prev[elementKey],
+        [status]: checked
+      }
+    }));
+  };
+
+  // Handlers for additional assessment data
+  const handleAdditionalDataChange = (section: string, field: string, value: any) => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section as keyof typeof prev],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleAddTendernessItem = () => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      tenderness: {
+        ...prev.tenderness,
+        [`region_${Object.keys(prev.tenderness).length + 1}`]: {
+          part: '',
+          severities: []
+        }
+      }
+    }));
+  };
+
+  const handleRemoveTendernessItem = (region: string) => {
+    setEditableAdditionalData(prev => {
+      const newTenderness = { ...prev.tenderness };
+      delete newTenderness[region];
+      return {
+        ...prev,
+        tenderness: newTenderness
+      };
+    });
+  };
+
+  const handleAddSpasmItem = () => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      spasm: {
+        ...prev.spasm,
+        [`region_${Object.keys(prev.spasm).length + 1}`]: {
+          part: '',
+          severities: []
+        }
+      }
+    }));
+  };
+
+  const handleRemoveSpasmItem = (region: string) => {
+    setEditableAdditionalData(prev => {
+      const newSpasm = { ...prev.spasm };
+      delete newSpasm[region];
+      return {
+        ...prev,
+        spasm: newSpasm
+      };
+    });
+  };
+
+
+
+  const handleAddAromMovement = () => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      arom: {
+        ...prev.arom,
+        [`movement_${Object.keys(prev.arom).length + 1}`]: {
+          range: '',
+          quality: '',
+          pain: ''
+        }
+      }
+    }));
+  };
+
+  const handleRemoveAromMovement = (movement: string) => {
+    setEditableAdditionalData(prev => {
+      const newArom = { ...prev.arom };
+      delete newArom[movement];
+      return {
+        ...prev,
+        arom: newArom
+      };
+    });
+  };
+
+
+
+
+
+
+
+  // Handlers for muscle strength
+  const handleAddMuscleStrength = () => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      muscleStrength: [...prev.muscleStrength, '']
+    }));
+  };
+
+  const handleMuscleStrengthChange = (index: number, value: string) => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      muscleStrength: prev.muscleStrength.map((muscle, i) => i === index ? value : muscle)
+    }));
+  };
+
+  const handleRemoveMuscleStrength = (index: number) => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      muscleStrength: prev.muscleStrength.filter((_, i) => i !== index)
+    }));
+  };
+
+
+
+  // Handlers for orthos tests
+  const handleAddOrthoTest = () => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      ortho: {
+        ...prev.ortho,
+        [`test_${Object.keys(prev.ortho).length + 1}`]: {
+          name: '',
+          result: '',
+          details: ''
+        }
+      }
+    }));
+  };
+
+  const handleOrthoTestChange = (testKey: string, field: string, value: string) => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      ortho: {
+        ...prev.ortho,
+        [testKey]: {
+          ...prev.ortho[testKey],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const handleRemoveOrthoTest = (testKey: string) => {
+    setEditableAdditionalData(prev => {
+      const newOrtho = { ...prev.ortho };
+      delete newOrtho[testKey];
+      return {
+        ...prev,
+        ortho: newOrtho
+      };
+    });
+  };
+
+  // Handlers for activities
+  const handleAddActivity = () => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      activities: {
+        ...prev.activities,
+        [`activity_${Object.keys(prev.activities || {}).length + 1}`]: {
+          name: '',
+          severity: '',
+          frequency: ''
+        }
+      }
+    }));
+  };
+
+  const handleActivityChange = (activityKey: string, field: string, value: string) => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      activities: {
+        ...prev.activities,
+        [activityKey]: {
+          ...prev.activities[activityKey],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const handleRemoveActivity = (activityKey: string) => {
+    setEditableAdditionalData(prev => {
+      const newActivities = { ...prev.activities };
+      delete newActivities[activityKey];
+      return {
+        ...prev,
+        activities: newActivities
+      };
+    });
+  };
+
+  // Handlers for Croft Criteria
+  const handleAddCroftCriteria = () => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      croftCriteria: {
+        ...prev.croftCriteria,
+        [`criteria_${Object.keys(prev.croftCriteria).length + 1}`]: {
+          grade: '',
+          frequency: '',
+          treatmentGuideline: '',
+          notes: ''
+        }
+      }
+    }));
+  };
+
+  const handleCroftCriteriaChange = (criteriaKey: string, field: string, value: string) => {
+    setEditableAdditionalData(prev => ({
+      ...prev,
+      croftCriteria: {
+        ...prev.croftCriteria,
+        [criteriaKey]: {
+          ...prev.croftCriteria[criteriaKey],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const handleRemoveCroftCriteria = (criteriaKey: string) => {
+    setEditableAdditionalData(prev => {
+      const newCroftCriteria = { ...prev.croftCriteria };
+      delete newCroftCriteria[criteriaKey];
+      return {
+        ...prev,
+        croftCriteria: newCroftCriteria
+      };
+    });
+  };
+
+  // Handlers for severity checkboxes
+  const handleSeverityChange = (section: 'tenderness' | 'spasm', region: string, severity: string, checked: boolean) => {
+    setEditableAdditionalData(prev => {
+      const sectionData = prev[section];
+      const regionData = sectionData[region];
+      
+      if (!regionData) return prev;
+      
+      let newSeverities = [...(regionData.severities || [])];
+      
+      if (checked) {
+        if (!newSeverities.includes(severity)) {
+          newSeverities.push(severity);
+        }
+      } else {
+        newSeverities = newSeverities.filter(s => s !== severity);
+      }
+      
+      return {
+        ...prev,
+        [section]: {
+          ...sectionData,
+          [region]: {
+            ...regionData,
+            severities: newSeverities
+          }
+        }
+      };
+    });
+  };
+
   // Function to fetch and display last followup visit data in modal
   const fetchLastFollowupData = async () => {
     if (!lastFollowupVisit) {
@@ -186,7 +500,77 @@ const DischargeVisitForm: React.FC = () => {
       const response = await axios.get(`https://emr-h.onrender.com/api/visits/${lastFollowupVisit._id}`);
       const data = response.data;
       setFollowupData(data);
-      setIsModalOpen(true);
+      
+      // Initialize individual area status checkboxes
+      const initialStatus: { [key: string]: { improving: boolean; exacerbated: boolean; same: boolean; resolved: boolean; } } = {};
+      
+      // Add status for each element that has data
+      if (data.musclePalpation) {
+        initialStatus['musclePalpation'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.painRadiating) {
+        initialStatus['painRadiating'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.romPercent) {
+        initialStatus['romPercent'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.orthos?.tests || data.orthos?.result) {
+        initialStatus['orthos'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.activitiesCausePain) {
+        initialStatus['activitiesCausePain'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.otherNotes) {
+        initialStatus['otherNotes'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.muscleStrength && data.muscleStrength.length > 0) {
+        initialStatus['muscleStrength'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.tenderness && Object.keys(data.tenderness).length > 0) {
+        initialStatus['tenderness'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.spasm && Object.keys(data.spasm).length > 0) {
+        initialStatus['spasm'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.ortho && Object.keys(data.ortho).length > 0) {
+        initialStatus['ortho'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.arom && Object.keys(data.arom).length > 0) {
+        initialStatus['arom'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      if (data.homeCareSuggestions) {
+        initialStatus['homeCareSuggestions'] = { improving: false, exacerbated: false, same: false, resolved: false };
+      }
+      
+      setIndividualAreaStatus(initialStatus);
+      
+      // Initialize additional assessment data with default cervical, thoracic, lumbar regions
+      const defaultTenderness = {
+        cervical: { part: 'cervical', severities: [] },
+        thoracic: { part: 'thoracic', severities: [] },
+        lumbar: { part: 'lumbar', severities: [] },
+        ...data.tenderness
+      };
+      
+      const defaultSpasm = {
+        cervical: { part: 'cervical', severities: [] },
+        thoracic: { part: 'thoracic', severities: [] },
+        lumbar: { part: 'lumbar', severities: [] },
+        ...data.spasm
+      };
+      
+      setEditableAdditionalData({
+        tenderness: defaultTenderness,
+        spasm: defaultSpasm,
+        ortho: data.ortho || {},
+        arom: data.arom || {},
+        muscleStrength: data.muscleStrength || [],
+        activities: data.activities || {},
+        croftCriteria: data.croftCriteria || {}
+      });
+      
+      // Toggle side by side view instead of modal
+      setShowSideBySide(true);
     } catch (error) {
       console.error('Error fetching followup visit data:', error);
       alert('Failed to load followup visit data.');
@@ -216,7 +600,6 @@ const DischargeVisitForm: React.FC = () => {
         result: followupData.orthos?.result || ''
       },
       ortho: followupData.ortho || {},
-      arom: followupData.arom || {},
       activitiesCausePain: followupData.activitiesCausePain || '',
       otherNotes: followupData.otherNotes || '',
       muscleStrength: followupData.muscleStrength || [],
@@ -230,8 +613,92 @@ const DischargeVisitForm: React.FC = () => {
       homeCareSuggestions: followupData.homeCareSuggestions || ''
     }));
 
+    // Store individual area status in form data for later use
+      setFormData((prev: FormData) => ({
+      ...prev,
+      individualAreaStatus: individualAreaStatus,
+      tenderness: editableAdditionalData.tenderness || {},
+      spasm: editableAdditionalData.spasm || {},
+      ortho: editableAdditionalData.ortho || {},
+      arom: editableAdditionalData.arom || {}
+    }));
+
     setIsModalOpen(false);
     alert('Data applied from last followup visit successfully!');
+  };
+
+  // Function to save muscle assessment data to database
+  const saveMusclePalpationData = async () => {
+    if (!lastFollowupVisit) return;
+
+    try {
+      const updateData = {
+        muscleStrength: editableAdditionalData.muscleStrength,
+        tenderness: editableAdditionalData.tenderness,
+        spasm: editableAdditionalData.spasm
+      };
+
+      await axios.put(`https://emr-h.onrender.com/api/visits/${lastFollowupVisit._id}`, updateData);
+      
+      // Update local followup data
+      setFollowupData((prev: any) => ({
+        ...prev,
+        ...updateData
+      }));
+      
+      alert('Muscle assessment data saved successfully!');
+    } catch (error) {
+      console.error('Error saving muscle assessment data:', error);
+      alert('Failed to save muscle assessment data.');
+    }
+  };
+
+  // Function to save orthos data to database
+  const saveOrthosData = async () => {
+    if (!lastFollowupVisit) return;
+
+    try {
+      const updateData = {
+        ortho: editableAdditionalData.ortho
+      };
+
+      await axios.put(`https://emr-h.onrender.com/api/visits/${lastFollowupVisit._id}`, updateData);
+      
+      // Update local followup data
+      setFollowupData((prev: any) => ({
+        ...prev,
+        ...updateData
+      }));
+      
+      alert('Orthos data saved successfully!');
+    } catch (error) {
+      console.error('Error saving orthos data:', error);
+      alert('Failed to save orthos data.');
+    }
+  };
+
+  // Function to save activities data to database
+  const saveActivitiesData = async () => {
+    if (!lastFollowupVisit) return;
+
+    try {
+      const updateData = {
+        activities: editableAdditionalData.activities
+      };
+
+      await axios.put(`https://emr-h.onrender.com/api/visits/${lastFollowupVisit._id}`, updateData);
+      
+      // Update local followup data
+      setFollowupData((prev: any) => ({
+        ...prev,
+        ...updateData
+      }));
+      
+      alert('Activities data saved successfully!');
+    } catch (error) {
+      console.error('Error saving activities data:', error);
+      alert('Failed to save activities data.');
+    }
   };
 
   // Function to apply muscle palpation data to form
@@ -240,7 +707,10 @@ const DischargeVisitForm: React.FC = () => {
 
     setFormData(prev => ({
       ...prev,
-      musclePalpation: followupData.musclePalpation || ''
+      musclePalpation: followupData.musclePalpation || '',
+      muscleStrength: editableAdditionalData.muscleStrength || [],
+      tenderness: editableAdditionalData.tenderness || {},
+      spasm: editableAdditionalData.spasm || {}
     }));
 
     setIsMuscleModalOpen(false);
@@ -251,39 +721,11 @@ const DischargeVisitForm: React.FC = () => {
   const applyOrthosData = () => {
     if (!followupData) return;
 
-    // Create a summary of the ortho data for display
-    let orthoSummary = '';
-    
-    if (followupData.ortho && Object.keys(followupData.ortho).length > 0) {
-      const testResults = Object.entries(followupData.ortho).map(([test, data]: [string, any]) => {
-        const testName = test.replace(/([A-Z])/g, ' $1').trim();
-        if (typeof data === 'object') {
-          const result = Object.entries(data).map(([key, value]: [string, any]) => {
-            const keyName = key.replace(/([A-Z])/g, ' $1').trim();
-            const valueStr = typeof value === 'boolean' ? (value ? 'Positive' : 'Negative') :
-                           typeof value === 'string' ? value :
-                           typeof value === 'number' ? value.toString() :
-                           Array.isArray(value) ? value.join(', ') : 'N/A';
-            return `${keyName}: ${valueStr}`;
-          }).join(', ');
-          return `${testName}: ${result}`;
-        } else {
-          const valueStr = typeof data === 'boolean' ? (data ? 'Positive' : 'Negative') :
-                         typeof data === 'string' ? data :
-                         typeof data === 'number' ? data.toString() : 'N/A';
-          return `${testName}: ${valueStr}`;
-        }
-      }).join('; ');
-      orthoSummary = testResults;
-    } else if (followupData.orthos) {
-      orthoSummary = `Tests: ${followupData.orthos.tests || 'N/A'}; Results: ${followupData.orthos.result || 'N/A'}`;
-    }
-
     setFormData(prev => ({
       ...prev,
       orthos: {
-        tests: orthoSummary,
-        result: ''
+        tests: Object.values(editableAdditionalData.ortho).map((test: any) => test.name).join(', '),
+        result: Object.values(editableAdditionalData.ortho).map((test: any) => test.result).join(', ')
       }
     }));
 
@@ -297,12 +739,53 @@ const DischargeVisitForm: React.FC = () => {
 
     setFormData(prev => ({
       ...prev,
-      activitiesCausePain: followupData.activitiesCausePain || ''
+      activitiesCausePain: Object.values(editableAdditionalData.activities).map((activity: any) => activity.name).join(', ')
     }));
 
     setIsActivitiesModalOpen(false);
     alert('Activities data applied successfully!');
   };
+
+  // Function to save Croft Criteria data to database
+  const saveCroftCriteriaData = async () => {
+    if (!lastFollowupVisit) return;
+
+    try {
+      const updateData = {
+        croftCriteria: editableAdditionalData.croftCriteria
+      };
+
+      await axios.put(`https://emr-h.onrender.com/api/visits/${lastFollowupVisit._id}`, updateData);
+      
+      // Update local followup data
+      setFollowupData((prev: any) => ({
+        ...prev,
+        ...updateData
+      }));
+      
+      alert('Croft Criteria data saved successfully!');
+    } catch (error) {
+      console.error('Error saving Croft Criteria data:', error);
+      alert('Failed to save Croft Criteria data.');
+    }
+  };
+
+  // Function to apply Croft Criteria data to form
+  const applyCroftCriteriaData = () => {
+    if (!followupData) return;
+
+    setFormData(prev => ({
+      ...prev,
+      croftCriteria: Object.values(editableAdditionalData.croftCriteria).map((criteria: any) => 
+        `Grade ${criteria.grade} - ${criteria.frequency} - ${criteria.treatmentGuideline}`
+      ).join('; ')
+    }));
+
+    setIsCroftModalOpen(false);
+    alert('Croft Criteria data applied successfully!');
+  };
+
+
 
   // Function to apply croft criteria data to form
   const applyCroftData = () => {
@@ -388,6 +871,31 @@ const handleSubmit = async (e: React.FormEvent) => {
         </div>
       </div>
 
+      {/* Side by Side View Toggle */}
+      {showSideBySide && followupData && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                <span className="text-white text-sm font-bold">📋</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-blue-800">Previous Followup Data</h3>
+                <p className="text-blue-600 text-sm">Review and compare with current form fields</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowSideBySide(false)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Close Side View
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={`${showSideBySide ? 'grid grid-cols-1 lg:grid-cols-2 gap-8' : ''}`}>
+        {/* Current Form */}
       <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6 relative">
         <div className="space-y-6">
           {/* Areas Section */}
@@ -698,6 +1206,321 @@ const handleSubmit = async (e: React.FormEvent) => {
          </div>
        </form>
 
+        {/* Previous Data Side Panel */}
+        {showSideBySide && followupData && (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 shadow-md">
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-blue-800 mb-2">Previous Followup Data</h3>
+              <p className="text-blue-600 text-sm">Click "Apply to Form" to copy data to current form</p>
+            </div>
+
+            <div className="space-y-6">
+              {/* Areas Status */}
+              <div className="bg-white rounded-lg p-4 border border-blue-200">
+                <h4 className="font-semibold text-blue-800 mb-3">Areas Status</h4>
+                <div className="space-y-2">
+                  {Object.entries(individualAreaStatus).map(([element, status]) => (
+                    <div key={element} className="border border-gray-200 rounded p-3">
+                      <h5 className="font-medium text-gray-700 mb-2 capitalize">
+                        {element.replace(/([A-Z])/g, ' $1').trim()}
+                      </h5>
+                      <div className="flex space-x-3">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={status.improving}
+                            onChange={(e) => handleIndividualAreaStatusChange(element, 'improving', e.target.checked)}
+                            className="mr-1 text-green-600 focus:ring-green-500"
+                          />
+                          <span className="text-xs font-medium text-green-700">Improving</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={status.exacerbated}
+                            onChange={(e) => handleIndividualAreaStatusChange(element, 'exacerbated', e.target.checked)}
+                            className="mr-1 text-red-600 focus:ring-red-500"
+                          />
+                          <span className="text-xs font-medium text-red-700">Exacerbated</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={status.same}
+                            onChange={(e) => handleIndividualAreaStatusChange(element, 'same', e.target.checked)}
+                            className="mr-1 text-yellow-600 focus:ring-yellow-500"
+                          />
+                          <span className="text-xs font-medium text-yellow-700">Same</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={status.resolved}
+                            onChange={(e) => handleIndividualAreaStatusChange(element, 'resolved', e.target.checked)}
+                            className="mr-1 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-xs font-medium text-blue-700">Resolved</span>
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Previous Data Display */}
+              <div className="bg-white rounded-lg p-4 border border-blue-200">
+                <h4 className="font-semibold text-blue-800 mb-3">Previous Visit Data</h4>
+                <div className="space-y-4">
+                  {followupData.musclePalpation && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-1">Muscle Palpation:</h5>
+                      <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.musclePalpation}</p>
+                    </div>
+                  )}
+                  {followupData.painRadiating && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-1">Pain Radiating:</h5>
+                      <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.painRadiating}</p>
+                    </div>
+                  )}
+                  {followupData.romPercent && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-1">ROM %:</h5>
+                      <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.romPercent}%</p>
+                    </div>
+                  )}
+                  {followupData.muscleStrength && followupData.muscleStrength.length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-1">Muscle Strength:</h5>
+                      <div className="space-y-1">
+                        {followupData.muscleStrength.map((muscle: string, index: number) => (
+                          <div key={index} className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                            • {muscle}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Orthos Tests - Enhanced Display */}
+                  {(followupData.orthos?.tests || Object.keys(editableAdditionalData.ortho).length > 0) && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-1">Orthos Tests:</h5>
+                      {followupData.orthos?.tests ? (
+                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.orthos.tests}</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {Object.entries(editableAdditionalData.ortho).map(([test, data]: [string, any]) => (
+                            <div key={test} className="bg-gray-50 p-2 rounded text-sm">
+                              <div className="font-medium">{data.name || test.replace(/([A-Z])/g, ' $1').trim()}</div>
+                              <div className="text-xs text-gray-600">Result: {data.result || 'N/A'}</div>
+                              {data.details && <div className="text-xs text-gray-600">Details: {data.details}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Activities Causing Pain - Enhanced Display */}
+                  {(followupData.activitiesCausePain || Object.keys(editableAdditionalData.activities).length > 0) && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-1">Activities Causing Pain:</h5>
+                      {followupData.activitiesCausePain ? (
+                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.activitiesCausePain}</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {Object.entries(editableAdditionalData.activities).map(([activity, data]: [string, any]) => (
+                            <div key={activity} className="bg-gray-50 p-2 rounded text-sm">
+                              <div className="font-medium">{data.name || activity.replace(/([A-Z])/g, ' $1').trim()}</div>
+                              <div className="text-xs text-gray-600">Severity: {data.severity || 'N/A'}</div>
+                              {data.frequency && <div className="text-xs text-gray-600">Frequency: {data.frequency}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {followupData.otherNotes && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-1">Other Notes:</h5>
+                      <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.otherNotes}</p>
+                    </div>
+                  )}
+                  {/* Croft Criteria - Enhanced Display */}
+                  {(followupData.croftCriteria || Object.keys(editableAdditionalData.croftCriteria).length > 0) && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-1">Croft Criteria:</h5>
+                      {followupData.croftCriteria ? (
+                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.croftCriteria}</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {Object.entries(editableAdditionalData.croftCriteria).map(([criteria, data]: [string, any]) => (
+                            <div key={criteria} className="bg-gray-50 p-2 rounded text-sm">
+                              <div className="font-medium">Grade {data.grade || 'N/A'}</div>
+                              <div className="text-xs text-gray-600">Frequency: {data.frequency || 'N/A'}</div>
+                              {data.treatmentGuideline && <div className="text-xs text-gray-600">Treatment Guideline: {data.treatmentGuideline}</div>}
+                              {data.notes && <div className="text-xs text-gray-600">Notes: {data.notes}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Assessment Data */}
+              <div className="bg-white rounded-lg p-4 border border-blue-200">
+                <h4 className="font-semibold text-blue-800 mb-3">Additional Assessment Data</h4>
+                <div className="space-y-3">
+                  {/* Tenderness */}
+                  {Object.keys(editableAdditionalData.tenderness).length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-2">Tenderness:</h5>
+                      <div className="space-y-2">
+                        {Object.entries(editableAdditionalData.tenderness).map(([region, data]: [string, any]) => (
+                          <div key={region} className="bg-gray-50 p-2 rounded text-sm">
+                            <span className="font-medium">{data.part || region}:</span> {data.severity || 'N/A'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Spasm */}
+                  {Object.keys(editableAdditionalData.spasm).length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-2">Spasm:</h5>
+                      <div className="space-y-2">
+                        {Object.entries(editableAdditionalData.spasm).map(([region, data]: [string, any]) => (
+                          <div key={region} className="bg-gray-50 p-2 rounded text-sm">
+                            <span className="font-medium">{data.part || region}:</span> {data.severity || 'N/A'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ortho Tests */}
+                  {Object.keys(editableAdditionalData.ortho).length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-2">Ortho Tests:</h5>
+                      <div className="space-y-2">
+                        {Object.entries(editableAdditionalData.ortho).map(([test, data]: [string, any]) => (
+                          <div key={test} className="bg-gray-50 p-3 rounded text-sm">
+                            <div className="font-medium text-gray-800 mb-1">{data.name || test.replace(/([A-Z])/g, ' $1').trim()}</div>
+                            <div className="space-y-1 text-xs">
+                              <div><span className="font-medium">Result:</span> <span className={`px-2 py-1 rounded text-xs ${
+                                data.result === 'Positive' ? 'bg-red-100 text-red-800' :
+                                data.result === 'Negative' ? 'bg-green-100 text-green-800' :
+                                data.result === 'Equivocal' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>{data.result || 'Not specified'}</span></div>
+                              {data.details && (
+                                <div><span className="font-medium">Details:</span> {data.details}</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Activities */}
+                  {Object.keys(editableAdditionalData.activities).length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-2">Activities Causing Pain:</h5>
+                      <div className="space-y-2">
+                        {Object.entries(editableAdditionalData.activities).map(([activity, data]: [string, any]) => (
+                          <div key={activity} className="bg-gray-50 p-3 rounded text-sm">
+                            <div className="font-medium text-gray-800 mb-1">{data.name || activity.replace(/([A-Z])/g, ' $1').trim()}</div>
+                            <div className="space-y-1 text-xs">
+                              <div><span className="font-medium">Severity:</span> <span className={`px-2 py-1 rounded text-xs ${
+                                data.severity === 'Severe' ? 'bg-red-100 text-red-800' :
+                                data.severity === 'Moderate' ? 'bg-orange-100 text-orange-800' :
+                                data.severity === 'Mild' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>{data.severity || 'Not specified'}</span></div>
+                              {data.frequency && (
+                                <div><span className="font-medium">Frequency:</span> <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">{data.frequency}</span></div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Croft Criteria */}
+                  {Object.keys(editableAdditionalData.croftCriteria).length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-2">Croft Criteria:</h5>
+                      <div className="space-y-2">
+                        {Object.entries(editableAdditionalData.croftCriteria).map(([criteria, data]: [string, any]) => (
+                          <div key={criteria} className="bg-gray-50 p-3 rounded text-sm">
+                            <div className="font-medium text-gray-800 mb-1">{criteria.replace(/([A-Z])/g, ' $1').trim()}</div>
+                            <div className="space-y-1 text-xs">
+                              <div><span className="font-medium">Grade:</span> <span className="px-2 py-1 rounded text-xs bg-teal-100 text-teal-800">Grade {data.grade || 'N/A'}</span></div>
+                              {data.frequency && (
+                                <div><span className="font-medium">Frequency:</span> <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">{data.frequency}</span></div>
+                              )}
+                              {data.treatmentGuideline && (
+                                <div><span className="font-medium">Treatment Guideline:</span> <span className="text-gray-600">{data.treatmentGuideline}</span></div>
+                              )}
+                              {data.notes && (
+                                <div><span className="font-medium">Notes:</span> <span className="text-gray-600">{data.notes}</span></div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Muscle Strength */}
+                  {editableAdditionalData.muscleStrength && editableAdditionalData.muscleStrength.length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-2">Muscle Strength:</h5>
+                      <div className="space-y-2">
+                                {editableAdditionalData.muscleStrength.map((muscle: string, index: number) => (
+          <div key={index} className="bg-gray-50 p-2 rounded text-sm">
+            <span className="font-medium">• {muscle}</span>
+          </div>
+        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AROM */}
+                  {Object.keys(editableAdditionalData.arom).length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-2">AROM:</h5>
+                      <div className="space-y-2">
+                        {Object.entries(editableAdditionalData.arom).map(([movement, data]: [string, any]) => (
+                          <div key={movement} className="bg-gray-50 p-2 rounded text-sm">
+                            <span className="font-medium">{movement.replace(/([A-Z])/g, ' $1').trim()}:</span> {data.range || 'N/A'} - {data.quality || 'N/A'} - {data.pain || 'N/A'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Apply Button */}
+              <div className="pt-4">
+                <button
+                  onClick={applyFollowupData}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md hover:shadow-lg"
+                >
+                  Apply to Form
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
        {/* Followup Data Modal */}
        {isModalOpen && followupData && (
          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -720,247 +1543,427 @@ const handleSubmit = async (e: React.FormEvent) => {
 
              {/* Content */}
              <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 {/* Left Column */}
-                 <div className="space-y-6">
-                   {/* Areas Section */}
-                   <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 shadow-sm">
-                     <div className="flex items-center mb-3">
-                       <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
-                         <span className="text-white text-sm font-bold">A</span>
-                       </div>
-                       <h4 className="text-lg font-bold text-green-800">Areas Status</h4>
-                     </div>
-                                           <div className="grid grid-cols-2 gap-3">
-                        <div className={`flex items-center p-3 rounded-lg ${followupData.areasImproving ? 'bg-green-100 border border-green-300' : 'bg-gray-50 border border-gray-200'}`}>
-                          <div className={`w-4 h-4 rounded-full mr-3 ${followupData.areasImproving ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                          <span className={`text-sm font-medium ${followupData.areasImproving ? 'text-green-800' : 'text-gray-500'}`}>Improving</span>
-                          {followupData.areasImproving && (
-                            <span className="ml-auto text-xs text-green-600 font-semibold">SELECTED</span>
-                          )}
-                        </div>
-                        <div className={`flex items-center p-3 rounded-lg ${followupData.areasExacerbated ? 'bg-red-100 border border-red-300' : 'bg-gray-50 border border-gray-200'}`}>
-                          <div className={`w-4 h-4 rounded-full mr-3 ${followupData.areasExacerbated ? 'bg-red-500' : 'bg-gray-300'}`}></div>
-                          <span className={`text-sm font-medium ${followupData.areasExacerbated ? 'text-red-800' : 'text-gray-500'}`}>Exacerbated</span>
-                          {followupData.areasExacerbated && (
-                            <span className="ml-auto text-xs text-red-600 font-semibold">SELECTED</span>
-                          )}
-                        </div>
-                        <div className={`flex items-center p-3 rounded-lg ${followupData.areasSame ? 'bg-yellow-100 border border-yellow-300' : 'bg-gray-50 border border-gray-200'}`}>
-                          <div className={`w-4 h-4 rounded-full mr-3 ${followupData.areasSame ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
-                          <span className={`text-sm font-medium ${followupData.areasSame ? 'text-yellow-800' : 'text-gray-500'}`}>Same</span>
-                          {followupData.areasSame && (
-                            <span className="ml-auto text-xs text-yellow-600 font-semibold">SELECTED</span>
-                          )}
-                        </div>
-                        <div className={`flex items-center p-3 rounded-lg ${followupData.areasResolved ? 'bg-blue-100 border border-blue-300' : 'bg-gray-50 border border-gray-200'}`}>
-                          <div className={`w-4 h-4 rounded-full mr-3 ${followupData.areasResolved ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
-                          <span className={`text-sm font-medium ${followupData.areasResolved ? 'text-blue-800' : 'text-gray-500'}`}>Resolved</span>
-                          {followupData.areasResolved && (
-                            <span className="ml-auto text-xs text-blue-600 font-semibold">SELECTED</span>
-                          )}
-                        </div>
-                      </div>
-                   </div>
+               <div className="space-y-6">
+                 {/* Header with instructions */}
+                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                   <h4 className="text-lg font-semibold text-blue-800 mb-2">Instructions</h4>
+                   <p className="text-blue-700 text-sm">
+                     Review the data from the last followup visit and select the appropriate status for each element using the checkboxes: 
+                     <span className="font-semibold"> Improving</span>, 
+                     <span className="font-semibold"> Exacerbated</span>, 
+                     <span className="font-semibold"> Same</span>, or 
+                     <span className="font-semibold"> Resolved</span>
+                   </p>
+                 </div>
 
+                 {/* Data Elements with Status Checkboxes */}
+                 <div className="space-y-4">
                    {/* Muscle Palpation */}
                    {followupData.musclePalpation && (
-                     <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-5 shadow-sm">
-                       <div className="flex items-center mb-3">
-                         <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">M</span>
+                     <div className="bg-white border border-gray-200 rounded-lg p-4">
+                       <div className="flex items-start justify-between">
+                         <div className="flex-1">
+                           <h5 className="font-semibold text-gray-800 mb-2">Muscle Palpation</h5>
+                           <p className="text-gray-700 text-sm leading-relaxed">{followupData.musclePalpation}</p>
                          </div>
-                         <h4 className="text-lg font-bold text-purple-800">Muscle Palpation</h4>
-                       </div>
-                       <div className="bg-white rounded-lg p-4 border border-purple-200">
-                         <p className="text-gray-700 leading-relaxed">{followupData.musclePalpation}</p>
+                         <div className="ml-4 flex space-x-3">
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['musclePalpation']?.improving || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('musclePalpation', 'improving', e.target.checked)}
+                               className="mr-1 text-green-600 focus:ring-green-500"
+                             />
+                             <span className="text-xs font-medium text-green-700">Improving</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['musclePalpation']?.exacerbated || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('musclePalpation', 'exacerbated', e.target.checked)}
+                               className="mr-1 text-red-600 focus:ring-red-500"
+                             />
+                             <span className="text-xs font-medium text-red-700">Exacerbated</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['musclePalpation']?.same || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('musclePalpation', 'same', e.target.checked)}
+                               className="mr-1 text-yellow-600 focus:ring-yellow-500"
+                             />
+                             <span className="text-xs font-medium text-yellow-700">Same</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['musclePalpation']?.resolved || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('musclePalpation', 'resolved', e.target.checked)}
+                               className="mr-1 text-blue-600 focus:ring-blue-500"
+                             />
+                             <span className="text-xs font-medium text-blue-700">Resolved</span>
+                           </label>
+                         </div>
                        </div>
                      </div>
                    )}
 
                    {/* Pain Radiating */}
                    {followupData.painRadiating && (
-                     <div className="bg-gradient-to-br from-red-50 to-pink-50 border border-red-200 rounded-xl p-5 shadow-sm">
-                       <div className="flex items-center mb-3">
-                         <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">P</span>
+                     <div className="bg-white border border-gray-200 rounded-lg p-4">
+                       <div className="flex items-start justify-between">
+                         <div className="flex-1">
+                           <h5 className="font-semibold text-gray-800 mb-2">Pain Radiating</h5>
+                           <p className="text-gray-700 text-sm leading-relaxed">{followupData.painRadiating}</p>
                          </div>
-                         <h4 className="text-lg font-bold text-red-800">Pain Radiating</h4>
-                       </div>
-                       <div className="bg-white rounded-lg p-4 border border-red-200">
-                         <p className="text-gray-700 leading-relaxed">{followupData.painRadiating}</p>
-                       </div>
-                     </div>
-                   )}
-
-                   {/* ROM Status */}
-                   {(followupData.romWnlNoPain || followupData.romWnlWithPain || followupData.romImproved || followupData.romDecreased || followupData.romSame) && (
-                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 shadow-sm">
-                       <div className="flex items-center mb-3">
-                         <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">R</span>
+                         <div className="ml-4 flex space-x-3">
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['painRadiating']?.improving || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('painRadiating', 'improving', e.target.checked)}
+                               className="mr-1 text-green-600 focus:ring-green-500"
+                             />
+                             <span className="text-xs font-medium text-green-700">Improving</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['painRadiating']?.exacerbated || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('painRadiating', 'exacerbated', e.target.checked)}
+                               className="mr-1 text-red-600 focus:ring-red-500"
+                             />
+                             <span className="text-xs font-medium text-red-700">Exacerbated</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['painRadiating']?.same || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('painRadiating', 'same', e.target.checked)}
+                               className="mr-1 text-yellow-600 focus:ring-yellow-500"
+                             />
+                             <span className="text-xs font-medium text-yellow-700">Same</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['painRadiating']?.resolved || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('painRadiating', 'resolved', e.target.checked)}
+                               className="mr-1 text-blue-600 focus:ring-blue-500"
+                             />
+                             <span className="text-xs font-medium text-blue-700">Resolved</span>
+                           </label>
                          </div>
-                         <h4 className="text-lg font-bold text-blue-800">ROM Status</h4>
-                       </div>
-                       <div className="grid grid-cols-2 gap-3">
-                         <div className={`flex items-center p-3 rounded-lg ${followupData.romWnlNoPain ? 'bg-green-100 border border-green-300' : 'bg-gray-50 border border-gray-200'}`}>
-                           <div className={`w-4 h-4 rounded-full mr-3 ${followupData.romWnlNoPain ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                           <span className={`text-sm font-medium ${followupData.romWnlNoPain ? 'text-green-800' : 'text-gray-500'}`}>WNL No Pain</span>
-                           {followupData.romWnlNoPain && (
-                             <span className="ml-auto text-xs text-green-600 font-semibold">SELECTED</span>
-                           )}
-                         </div>
-                         <div className={`flex items-center p-3 rounded-lg ${followupData.romWnlWithPain ? 'bg-yellow-100 border border-yellow-300' : 'bg-gray-50 border border-gray-200'}`}>
-                           <div className={`w-4 h-4 rounded-full mr-3 ${followupData.romWnlWithPain ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
-                           <span className={`text-sm font-medium ${followupData.romWnlWithPain ? 'text-yellow-800' : 'text-gray-500'}`}>WNL With Pain</span>
-                           {followupData.romWnlWithPain && (
-                             <span className="ml-auto text-xs text-yellow-600 font-semibold">SELECTED</span>
-                           )}
-                         </div>
-                         <div className={`flex items-center p-3 rounded-lg ${followupData.romImproved ? 'bg-blue-100 border border-blue-300' : 'bg-gray-50 border border-gray-200'}`}>
-                           <div className={`w-4 h-4 rounded-full mr-3 ${followupData.romImproved ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
-                           <span className={`text-sm font-medium ${followupData.romImproved ? 'text-blue-800' : 'text-gray-500'}`}>Improved</span>
-                           {followupData.romImproved && (
-                             <span className="ml-auto text-xs text-blue-600 font-semibold">SELECTED</span>
-                           )}
-                         </div>
-                         <div className={`flex items-center p-3 rounded-lg ${followupData.romDecreased ? 'bg-red-100 border border-red-300' : 'bg-gray-50 border border-gray-200'}`}>
-                           <div className={`w-4 h-4 rounded-full mr-3 ${followupData.romDecreased ? 'bg-red-500' : 'bg-gray-300'}`}></div>
-                           <span className={`text-sm font-medium ${followupData.romDecreased ? 'text-red-800' : 'text-gray-500'}`}>Decreased</span>
-                           {followupData.romDecreased && (
-                             <span className="ml-auto text-xs text-red-600 font-semibold">SELECTED</span>
-                           )}
-                         </div>
-                         <div className={`flex items-center p-3 rounded-lg ${followupData.romSame ? 'bg-gray-100 border border-gray-300' : 'bg-gray-50 border border-gray-200'}`}>
-                           <div className={`w-4 h-4 rounded-full mr-3 ${followupData.romSame ? 'bg-gray-500' : 'bg-gray-300'}`}></div>
-                           <span className={`text-sm font-medium ${followupData.romSame ? 'text-gray-800' : 'text-gray-500'}`}>Same</span>
-                           {followupData.romSame && (
-                             <span className="ml-auto text-xs text-gray-600 font-semibold">SELECTED</span>
-                           )}
-                         </div>
-                       </div>
-                     </div>
-                   )}
-
-                   {/* Activities that cause pain */}
-                   {followupData.activitiesCausePain && (
-                     <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
-                       <div className="flex items-center mb-3">
-                         <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">A</span>
-                         </div>
-                         <h4 className="text-lg font-bold text-orange-800">Activities Causing Pain</h4>
-                       </div>
-                       <div className="bg-white rounded-lg p-4 border border-orange-200">
-                         <p className="text-gray-700 leading-relaxed">{followupData.activitiesCausePain}</p>
-                       </div>
-                     </div>
-                   )}
-                 </div>
-
-                 {/* Right Column */}
-                 <div className="space-y-6">
-                   {/* Orthos */}
-                   {(followupData.orthos?.tests || followupData.orthos?.result) && (
-                     <div className="bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200 rounded-xl p-5 shadow-sm">
-                       <div className="flex items-center mb-3">
-                         <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">O</span>
-                         </div>
-                         <h4 className="text-lg font-bold text-cyan-800">Orthopedic Tests</h4>
-                       </div>
-                       <div className="space-y-3">
-                         {followupData.orthos?.tests && (
-                           <div className="bg-white rounded-lg p-4 border border-cyan-200">
-                             <span className="text-xs font-semibold text-cyan-600 uppercase tracking-wide">Tests</span>
-                             <p className="text-gray-700 mt-1">{followupData.orthos.tests}</p>
-                           </div>
-                         )}
-                         {followupData.orthos?.result && (
-                           <div className="bg-white rounded-lg p-4 border border-cyan-200">
-                             <span className="text-xs font-semibold text-cyan-600 uppercase tracking-wide">Result</span>
-                             <p className="text-gray-700 mt-1">{followupData.orthos.result}</p>
-                           </div>
-                         )}
-                       </div>
-                     </div>
-                   )}
-
-                   {/* Diagnostic Study */}
-                   {(followupData.diagnosticStudy?.study || followupData.diagnosticStudy?.bodyPart || followupData.diagnosticStudy?.result) && (
-                     <div className="bg-gradient-to-br from-teal-50 to-green-50 border border-teal-200 rounded-xl p-5 shadow-sm">
-                       <div className="flex items-center mb-3">
-                         <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">D</span>
-                         </div>
-                         <h4 className="text-lg font-bold text-teal-800">Diagnostic Study</h4>
-                       </div>
-                       <div className="space-y-3">
-                         {followupData.diagnosticStudy?.study && (
-                           <div className="bg-white rounded-lg p-4 border border-teal-200">
-                             <span className="text-xs font-semibold text-teal-600 uppercase tracking-wide">Study Type</span>
-                             <p className="text-gray-700 mt-1">{followupData.diagnosticStudy.study}</p>
-                           </div>
-                         )}
-                         {followupData.diagnosticStudy?.bodyPart && (
-                           <div className="bg-white rounded-lg p-4 border border-teal-200">
-                             <span className="text-xs font-semibold text-teal-600 uppercase tracking-wide">Body Part</span>
-                             <p className="text-gray-700 mt-1">{followupData.diagnosticStudy.bodyPart}</p>
-                           </div>
-                         )}
-                         {followupData.diagnosticStudy?.result && (
-                           <div className="bg-white rounded-lg p-4 border border-teal-200">
-                             <span className="text-xs font-semibold text-teal-600 uppercase tracking-wide">Result</span>
-                             <p className="text-gray-700 mt-1">{followupData.diagnosticStudy.result}</p>
-                           </div>
-                         )}
-                       </div>
-                     </div>
-                   )}
-
-                   {/* Other Notes */}
-                   {followupData.otherNotes && (
-                     <div className="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-5 shadow-sm">
-                       <div className="flex items-center mb-3">
-                         <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">N</span>
-                         </div>
-                         <h4 className="text-lg font-bold text-gray-800">Other Notes</h4>
-                       </div>
-                       <div className="bg-white rounded-lg p-4 border border-gray-200">
-                         <p className="text-gray-700 leading-relaxed">{followupData.otherNotes}</p>
-                       </div>
-                     </div>
-                   )}
-
-                   {/* Home Care Suggestions */}
-                   {followupData.homeCareSuggestions && (
-                     <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-5 shadow-sm">
-                       <div className="flex items-center mb-3">
-                         <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">H</span>
-                         </div>
-                         <h4 className="text-lg font-bold text-emerald-800">Home Care Suggestions</h4>
-                       </div>
-                       <div className="bg-white rounded-lg p-4 border border-emerald-200">
-                         <p className="text-gray-700 leading-relaxed">{followupData.homeCareSuggestions}</p>
                        </div>
                      </div>
                    )}
 
                    {/* ROM Percent */}
                    {followupData.romPercent && (
-                     <div className="bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200 rounded-xl p-5 shadow-sm">
-                       <div className="flex items-center mb-3">
-                         <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">%</span>
+                     <div className="bg-white border border-gray-200 rounded-lg p-4">
+                       <div className="flex items-start justify-between">
+                         <div className="flex-1">
+                           <h5 className="font-semibold text-gray-800 mb-2">ROM Percentage</h5>
+                           <p className="text-gray-700 text-sm">ROM % Pre-injury: <span className="font-semibold">{followupData.romPercent}%</span></p>
                          </div>
-                         <h4 className="text-lg font-bold text-cyan-800">ROM Percentage</h4>
+                         <div className="ml-4 flex space-x-3">
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['romPercent']?.improving || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('romPercent', 'improving', e.target.checked)}
+                               className="mr-1 text-green-600 focus:ring-green-500"
+                             />
+                             <span className="text-xs font-medium text-green-700">Improving</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['romPercent']?.exacerbated || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('romPercent', 'exacerbated', e.target.checked)}
+                               className="mr-1 text-red-600 focus:ring-red-500"
+                             />
+                             <span className="text-xs font-medium text-red-700">Exacerbated</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['romPercent']?.same || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('romPercent', 'same', e.target.checked)}
+                               className="mr-1 text-yellow-600 focus:ring-yellow-500"
+                             />
+                             <span className="text-xs font-medium text-yellow-700">Same</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['romPercent']?.resolved || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('romPercent', 'resolved', e.target.checked)}
+                               className="mr-1 text-blue-600 focus:ring-blue-500"
+                             />
+                             <span className="text-xs font-medium text-blue-700">Resolved</span>
+                           </label>
+                         </div>
                        </div>
-                       <div className="bg-white rounded-lg p-4 border border-cyan-200">
-                         <div className="flex items-center justify-between">
-                           <span className="font-medium text-gray-700">ROM % Pre-injury:</span>
-                           <span className="text-lg font-semibold text-cyan-600">{followupData.romPercent}%</span>
+                     </div>
+                   )}
+
+                   {/* Orthopedic Tests */}
+                   {(followupData.orthos?.tests || followupData.orthos?.result) && (
+                     <div className="bg-white border border-gray-200 rounded-lg p-4">
+                       <div className="flex items-start justify-between">
+                         <div className="flex-1">
+                           <h5 className="font-semibold text-gray-800 mb-2">Orthopedic Tests</h5>
+                           <div className="space-y-1">
+                             {followupData.orthos?.tests && (
+                               <p className="text-gray-700 text-sm"><span className="font-medium">Tests:</span> {followupData.orthos.tests}</p>
+                             )}
+                             {followupData.orthos?.result && (
+                               <p className="text-gray-700 text-sm"><span className="font-medium">Results:</span> {followupData.orthos.result}</p>
+                             )}
+                           </div>
+                         </div>
+                         <div className="ml-4 flex space-x-3">
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['orthos']?.improving || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('orthos', 'improving', e.target.checked)}
+                               className="mr-1 text-green-600 focus:ring-green-500"
+                             />
+                             <span className="text-xs font-medium text-green-700">Improving</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['orthos']?.exacerbated || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('orthos', 'exacerbated', e.target.checked)}
+                               className="mr-1 text-red-600 focus:ring-red-500"
+                             />
+                             <span className="text-xs font-medium text-red-700">Exacerbated</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['orthos']?.same || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('orthos', 'same', e.target.checked)}
+                               className="mr-1 text-yellow-600 focus:ring-yellow-500"
+                             />
+                             <span className="text-xs font-medium text-yellow-700">Same</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['orthos']?.resolved || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('orthos', 'resolved', e.target.checked)}
+                               className="mr-1 text-blue-600 focus:ring-blue-500"
+                             />
+                             <span className="text-xs font-medium text-blue-700">Resolved</span>
+                           </label>
+                         </div>
+                       </div>
+                     </div>
+                   )}
+
+                   {/* Activities Causing Pain */}
+                   {followupData.activitiesCausePain && (
+                     <div className="bg-white border border-gray-200 rounded-lg p-4">
+                       <div className="flex items-start justify-between">
+                         <div className="flex-1">
+                           <h5 className="font-semibold text-gray-800 mb-2">Activities Causing Pain</h5>
+                           <p className="text-gray-700 text-sm leading-relaxed">{followupData.activitiesCausePain}</p>
+                         </div>
+                         <div className="ml-4 flex space-x-3">
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['activitiesCausePain']?.improving || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('activitiesCausePain', 'improving', e.target.checked)}
+                               className="mr-1 text-green-600 focus:ring-green-500"
+                             />
+                             <span className="text-xs font-medium text-green-700">Improving</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['activitiesCausePain']?.exacerbated || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('activitiesCausePain', 'exacerbated', e.target.checked)}
+                               className="mr-1 text-red-600 focus:ring-red-500"
+                             />
+                             <span className="text-xs font-medium text-red-700">Exacerbated</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['activitiesCausePain']?.same || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('activitiesCausePain', 'same', e.target.checked)}
+                               className="mr-1 text-yellow-600 focus:ring-yellow-500"
+                             />
+                             <span className="text-xs font-medium text-yellow-700">Same</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['activitiesCausePain']?.resolved || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('activitiesCausePain', 'resolved', e.target.checked)}
+                               className="mr-1 text-blue-600 focus:ring-blue-500"
+                             />
+                             <span className="text-xs font-medium text-blue-700">Resolved</span>
+                           </label>
+                         </div>
+                       </div>
+                     </div>
+                   )}
+
+                   {/* Other Notes */}
+                   {followupData.otherNotes && (
+                     <div className="bg-white border border-gray-200 rounded-lg p-4">
+                       <div className="flex items-start justify-between">
+                         <div className="flex-1">
+                           <h5 className="font-semibold text-gray-800 mb-2">Other Notes</h5>
+                           <p className="text-gray-700 text-sm leading-relaxed">{followupData.otherNotes}</p>
+                         </div>
+                         <div className="ml-4 flex space-x-3">
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['otherNotes']?.improving || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('otherNotes', 'improving', e.target.checked)}
+                               className="mr-1 text-green-600 focus:ring-green-500"
+                             />
+                             <span className="text-xs font-medium text-green-700">Improving</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['otherNotes']?.exacerbated || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('otherNotes', 'exacerbated', e.target.checked)}
+                               className="mr-1 text-red-600 focus:ring-red-500"
+                             />
+                             <span className="text-xs font-medium text-red-700">Exacerbated</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['otherNotes']?.same || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('otherNotes', 'same', e.target.checked)}
+                               className="mr-1 text-yellow-600 focus:ring-yellow-500"
+                             />
+                             <span className="text-xs font-medium text-yellow-700">Same</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['otherNotes']?.resolved || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('otherNotes', 'resolved', e.target.checked)}
+                               className="mr-1 text-blue-600 focus:ring-blue-500"
+                             />
+                             <span className="text-xs font-medium text-blue-700">Resolved</span>
+                           </label>
+                         </div>
+                       </div>
+                     </div>
+                   )}
+
+                   {/* Muscle Strength */}
+                   {followupData.muscleStrength && followupData.muscleStrength.length > 0 && (
+                     <div className="bg-white border border-gray-200 rounded-lg p-4">
+                       <div className="flex items-start justify-between">
+                         <div className="flex-1">
+                           <h5 className="font-semibold text-gray-800 mb-2">Muscle Strength</h5>
+                           <div className="space-y-1">
+                             {followupData.muscleStrength.map((item: string, index: number) => (
+                               <p key={index} className="text-gray-700 text-sm">• {item}</p>
+                             ))}
+                           </div>
+                         </div>
+                         <div className="ml-4 flex space-x-3">
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['muscleStrength']?.improving || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('muscleStrength', 'improving', e.target.checked)}
+                               className="mr-1 text-green-600 focus:ring-green-500"
+                             />
+                             <span className="text-xs font-medium text-green-700">Improving</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['muscleStrength']?.exacerbated || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('muscleStrength', 'exacerbated', e.target.checked)}
+                               className="mr-1 text-red-600 focus:ring-red-500"
+                             />
+                             <span className="text-xs font-medium text-red-700">Exacerbated</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['muscleStrength']?.same || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('muscleStrength', 'same', e.target.checked)}
+                               className="mr-1 text-yellow-600 focus:ring-yellow-500"
+                             />
+                             <span className="text-xs font-medium text-yellow-700">Same</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['muscleStrength']?.resolved || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('muscleStrength', 'resolved', e.target.checked)}
+                               className="mr-1 text-blue-600 focus:ring-blue-500"
+                             />
+                             <span className="text-xs font-medium text-blue-700">Resolved</span>
+                           </label>
+                         </div>
+                       </div>
+                     </div>
+                   )}
+
+                   {/* Home Care Suggestions */}
+                   {followupData.homeCareSuggestions && (
+                     <div className="bg-white border border-gray-200 rounded-lg p-4">
+                       <div className="flex items-start justify-between">
+                         <div className="flex-1">
+                           <h5 className="font-semibold text-gray-800 mb-2">Home Care Suggestions</h5>
+                           <p className="text-gray-700 text-sm leading-relaxed">{followupData.homeCareSuggestions}</p>
+                         </div>
+                         <div className="ml-4 flex space-x-3">
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['homeCareSuggestions']?.improving || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('homeCareSuggestions', 'improving', e.target.checked)}
+                               className="mr-1 text-green-600 focus:ring-green-500"
+                             />
+                             <span className="text-xs font-medium text-green-700">Improving</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['homeCareSuggestions']?.exacerbated || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('homeCareSuggestions', 'exacerbated', e.target.checked)}
+                               className="mr-1 text-red-600 focus:ring-red-500"
+                             />
+                             <span className="text-xs font-medium text-red-700">Exacerbated</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['homeCareSuggestions']?.same || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('homeCareSuggestions', 'same', e.target.checked)}
+                               className="mr-1 text-yellow-600 focus:ring-yellow-500"
+                             />
+                             <span className="text-xs font-medium text-yellow-700">Same</span>
+                           </label>
+                           <label className="flex items-center">
+                             <input
+                               type="checkbox"
+                               checked={individualAreaStatus['homeCareSuggestions']?.resolved || false}
+                               onChange={(e) => handleIndividualAreaStatusChange('homeCareSuggestions', 'resolved', e.target.checked)}
+                               className="mr-1 text-blue-600 focus:ring-blue-500"
+                             />
+                             <span className="text-xs font-medium text-blue-700">Resolved</span>
+                           </label>
                          </div>
                        </div>
                      </div>
@@ -968,204 +1971,238 @@ const handleSubmit = async (e: React.FormEvent) => {
                  </div>
                </div>
 
-               {/* Additional Data Section - Full Width */}
-               {(followupData.muscleStrength || followupData.tenderness || followupData.spasm || followupData.ortho || followupData.arom) && (
-                 <div className="mt-8 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6 shadow-sm">
-                   <div className="flex items-center mb-4">
+               {/* Additional Assessment Data Section - Editable */}
+               <div className="mt-8 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6 shadow-sm">
+                 <div className="flex items-center justify-between mb-4">
+                   <div className="flex items-center">
                      <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center mr-3">
                        <span className="text-white text-lg font-bold">+</span>
                      </div>
                      <h4 className="text-xl font-bold text-indigo-800">Additional Assessment Data</h4>
                    </div>
+                 </div>
                    
-                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                     {/* Muscle Strength */}
-                     {followupData.muscleStrength && followupData.muscleStrength.length > 0 && (
-                       <div className="bg-white rounded-lg p-4 border border-indigo-200">
-                         <h5 className="font-semibold text-indigo-700 mb-2 flex items-center">
-                           <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
-                           Muscle Strength
-                         </h5>
-                         <div className="space-y-1">
-                           {followupData.muscleStrength.map((item: string, index: number) => (
-                             <div key={index} className="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded">
-                               {item}
-                             </div>
-                           ))}
+                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                   {/* Tenderness - Editable */}
+                   <div className="bg-white rounded-lg p-4 border border-indigo-200">
+                     <div className="flex items-center justify-between mb-3">
+                       <h5 className="font-semibold text-indigo-700 flex items-center">
+                         <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
+                         Tenderness
+                       </h5>
+                       <button
+                         type="button"
+                         onClick={handleAddTendernessItem}
+                         className="px-2 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700"
+                       >
+                         Add Item
+                       </button>
+                     </div>
+                     <div className="space-y-3">
+                       {Object.entries(editableAdditionalData.tenderness).map(([region, data]: [string, any]) => (
+                         <div key={region} className="border border-gray-200 rounded p-3">
+                           <div className="flex items-center justify-between mb-2">
+                             <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Region</span>
+                             <button
+                               type="button"
+                               onClick={() => handleRemoveTendernessItem(region)}
+                               className="text-red-500 hover:text-red-700 text-xs"
+                             >
+                               Remove
+                             </button>
+                           </div>
+                           <div className="space-y-2">
+                             <input
+                               type="text"
+                               value={data.part || ''}
+                               onChange={(e) => handleAdditionalDataChange('tenderness', region, { ...data, part: e.target.value })}
+                               placeholder="Body part..."
+                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             />
+                             <input
+                               type="text"
+                               value={data.severity || ''}
+                               onChange={(e) => handleAdditionalDataChange('tenderness', region, { ...data, severity: e.target.value })}
+                               placeholder="Severity..."
+                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             />
+                           </div>
                          </div>
-                       </div>
-                     )}
+                       ))}
+                       {Object.keys(editableAdditionalData.tenderness).length === 0 && (
+                         <p className="text-gray-500 italic text-sm">No tenderness items. Click "Add Item" to add one.</p>
+                       )}
+                     </div>
+                   </div>
 
-                     {/* Tenderness */}
-                     {followupData.tenderness && Object.keys(followupData.tenderness).length > 0 && (
-                       <div className="bg-white rounded-lg p-4 border border-indigo-200">
-                         <h5 className="font-semibold text-indigo-700 mb-2 flex items-center">
-                           <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
-                           Tenderness
-                         </h5>
-                         <div className="space-y-2">
-                           {Object.entries(followupData.tenderness).map(([region, data]: [string, any]) => (
-                             <div key={region} className="border-l-2 border-indigo-200 pl-3">
-                               <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">{region}</span>
-                               {typeof data === 'object' ? (
-                                 <div className="mt-1 space-y-1">
-                                   {Object.entries(data).map(([part, severities]: [string, any]) => (
-                                     <div key={part} className="text-sm text-gray-700">
-                                       <span className="font-medium">{part}:</span> {Array.isArray(severities) ? severities.join(', ') : severities}
-                                     </div>
-                                   ))}
-                                 </div>
-                               ) : (
-                                 <div className="text-sm text-gray-700 mt-1">
-                                   {Array.isArray(data) ? data.join(', ') : data}
-                                 </div>
-                               )}
-                             </div>
-                           ))}
+                   {/* Spasm - Editable */}
+                   <div className="bg-white rounded-lg p-4 border border-indigo-200">
+                     <div className="flex items-center justify-between mb-3">
+                       <h5 className="font-semibold text-indigo-700 flex items-center">
+                         <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
+                         Spasm
+                       </h5>
+                       <button
+                         type="button"
+                         onClick={handleAddSpasmItem}
+                         className="px-2 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700"
+                       >
+                         Add Item
+                       </button>
+                     </div>
+                     <div className="space-y-3">
+                       {Object.entries(editableAdditionalData.spasm).map(([region, data]: [string, any]) => (
+                         <div key={region} className="border border-gray-200 rounded p-3">
+                           <div className="flex items-center justify-between mb-2">
+                             <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Region</span>
+                             <button
+                               type="button"
+                               onClick={() => handleRemoveSpasmItem(region)}
+                               className="text-red-500 hover:text-red-700 text-xs"
+                             >
+                               Remove
+                             </button>
+                           </div>
+                           <div className="space-y-2">
+                             <input
+                               type="text"
+                               value={data.part || ''}
+                               onChange={(e) => handleAdditionalDataChange('spasm', region, { ...data, part: e.target.value })}
+                               placeholder="Body part..."
+                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             />
+                             <input
+                               type="text"
+                               value={data.severity || ''}
+                               onChange={(e) => handleAdditionalDataChange('spasm', region, { ...data, severity: e.target.value })}
+                               placeholder="Severity..."
+                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             />
+                           </div>
                          </div>
-                       </div>
-                     )}
+                       ))}
+                       {Object.keys(editableAdditionalData.spasm).length === 0 && (
+                         <p className="text-gray-500 italic text-sm">No spasm items. Click "Add Item" to add one.</p>
+                       )}
+                     </div>
+                   </div>
 
-                     {/* Spasm */}
-                     {followupData.spasm && Object.keys(followupData.spasm).length > 0 && (
-                       <div className="bg-white rounded-lg p-4 border border-indigo-200">
-                         <h5 className="font-semibold text-indigo-700 mb-2 flex items-center">
-                           <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
-                           Spasm
-                         </h5>
-                         <div className="space-y-2">
-                           {Object.entries(followupData.spasm).map(([region, data]: [string, any]) => (
-                             <div key={region} className="border-l-2 border-indigo-200 pl-3">
-                               <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">{region}</span>
-                               {typeof data === 'object' ? (
-                                 <div className="mt-1 space-y-1">
-                                   {Object.entries(data).map(([part, severities]: [string, any]) => (
-                                     <div key={part} className="text-sm text-gray-700">
-                                       <span className="font-medium">{part}:</span> {Array.isArray(severities) ? severities.join(', ') : severities}
-                                     </div>
-                                   ))}
-                                 </div>
-                               ) : (
-                                 <div className="text-sm text-gray-700 mt-1">
-                                   {Array.isArray(data) ? data.join(', ') : data}
-                                 </div>
-                               )}
-                             </div>
-                           ))}
+                   {/* Ortho Tests - Editable */}
+                   <div className="bg-white rounded-lg p-4 border border-indigo-200">
+                     <div className="flex items-center justify-between mb-3">
+                       <h5 className="font-semibold text-indigo-700 flex items-center">
+                         <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
+                         Ortho Tests
+                       </h5>
+                       <button
+                         type="button"
+                         onClick={handleAddOrthoTest}
+                         className="px-2 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700"
+                       >
+                         Add Test
+                       </button>
+                     </div>
+                     <div className="space-y-3">
+                       {Object.entries(editableAdditionalData.ortho).map(([test, data]: [string, any]) => (
+                         <div key={test} className="border border-gray-200 rounded p-3">
+                           <div className="flex items-center justify-between mb-2">
+                             <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Test</span>
+                             <button
+                               type="button"
+                               onClick={() => handleRemoveOrthoTest(test)}
+                               className="text-red-500 hover:text-red-700 text-xs"
+                             >
+                               Remove
+                             </button>
+                           </div>
+                           <div className="space-y-2">
+                             <input
+                               type="text"
+                               value={data.result || ''}
+                               onChange={(e) => handleAdditionalDataChange('ortho', test, { ...data, result: e.target.value })}
+                               placeholder="Test result..."
+                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             />
+                             <textarea
+                               value={data.details || ''}
+                               onChange={(e) => handleAdditionalDataChange('ortho', test, { ...data, details: e.target.value })}
+                               placeholder="Test details..."
+                               rows={2}
+                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             />
+                           </div>
                          </div>
-                       </div>
-                     )}
+                       ))}
+                       {Object.keys(editableAdditionalData.ortho).length === 0 && (
+                         <p className="text-gray-500 italic text-sm">No ortho tests. Click "Add Test" to add one.</p>
+                       )}
+                     </div>
+                   </div>
 
-                                           {/* Ortho Tests */}
-                      {followupData.ortho && Object.keys(followupData.ortho).length > 0 && (
-                        <div className="bg-white rounded-lg p-4 border border-indigo-200">
-                          <h5 className="font-semibold text-indigo-700 mb-3 flex items-center">
-                            <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
-                            Ortho Tests
-                          </h5>
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-indigo-50">
-                                <tr>
-                                  <th className="px-4 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wide">Test</th>
-                                  <th className="px-4 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wide">Result</th>
-                                  <th className="px-4 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wide">Details</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-100">
-                                {Object.entries(followupData.ortho).map(([test, data]: [string, any], index: number) => (
-                                  <tr key={test} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                    <td className="px-4 py-3 text-sm font-medium text-gray-900 capitalize">
-                                      {test.replace(/([A-Z])/g, ' $1').trim()}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">
-                                      {typeof data === 'object' && data.result ? data.result : 
-                                       typeof data === 'string' ? data : 
-                                       typeof data === 'boolean' ? (data ? 'Positive' : 'Negative') : 
-                                       'N/A'}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-600">
-                                      {typeof data === 'object' && data.details ? data.details :
-                                       typeof data === 'object' && data.note ? data.note :
-                                       typeof data === 'object' ? Object.entries(data)
-                                         .filter(([key]) => key !== 'result' && key !== 'details' && key !== 'note')
-                                         .map(([key, value]) => `${key}: ${value}`).join(', ') : 
-                                       ''}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* AROM */}
-                      {followupData.arom && Object.keys(followupData.arom).length > 0 && (
-                        <div className="bg-white rounded-lg p-4 border border-indigo-200">
-                          <h5 className="font-semibold text-indigo-700 mb-3 flex items-center">
-                            <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
-                            Active Range of Motion (AROM)
-                          </h5>
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-indigo-50">
-                                <tr>
-                                  <th className="px-4 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wide">Movement</th>
-                                  <th className="px-4 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wide">Range</th>
-                                  <th className="px-4 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wide">Quality</th>
-                                  <th className="px-4 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wide">Pain</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-100">
-                                {Object.entries(followupData.arom).map(([movement, data]: [string, any], index: number) => (
-                                  <tr key={movement} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                    <td className="px-4 py-3 text-sm font-medium text-gray-900 capitalize">
-                                      {movement.replace(/([A-Z])/g, ' $1').trim()}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">
-                                      {typeof data === 'object' && data.range ? data.range :
-                                       typeof data === 'object' && data.degrees ? data.degrees :
-                                       typeof data === 'string' ? data : 
-                                       typeof data === 'number' ? `${data}°` : 'N/A'}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">
-                                      {typeof data === 'object' && data.quality ? data.quality :
-                                       typeof data === 'object' && data.smoothness ? data.smoothness : 'N/A'}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">
-                                      {typeof data === 'object' && data.pain ? (
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                          data.pain === 'None' || data.pain === 'No pain' ? 'bg-green-100 text-green-800' :
-                                          data.pain === 'Mild' ? 'bg-yellow-100 text-yellow-800' :
-                                          data.pain === 'Moderate' ? 'bg-orange-100 text-orange-800' :
-                                          data.pain === 'Severe' ? 'bg-red-100 text-red-800' :
-                                          'bg-gray-100 text-gray-800'
-                                        }`}>
-                                          {data.pain}
-                                        </span>
-                                      ) : typeof data === 'object' && data.painLevel ? (
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                          data.painLevel === 'None' || data.painLevel === 'No pain' ? 'bg-green-100 text-green-800' :
-                                          data.painLevel === 'Mild' ? 'bg-yellow-100 text-yellow-800' :
-                                          data.painLevel === 'Moderate' ? 'bg-orange-100 text-orange-800' :
-                                          data.painLevel === 'Severe' ? 'bg-red-100 text-red-800' :
-                                          'bg-gray-100 text-gray-800'
-                                        }`}>
-                                          {data.painLevel}
-                                        </span>
-                                      ) : 'N/A'}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
+                   {/* AROM - Editable */}
+                   <div className="bg-white rounded-lg p-4 border border-indigo-200">
+                     <div className="flex items-center justify-between mb-3">
+                       <h5 className="font-semibold text-indigo-700 flex items-center">
+                         <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
+                         Active Range of Motion (AROM)
+                       </h5>
+                       <button
+                         type="button"
+                         onClick={handleAddAromMovement}
+                         className="px-2 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700"
+                       >
+                         Add Movement
+                       </button>
+                     </div>
+                     <div className="space-y-3">
+                       {Object.entries(editableAdditionalData.arom).map(([movement, data]: [string, any]) => (
+                         <div key={movement} className="border border-gray-200 rounded p-3">
+                           <div className="flex items-center justify-between mb-2">
+                             <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Movement</span>
+                             <button
+                               type="button"
+                               onClick={() => handleRemoveAromMovement(movement)}
+                               className="text-red-500 hover:text-red-700 text-xs"
+                             >
+                               Remove
+                             </button>
+                           </div>
+                           <div className="space-y-2">
+                             <input
+                               type="text"
+                               value={data.range || ''}
+                               onChange={(e) => handleAdditionalDataChange('arom', movement, { ...data, range: e.target.value })}
+                               placeholder="Range (e.g., 90°)..."
+                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             />
+                             <input
+                               type="text"
+                               value={data.quality || ''}
+                               onChange={(e) => handleAdditionalDataChange('arom', movement, { ...data, quality: e.target.value })}
+                               placeholder="Quality (e.g., Smooth)..."
+                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             />
+                             <select
+                               value={data.pain || ''}
+                               onChange={(e) => handleAdditionalDataChange('arom', movement, { ...data, pain: e.target.value })}
+                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             >
+                               <option value="">Select Pain Level</option>
+                               <option value="None">None</option>
+                               <option value="Mild">Mild</option>
+                               <option value="Moderate">Moderate</option>
+                               <option value="Severe">Severe</option>
+                             </select>
+                           </div>
+                         </div>
+                       ))}
+                       {Object.keys(editableAdditionalData.arom).length === 0 && (
+                         <p className="text-gray-500 italic text-sm">No AROM movements. Click "Add Movement" to add one.</p>
+                       )}
+                     </div>
                    </div>
                  </div>
-               )}
+               </div>
              </div>
 
              {/* Footer */}
@@ -1197,7 +2234,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         {/* Muscle Palpation Modal */}
         {isMuscleModalOpen && followupData && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+           <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
               {/* Header */}
               <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 rounded-t-xl">
                 <div className="flex justify-between items-center">
@@ -1215,7 +2252,9 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
 
               {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+             <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                 {/* Left Column - Muscle Palpation & Strength */}
                 <div className="space-y-6">
                   {/* Muscle Palpation Data */}
                   {followupData.musclePalpation && (
@@ -1232,118 +2271,315 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </div>
                   )}
 
-                  {/* Muscle Strength Data */}
-                  {followupData.muscleStrength && followupData.muscleStrength.length > 0 && (
+                   {/* Muscle Strength Assessment - Editable */}
                     <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
+                     <div className="flex items-center justify-between mb-3">
+                       <div className="flex items-center">
                         <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center mr-3">
                           <span className="text-white text-sm font-bold">S</span>
                         </div>
                         <h4 className="text-lg font-bold text-indigo-800">Muscle Strength Assessment</h4>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {followupData.muscleStrength.map((muscle: string, index: number) => (
-                          <div key={index} className="bg-white rounded-lg p-3 border border-indigo-200">
-                            <span className="text-sm font-medium text-gray-700">{muscle}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tenderness Data */}
-                  {followupData.tenderness && Object.keys(followupData.tenderness).length > 0 && (
-                    <div className="bg-gradient-to-br from-red-50 to-pink-50 border border-red-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
-                        <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm font-bold">T</span>
-                        </div>
-                        <h4 className="text-lg font-bold text-red-800">Tenderness Assessment</h4>
-                      </div>
-                      <div className="space-y-3">
-                        {Object.entries(followupData.tenderness).map(([region, data]: [string, any]) => (
-                          <div key={region} className="bg-white rounded-lg p-4 border border-red-200">
-                            <h5 className="font-semibold text-red-700 mb-2 capitalize">{region}</h5>
-                            {typeof data === 'object' ? (
-                              <div className="space-y-2">
-                                {Object.entries(data).map(([part, severities]: [string, any]) => (
-                                  <div key={part} className="text-sm text-gray-700">
-                                    <span className="font-medium">{part}:</span> {Array.isArray(severities) ? severities.join(', ') : severities}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-sm text-gray-700">
-                                {Array.isArray(data) ? data.join(', ') : data}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Spasm Data */}
-                  {followupData.spasm && Object.keys(followupData.spasm).length > 0 && (
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
-                        <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm font-bold">S</span>
-                        </div>
-                        <h4 className="text-lg font-bold text-orange-800">Spasm Assessment</h4>
-                      </div>
-                      <div className="space-y-3">
-                        {Object.entries(followupData.spasm).map(([region, data]: [string, any]) => (
-                          <div key={region} className="bg-white rounded-lg p-4 border border-orange-200">
-                            <h5 className="font-semibold text-orange-700 mb-2 capitalize">{region}</h5>
-                            {typeof data === 'object' ? (
-                              <div className="space-y-2">
-                                {Object.entries(data).map(([part, severities]: [string, any]) => (
-                                  <div key={part} className="text-sm text-gray-700">
-                                    <span className="font-medium">{part}:</span> {Array.isArray(severities) ? severities.join(', ') : severities}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-sm text-gray-700">
-                                {Array.isArray(data) ? data.join(', ') : data}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* No Data Message */}
-                  {!followupData.musclePalpation && !followupData.muscleStrength && !followupData.tenderness && !followupData.spasm && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-                      <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-gray-600 text-2xl">📋</span>
-                      </div>
-                      <h4 className="text-lg font-semibold text-gray-700 mb-2">No Muscle Data Available</h4>
-                      <p className="text-gray-500">No muscle palpation, strength, tenderness, or spasm data found in the followup visit.</p>
-                    </div>
-                  )}
+                    <button
+                         onClick={handleAddMuscleStrength}
+                         className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+                       >
+                         Add Muscle
+                    </button>
+                  </div>
+                     <div className="space-y-3">
+                               {editableAdditionalData.muscleStrength.map((muscle: string, index: number) => (
+          <div key={index} className="bg-white rounded-lg p-3 border border-indigo-200">
+                           <div className="flex items-center space-x-2">
+                             <input
+                               type="text"
+                               value={muscle}
+                               onChange={(e) => handleMuscleStrengthChange(index, e.target.value)}
+                               placeholder="Enter muscle name..."
+                               className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                             />
+                  <button
+                               onClick={() => handleRemoveMuscleStrength(index)}
+                               className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                  >
+                               Remove
+                  </button>
                 </div>
+              </div>
+                       ))}
+                       {editableAdditionalData.muscleStrength.length === 0 && (
+                         <p className="text-gray-500 italic text-sm text-center py-4">No muscle strength items. Click "Add Muscle" to add one.</p>
+                       )}
+                            </div>
+                          </div>
+                      </div>
+
+                 {/* Right Column - Tenderness & Spasm */}
+                 <div className="space-y-6">
+                                      {/* Tenderness Data - Editable with Severity */}
+                   <div className="bg-gradient-to-br from-red-50 to-pink-50 border border-red-200 rounded-xl p-5 shadow-sm">
+                     <div className="flex items-center justify-between mb-3">
+                       <div className="flex items-center">
+                         <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mr-3">
+                           <span className="text-white text-sm font-bold">T</span>
+                         </div>
+                         <h4 className="text-lg font-bold text-red-800">Tenderness Assessment</h4>
+                       </div>
+                       <button
+                         onClick={handleAddTendernessItem}
+                         className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                       >
+                         Add Custom Item
+                       </button>
+                     </div>
+                     
+                     {/* Pre-defined body regions */}
+                     <div className="mb-4">
+                       <h5 className="font-medium text-red-700 mb-2">Body Regions:</h5>
+                       <div className="grid grid-cols-1 gap-3">
+                         {['cervical', 'thoracic', 'lumbar'].map(region => {
+                           const regionData = editableAdditionalData.tenderness[region] || { part: region, severities: [] };
+                           return (
+                             <div key={region} className="bg-white rounded-lg p-3 border border-red-200">
+                               <div className="flex items-center justify-between mb-2">
+                                 <h6 className="font-semibold text-red-700 capitalize">{region}</h6>
+                                 <button
+                                   onClick={() => handleRemoveTendernessItem(region)}
+                                   className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                                 >
+                                   Remove
+                                 </button>
+                               </div>
+                               <div className="space-y-2">
+                                 <input
+                                   type="text"
+                                   value={regionData.part || region}
+                                   onChange={(e) => handleAdditionalDataChange('tenderness', region, { ...regionData, part: e.target.value })}
+                                   placeholder={`${region} area...`}
+                                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-red-500"
+                                 />
+                                 <div>
+                                   <label className="block text-xs font-medium text-gray-600 mb-1">Severity:</label>
+                                   <div className="flex space-x-2">
+                                     {['Mild', 'Moderate', 'Severe'].map(severity => (
+                                       <label key={severity} className="flex items-center">
+                                         <input
+                                           type="checkbox"
+                                           checked={(regionData.severities || []).includes(severity)}
+                                           onChange={(e) => handleSeverityChange('tenderness', region, severity, e.target.checked)}
+                                           className="mr-1 text-red-600 focus:ring-red-500"
+                                         />
+                                         <span className="text-xs text-gray-700">{severity}</span>
+                                       </label>
+                                     ))}
+                                   </div>
+                                 </div>
+                               </div>
+                             </div>
+                           );
+                         })}
+                       </div>
+                     </div>
+                     
+                     {/* Additional custom tenderness items */}
+                     <div className="border-t border-red-200 pt-4">
+                       <h5 className="font-medium text-red-700 mb-2">Additional Areas:</h5>
+                       <div className="space-y-3">
+                         {Object.entries(editableAdditionalData.tenderness)
+                           .filter(([region]) => !['cervical', 'thoracic', 'lumbar'].includes(region))
+                           .map(([region, data]: [string, any]) => (
+                           <div key={region} className="bg-white rounded-lg p-3 border border-red-200">
+                             <div className="flex items-center justify-between mb-2">
+                               <h6 className="font-semibold text-red-700 capitalize">{region}</h6>
+                               <button
+                                 onClick={() => handleRemoveTendernessItem(region)}
+                                 className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                               >
+                                 Remove
+                               </button>
+                             </div>
+                             <div className="space-y-2">
+                               <input
+                                 type="text"
+                                 value={data.part || ''}
+                                 onChange={(e) => handleAdditionalDataChange('tenderness', region, { ...data, part: e.target.value })}
+                                 placeholder="Body part..."
+                                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-red-500"
+                               />
+                               <div>
+                                 <label className="block text-xs font-medium text-gray-600 mb-1">Severity:</label>
+                                 <div className="flex space-x-2">
+                                   {['Mild', 'Moderate', 'Severe'].map(severity => (
+                                     <label key={severity} className="flex items-center">
+                                       <input
+                                         type="checkbox"
+                                         checked={(data.severities || []).includes(severity)}
+                                         onChange={(e) => handleSeverityChange('tenderness', region, severity, e.target.checked)}
+                                         className="mr-1 text-red-600 focus:ring-red-500"
+                                       />
+                                       <span className="text-xs text-gray-700">{severity}</span>
+                                     </label>
+                                   ))}
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   </div>
+
+                                      {/* Spasm Assessment - Editable with Severity */}
+                   <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
+                     <div className="flex items-center justify-between mb-3">
+                       <div className="flex items-center">
+                         <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
+                           <span className="text-white text-sm font-bold">S</span>
+                         </div>
+                         <h4 className="text-lg font-bold text-orange-800">Spasm Assessment</h4>
+                       </div>
+                       <button
+                         onClick={handleAddSpasmItem}
+                         className="px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700"
+                       >
+                         Add Custom Item
+                       </button>
+                     </div>
+                     
+                     {/* Pre-defined body regions */}
+                     <div className="mb-4">
+                       <h5 className="font-medium text-orange-700 mb-2">Body Regions:</h5>
+                       <div className="grid grid-cols-1 gap-3">
+                         {['cervical', 'thoracic', 'lumbar'].map(region => {
+                           const regionData = editableAdditionalData.spasm[region] || { part: region, severities: [] };
+                           return (
+                             <div key={region} className="bg-white rounded-lg p-3 border border-orange-200">
+                               <div className="flex items-center justify-between mb-2">
+                                 <h6 className="font-semibold text-orange-700 capitalize">{region}</h6>
+                                 <button
+                                   onClick={() => handleRemoveSpasmItem(region)}
+                                   className="px-2 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600"
+                                 >
+                                   Remove
+                                 </button>
+                               </div>
+                               <div className="space-y-2">
+                                 <input
+                                   type="text"
+                                   value={regionData.part || region}
+                                   onChange={(e) => handleAdditionalDataChange('spasm', region, { ...regionData, part: e.target.value })}
+                                   placeholder={`${region} area...`}
+                                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                 />
+                                 <div>
+                                   <label className="block text-xs font-medium text-gray-600 mb-1">Severity:</label>
+                                   <div className="flex space-x-2">
+                                     {['Mild', 'Moderate', 'Severe'].map(severity => (
+                                       <label key={severity} className="flex items-center">
+                                         <input
+                                           type="checkbox"
+                                           checked={(regionData.severities || []).includes(severity)}
+                                           onChange={(e) => handleSeverityChange('spasm', region, severity, e.target.checked)}
+                                           className="mr-1 text-orange-600 focus:ring-orange-500"
+                                         />
+                                         <span className="text-xs text-gray-700">{severity}</span>
+                                       </label>
+                                     ))}
+                                   </div>
+                                 </div>
+                               </div>
+                             </div>
+                           );
+                         })}
+                       </div>
+                     </div>
+                     
+                     {/* Additional custom spasm items */}
+                     <div className="border-t border-orange-200 pt-4">
+                       <h5 className="font-medium text-orange-700 mb-2">Additional Areas:</h5>
+                       <div className="space-y-3">
+                         {Object.entries(editableAdditionalData.spasm)
+                           .filter(([region]) => !['cervical', 'thoracic', 'lumbar'].includes(region))
+                           .map(([region, data]: [string, any]) => (
+                           <div key={region} className="bg-white rounded-lg p-3 border border-orange-200">
+                             <div className="flex items-center justify-between mb-2">
+                               <h6 className="font-semibold text-orange-700 capitalize">{region}</h6>
+                               <button
+                                 onClick={() => handleRemoveSpasmItem(region)}
+                                 className="px-2 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600"
+                               >
+                                 Remove
+                               </button>
+                             </div>
+                             <div className="space-y-2">
+                               <input
+                                 type="text"
+                                 value={data.part || ''}
+                                 onChange={(e) => handleAdditionalDataChange('spasm', region, { ...data, part: e.target.value })}
+                                 placeholder="Body part..."
+                                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                               />
+                               <div>
+                                 <label className="block text-xs font-medium text-gray-600 mb-1">Severity:</label>
+                                 <div className="flex space-x-2">
+                                   {['Mild', 'Moderate', 'Severe'].map(severity => (
+                                     <label key={severity} className="flex items-center">
+                                       <input
+                                         type="checkbox"
+                                         checked={(data.severities || []).includes(severity)}
+                                         onChange={(e) => handleSeverityChange('spasm', region, severity, e.target.checked)}
+                                         className="mr-1 text-orange-600 focus:ring-orange-500"
+                                       />
+                                       <span className="text-xs text-gray-700">{severity}</span>
+                                     </label>
+                                   ))}
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   </div>
+              </div>
+                        </div>
+
+                                     {/* No Data Message */}
+                   {!followupData.musclePalpation && (!editableAdditionalData.muscleStrength || editableAdditionalData.muscleStrength.length === 0) && 
+                    Object.keys(editableAdditionalData.tenderness).filter(key => !['cervical', 'thoracic', 'lumbar'].includes(key)).length === 0 && 
+                    Object.keys(editableAdditionalData.spasm).filter(key => !['cervical', 'thoracic', 'lumbar'].includes(key)).length === 0 && (
+                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
+                       <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                         <span className="text-gray-600 text-2xl">📋</span>
+                       </div>
+                       <h4 className="text-lg font-semibold text-gray-700 mb-2">No Additional Muscle Data Available</h4>
+                       <p className="text-gray-500">No additional muscle palpation, strength, tenderness, or spasm data found in the followup visit. You can still edit the default body regions.</p>
+                     </div>
+                   )}
               </div>
 
               {/* Footer */}
               <div className="bg-gray-50 px-6 py-4 rounded-b-xl border-t border-gray-200">
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-gray-600">
-                    <span className="font-medium">Ready to apply muscle palpation data to your form?</span>
+                   <span className="font-medium">Ready to apply muscle palpation data to your form?</span>
                   </div>
                   <div className="flex space-x-3">
                     <button
-                      onClick={() => setIsMuscleModalOpen(false)}
+                     onClick={() => setIsMuscleModalOpen(false)}
                       className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={applyMusclePalpationData}
-                      className="px-6 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all shadow-md hover:shadow-lg"
+                     onClick={saveMusclePalpationData}
+                     className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-medium hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-md hover:shadow-lg"
+                   >
+                     Save Changes
+                   </button>
+                   <button
+                     onClick={applyMusclePalpationData}
+                     className="px-6 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all shadow-md hover:shadow-lg"
                     >
                       Apply to Form
                     </button>
@@ -1357,116 +2593,97 @@ const handleSubmit = async (e: React.FormEvent) => {
         {/* Orthos Modal */}
         {isOrthosModalOpen && followupData && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
               {/* Header */}
-              <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-xl">
-                <div className="flex items-center justify-between">
+              <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-4 rounded-t-xl">
+                <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-xl font-bold text-white">Orthopedic Tests Data</h3>
-                    <p className="text-green-100 text-sm mt-1">From previous followup visit</p>
+                    <h3 className="text-xl font-bold">Orthopedic Tests Data</h3>
+                    <p className="text-green-100 text-sm mt-1">Review and edit orthopedic tests from followup visit</p>
                   </div>
                   <button
                     onClick={() => setIsOrthosModalOpen(false)}
-                    className="text-white hover:text-green-200 focus:outline-none"
+                    className="text-white hover:text-green-200 transition-colors p-2 rounded-full hover:bg-green-600"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X className="h-6 w-6" />
                   </button>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
                 <div className="space-y-6">
-                  {/* Orthos Tests Data */}
-                  {followupData.orthos && (followupData.orthos.tests || followupData.orthos.result) && (
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
+                  {/* Orthos Tests - Editable */}
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
                         <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
                           <span className="text-white text-sm font-bold">O</span>
                         </div>
                         <h4 className="text-lg font-bold text-green-800">Orthopedic Tests</h4>
                       </div>
-                      <div className="space-y-4">
-                        {followupData.orthos.tests && (
-                          <div className="bg-white rounded-lg p-4 border border-green-200">
-                            <h5 className="font-semibold text-green-700 mb-2">Tests Performed</h5>
-                            <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {followupData.orthos.tests}
-                            </div>
-                          </div>
-                        )}
-                        {followupData.orthos.result && (
-                          <div className="bg-white rounded-lg p-4 border border-green-200">
-                            <h5 className="font-semibold text-green-700 mb-2">Test Results</h5>
-                            <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {followupData.orthos.result}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      <button
+                        onClick={handleAddOrthoTest}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                      >
+                        Add Test
+                      </button>
                     </div>
-                  )}
-
-                  {/* Ortho Object Data (if exists) */}
-                  {followupData.ortho && Object.keys(followupData.ortho).length > 0 && (
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm font-bold">T</span>
+                    <div className="space-y-3">
+                      {Object.entries(editableAdditionalData.ortho).map(([testKey, testData]: [string, any]) => (
+                        <div key={testKey} className="bg-white rounded-lg p-4 border border-green-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <h5 className="font-semibold text-green-700 capitalize">{testKey}</h5>
+                            <button
+                              onClick={() => handleRemoveOrthoTest(testKey)}
+                              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Test Name:</label>
+                              <input
+                                type="text"
+                                value={testData.name || ''}
+                                onChange={(e) => handleOrthoTestChange(testKey, 'name', e.target.value)}
+                                placeholder="Enter test name..."
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Result:</label>
+                              <select
+                                value={testData.result || ''}
+                                onChange={(e) => handleOrthoTestChange(testKey, 'result', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                              >
+                                <option value="">Select Result</option>
+                                <option value="Positive">Positive</option>
+                                <option value="Negative">Negative</option>
+                                <option value="Equivocal">Equivocal</option>
+                                <option value="Not Tested">Not Tested</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Details:</label>
+                              <textarea
+                                value={testData.details || ''}
+                                onChange={(e) => handleOrthoTestChange(testKey, 'details', e.target.value)}
+                                placeholder="Enter test details..."
+                                rows={2}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <h4 className="text-lg font-bold text-blue-800">Detailed Test Results</h4>
-                      </div>
-                      <div className="space-y-4">
-                        {Object.entries(followupData.ortho).map(([test, data]: [string, any]) => (
-                          <div key={test} className="bg-white rounded-lg p-4 border border-blue-200">
-                            <h5 className="font-semibold text-blue-700 mb-2 capitalize">
-                              {test.replace(/([A-Z])/g, ' $1').trim()}
-                            </h5>
-                            <div className="text-sm text-gray-700">
-                              {typeof data === 'object' ? (
-                                <div className="space-y-2">
-                                  {Object.entries(data).map(([key, value]: [string, any]) => (
-                                    <div key={key} className="flex justify-between">
-                                      <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                                      <span className="text-gray-600">
-                                        {typeof value === 'boolean' ? (value ? 'Positive' : 'Negative') :
-                                         typeof value === 'string' ? value :
-                                         typeof value === 'number' ? value.toString() :
-                                         Array.isArray(value) ? value.join(', ') : 'N/A'}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="flex justify-between">
-                                  <span className="font-medium">Result:</span>
-                                  <span className="text-gray-600">
-                                    {typeof data === 'boolean' ? (data ? 'Positive' : 'Negative') :
-                                     typeof data === 'string' ? data :
-                                     typeof data === 'number' ? data.toString() : 'N/A'}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      ))}
+                      {Object.keys(editableAdditionalData.ortho).length === 0 && (
+                        <p className="text-gray-500 italic text-sm text-center py-4">No orthopedic tests. Click "Add Test" to add one.</p>
+                      )}
                     </div>
-                  )}
-
-                  {/* No Data Message */}
-                  {(!followupData.orthos || (!followupData.orthos.tests && !followupData.orthos.result)) && 
-                   (!followupData.ortho || Object.keys(followupData.ortho).length === 0) && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-                      <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-gray-600 text-2xl">🔬</span>
-                      </div>
-                      <h4 className="text-lg font-semibold text-gray-700 mb-2">No Orthopedic Test Data Available</h4>
-                      <p className="text-gray-500">No orthopedic test data found in the followup visit.</p>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -1484,8 +2701,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                       Cancel
                     </button>
                     <button
-                      onClick={applyOrthosData}
+                      onClick={saveOrthosData}
                       className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-medium hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-md hover:shadow-lg"
+                    >
+                      Save Changes
+                    </button>
+                    <button
+                      onClick={applyOrthosData}
+                      className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md hover:shadow-lg"
                     >
                       Apply to Form
                     </button>
@@ -1499,135 +2722,100 @@ const handleSubmit = async (e: React.FormEvent) => {
         {/* Activities Modal */}
         {isActivitiesModalOpen && followupData && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
               {/* Header */}
-              <div className="bg-gradient-to-r from-orange-600 to-orange-700 px-6 py-4 rounded-t-xl">
-                <div className="flex items-center justify-between">
+              <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white px-6 py-4 rounded-t-xl">
+                <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-xl font-bold text-white">Activities Data</h3>
-                    <p className="text-orange-100 text-sm mt-1">From previous followup visit</p>
+                    <h3 className="text-xl font-bold">Activities Data</h3>
+                    <p className="text-orange-100 text-sm mt-1">Review and edit activities that cause pain from followup visit</p>
                   </div>
                   <button
                     onClick={() => setIsActivitiesModalOpen(false)}
-                    className="text-white hover:text-orange-200 focus:outline-none"
+                    className="text-white hover:text-orange-200 transition-colors p-2 rounded-full hover:bg-orange-600"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X className="h-6 w-6" />
                   </button>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
                 <div className="space-y-6">
-                  {/* Activities that cause pain */}
-                  {followupData.activitiesCausePain && (
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
+                  {/* Activities - Editable */}
+                  <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
                         <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
                           <span className="text-white text-sm font-bold">A</span>
                         </div>
                         <h4 className="text-lg font-bold text-orange-800">Activities Causing Pain</h4>
                       </div>
-                      <div className="bg-white rounded-lg p-4 border border-orange-200">
-                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{followupData.activitiesCausePain}</p>
-                      </div>
+                      <button
+                        onClick={handleAddActivity}
+                        className="px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700"
+                      >
+                        Add Activity
+                      </button>
                     </div>
-                  )}
-
-                  {/* Pain Radiating */}
-                  {followupData.painRadiating && (
-                    <div className="bg-gradient-to-br from-red-50 to-pink-50 border border-red-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
-                        <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm font-bold">P</span>
-                        </div>
-                        <h4 className="text-lg font-bold text-red-800">Pain Radiating</h4>
-                      </div>
-                      <div className="bg-white rounded-lg p-4 border border-red-200">
-                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{followupData.painRadiating}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ROM Data */}
-                  {followupData.romPercent && (
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm font-bold">R</span>
-                        </div>
-                        <h4 className="text-lg font-bold text-blue-800">Range of Motion</h4>
-                      </div>
-                      <div className="bg-white rounded-lg p-4 border border-blue-200">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-gray-700">ROM Percentage:</span>
-                          <span className="text-lg font-semibold text-blue-600">{followupData.romPercent}%</span>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-2">Pre-injury status</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* AROM Data */}
-                  {followupData.arom && Object.keys(followupData.arom).length > 0 && (
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
-                        <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm font-bold">M</span>
-                        </div>
-                        <h4 className="text-lg font-bold text-indigo-800">Active Range of Motion (AROM)</h4>
-                      </div>
-                      <div className="space-y-3">
-                        {Object.entries(followupData.arom).map(([movement, data]: [string, any]) => (
-                          <div key={movement} className="bg-white rounded-lg p-4 border border-indigo-200">
-                            <h5 className="font-semibold text-indigo-700 mb-2 capitalize">
-                              {movement.replace(/([A-Z])/g, ' $1').trim()}
-                            </h5>
-                            <div className="text-sm text-gray-700">
-                              {typeof data === 'object' ? (
-                                <div className="space-y-2">
-                                  {Object.entries(data).map(([key, value]: [string, any]) => (
-                                    <div key={key} className="flex justify-between">
-                                      <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                                      <span className="text-gray-600">
-                                        {typeof value === 'boolean' ? (value ? 'Yes' : 'No') :
-                                         typeof value === 'string' ? value :
-                                         typeof value === 'number' ? value.toString() :
-                                         Array.isArray(value) ? value.join(', ') : 'N/A'}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="flex justify-between">
-                                  <span className="font-medium">Value:</span>
-                                  <span className="text-gray-600">
-                                    {typeof data === 'boolean' ? (data ? 'Yes' : 'No') :
-                                     typeof data === 'string' ? data :
-                                     typeof data === 'number' ? data.toString() : 'N/A'}
-                                  </span>
-                                </div>
-                              )}
+                    <div className="space-y-3">
+                      {Object.entries(editableAdditionalData.activities).map(([activityKey, activityData]: [string, any]) => (
+                        <div key={activityKey} className="bg-white rounded-lg p-4 border border-orange-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <h5 className="font-semibold text-orange-700 capitalize">{activityKey}</h5>
+                            <button
+                              onClick={() => handleRemoveActivity(activityKey)}
+                              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Activity Name:</label>
+                              <input
+                                type="text"
+                                value={activityData.name || ''}
+                                onChange={(e) => handleActivityChange(activityKey, 'name', e.target.value)}
+                                placeholder="Enter activity name..."
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Severity:</label>
+                              <select
+                                value={activityData.severity || ''}
+                                onChange={(e) => handleActivityChange(activityKey, 'severity', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500"
+                              >
+                                <option value="">Select Severity</option>
+                                <option value="Mild">Mild</option>
+                                <option value="Moderate">Moderate</option>
+                                <option value="Severe">Severe</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Frequency:</label>
+                              <select
+                                value={activityData.frequency || ''}
+                                onChange={(e) => handleActivityChange(activityKey, 'frequency', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500"
+                              >
+                                <option value="">Select Frequency</option>
+                                <option value="Rarely">Rarely</option>
+                                <option value="Occasionally">Occasionally</option>
+                                <option value="Frequently">Frequently</option>
+                                <option value="Always">Always</option>
+                              </select>
                             </div>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
+                      {Object.keys(editableAdditionalData.activities).length === 0 && (
+                        <p className="text-gray-500 italic text-sm text-center py-4">No activities. Click "Add Activity" to add one.</p>
+                      )}
                     </div>
-                  )}
-
-                  {/* No Data Message */}
-                  {!followupData.activitiesCausePain && !followupData.painRadiating && !followupData.romPercent && 
-                   (!followupData.arom || Object.keys(followupData.arom).length === 0) && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-                      <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-gray-600 text-2xl">🏃‍♂️</span>
-                      </div>
-                      <h4 className="text-lg font-semibold text-gray-700 mb-2">No Activities Data Available</h4>
-                      <p className="text-gray-500">No activities, pain radiating, ROM, or AROM data found in the followup visit.</p>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -1645,72 +2833,131 @@ const handleSubmit = async (e: React.FormEvent) => {
                       Cancel
                     </button>
                     <button
-                      onClick={applyActivitiesData}
+                      onClick={saveActivitiesData}
                       className="px-6 py-2 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-lg text-sm font-medium hover:from-orange-700 hover:to-orange-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all shadow-md hover:shadow-lg"
+                    >
+                      Save Changes
+                    </button>
+                    <button
+                      onClick={applyActivitiesData}
+                      className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md hover:shadow-lg"
                     >
                       Apply to Form
                     </button>
                   </div>
                 </div>
               </div>
-                       </div>
-         </div>
-       )}
+            </div>
+          </div>
+        )}
 
         {/* Croft Criteria Modal */}
         {isCroftModalOpen && followupData && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
               {/* Header */}
-              <div className="bg-gradient-to-r from-teal-600 to-teal-700 px-6 py-4 rounded-t-xl">
-                <div className="flex items-center justify-between">
+              <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white px-6 py-4 rounded-t-xl">
+                <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-xl font-bold text-white">Croft Criteria Data</h3>
-                    <p className="text-teal-100 text-sm mt-1">From previous followup visit</p>
+                    <h3 className="text-xl font-bold">Croft Criteria Data</h3>
+                    <p className="text-teal-100 text-sm mt-1">Review and edit Croft Criteria grades from followup visit</p>
                   </div>
                   <button
                     onClick={() => setIsCroftModalOpen(false)}
-                    className="text-white hover:text-teal-200 focus:outline-none"
+                    className="text-white hover:text-teal-200 transition-colors p-2 rounded-full hover:bg-teal-600"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X className="h-6 w-6" />
                   </button>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
                 <div className="space-y-6">
-                  {/* Croft Criteria Data */}
-                  {followupData.croftCriteria && (
-                    <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center mb-3">
+                  {/* Croft Criteria - Editable */}
+                  <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
                         <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center mr-3">
                           <span className="text-white text-sm font-bold">C</span>
                         </div>
-                        <h4 className="text-lg font-bold text-teal-800">Croft Criteria Grade</h4>
+                        <h4 className="text-lg font-bold text-teal-800">Croft Criteria Assessment</h4>
                       </div>
-                      <div className="bg-white rounded-lg p-4 border border-teal-200">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-gray-700">Grade:</span>
-                          <span className="text-lg font-semibold text-teal-600">{followupData.croftCriteria}</span>
+                      <button
+                        onClick={handleAddCroftCriteria}
+                        className="px-3 py-1 bg-teal-600 text-white text-sm rounded hover:bg-teal-700"
+                      >
+                        Add Criteria
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {Object.entries(editableAdditionalData.croftCriteria).map(([criteriaKey, criteriaData]: [string, any]) => (
+                        <div key={criteriaKey} className="bg-white rounded-lg p-4 border border-teal-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <h5 className="font-semibold text-teal-700 capitalize">{criteriaKey}</h5>
+                            <button
+                              onClick={() => handleRemoveCroftCriteria(criteriaKey)}
+                              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Grade:</label>
+                              <select
+                                value={criteriaData.grade || ''}
+                                onChange={(e) => handleCroftCriteriaChange(criteriaKey, 'grade', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              >
+                                <option value="">Select Grade</option>
+                                <option value="1">Grade 1</option>
+                                <option value="2">Grade 2</option>
+                                <option value="3">Grade 3</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Frequency:</label>
+                              <select
+                                value={criteriaData.frequency || ''}
+                                onChange={(e) => handleCroftCriteriaChange(criteriaKey, 'frequency', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              >
+                                <option value="">Select Frequency</option>
+                                <option value="Rarely">Rarely</option>
+                                <option value="Occasionally">Occasionally</option>
+                                <option value="Frequently">Frequently</option>
+                                <option value="Always">Always</option>
+                              </select>
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Guideline:</label>
+                              <input
+                                type="text"
+                                value={criteriaData.treatmentGuideline || ''}
+                                onChange={(e) => handleCroftCriteriaChange(criteriaKey, 'treatmentGuideline', e.target.value)}
+                                placeholder="Enter treatment guideline..."
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Notes:</label>
+                              <textarea
+                                value={criteriaData.notes || ''}
+                                onChange={(e) => handleCroftCriteriaChange(criteriaKey, 'notes', e.target.value)}
+                                placeholder="Enter additional notes..."
+                                rows={2}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-600 mt-2">Frequency of Treatment Guideline Placement</p>
-                      </div>
+                      ))}
+                      {Object.keys(editableAdditionalData.croftCriteria).length === 0 && (
+                        <p className="text-gray-500 italic text-sm text-center py-4">No Croft Criteria. Click "Add Criteria" to add one.</p>
+                      )}
                     </div>
-                  )}
-
-                  {/* No Data Message */}
-                  {!followupData.croftCriteria && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-                      <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-gray-600 text-2xl">📊</span>
-                      </div>
-                      <h4 className="text-lg font-semibold text-gray-700 mb-2">No Croft Criteria Data Available</h4>
-                      <p className="text-gray-500">No Croft Criteria grade data found in the followup visit.</p>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -1728,8 +2975,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                       Cancel
                     </button>
                     <button
-                      onClick={applyCroftData}
+                      onClick={saveCroftCriteriaData}
                       className="px-6 py-2 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg text-sm font-medium hover:from-teal-700 hover:to-teal-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all shadow-md hover:shadow-lg"
+                    >
+                      Save Changes
+                    </button>
+                    <button
+                      onClick={applyCroftCriteriaData}
+                      className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md hover:shadow-lg"
                     >
                       Apply to Form
                     </button>
@@ -1739,6 +2992,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
           </div>
         )}
+
      </div>
    );
  };
