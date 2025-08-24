@@ -180,6 +180,22 @@ interface FollowupVisitFormData {
     };
 
     homeCareSuggestions?: string;
+    areasData?: {
+      areasImproving: boolean;
+      areasExacerbated: boolean;
+      areasSame: boolean;
+      areasResolved: boolean;
+      individualAreaStatus?: {
+        [areaType: string]: {
+          [areaId: string]: {
+            improving: boolean;
+            exacerbated: boolean;
+            same: boolean;
+            resolved: boolean;
+          };
+        };
+      };
+    };
   };
 }
 
@@ -204,7 +220,93 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
   const [muscleTendernessSelections, setMuscleTendernessSelections] = useState<{[region: string]: {[anatomicalPart: string]: string[]}}>({});
   const [muscleSpasmSelections, setMuscleSpasmSelections] = useState<{[region: string]: {[anatomicalPart: string]: string[]}}>({});
 
+  // State for editable muscle strength data
+  const [editableMuscleStrength, setEditableMuscleStrength] = useState<{
+    muscleStrength: string[];
+    strength: {
+      [key: string]: {
+        right?: string;
+        left?: string;
+      } | string;
+    };
+  }>({
+    muscleStrength: [],
+    strength: {}
+  });
+
+  // State for editable activities pain data
+  const [editableActivitiesPainData, setEditableActivitiesPainData] = useState<{
+    chiropracticAdjustment: string[];
+    chiropracticOther: string;
+    acupuncture: string[];
+    acupunctureOther: string;
+    physiotherapy: string[];
+    rehabilitationExercises: string[];
+    durationFrequency: {
+      timesPerWeek: string;
+      reEvalInWeeks: string;
+    };
+    diagnosticUltrasound: string;
+    disabilityDuration: string;
+  }>({
+    chiropracticAdjustment: [],
+    chiropracticOther: '',
+    acupuncture: [],
+    acupunctureOther: '',
+    physiotherapy: [],
+    rehabilitationExercises: [],
+    durationFrequency: {
+      timesPerWeek: '',
+      reEvalInWeeks: ''
+    },
+    diagnosticUltrasound: '',
+    disabilityDuration: ''
+  });
+
+  // State for Orthopedic Tests modal interactive selections
+  const [orthoTestSelections, setOrthoTestSelections] = useState<{[region: string]: {[testName: string]: {left: boolean; right: boolean; ligLaxity: boolean}}}>({});
   
+  // State for Imaging and Referrals modal interactive data
+  const [imagingInputData, setImagingInputData] = useState<{
+    referrals: string[];
+    physiotherapy: string[];
+    rehabilitationExercises: string[];
+    durationFrequency: {
+      timesPerWeek: string;
+      reEvalInWeeks: string;
+    };
+    imaging: {
+      xray: string[];
+      mri: string[];
+      ct: string[];
+    };
+  }>({
+    referrals: [],
+    physiotherapy: [],
+    rehabilitationExercises: [],
+    durationFrequency: {
+      timesPerWeek: '',
+      reEvalInWeeks: ''
+    },
+    imaging: {
+      xray: [],
+      mri: [],
+      ct: []
+    }
+  });
+  
+  // State for individual area status tracking
+  const [individualAreaStatus, setIndividualAreaStatus] = useState<{
+    [areaType: string]: {
+      [areaId: string]: {
+        improving: boolean;
+        exacerbated: boolean;
+        same: boolean;
+        resolved: boolean;
+      };
+    };
+  }>({});
+
   const [patient, setPatient] = useState<Patient | null>(null);
   const [previousVisits, setPreviousVisits] = useState<Visit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -214,7 +316,8 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
   const [initialVisitData, setInitialVisitData] = useState<any>(null);
   const [hasLoadedVisits, setHasLoadedVisits] = useState(false);
   const [homeCareSuggestions, setHomeCareSuggestions] = useState('');
-const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
+  const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
+  const [isAreasModalOpen, setIsAreasModalOpen] = useState(false);
 
   // Use the defined interface for the state type
   const [formData, setFormData] = useState<FollowupVisitFormData>({
@@ -373,11 +476,276 @@ const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
     });
   };
 
+  // Handler for orthopedic test checkbox changes
+  const handleOrthoTestChange = (region: string, testName: string, field: 'left' | 'right' | 'ligLaxity', checked: boolean) => {
+    setOrthoTestSelections(prev => {
+      const currentRegion = prev[region] || {};
+      const currentTest = currentRegion[testName] || { left: false, right: false, ligLaxity: false };
+      
+      return {
+        ...prev,
+        [region]: {
+          ...currentRegion,
+          [testName]: {
+            ...currentTest,
+            [field]: checked
+          }
+        }
+      };
+    });
+  };
+
+  // Handler for imaging and referrals input changes
+  const handleImagingInputChange = (field: string, value: string | string[], subField?: string) => {
+    setImagingInputData(prev => {
+      if (subField) {
+        // Handle nested fields like imaging.xray, imaging.mri, etc.
+        return {
+          ...prev,
+          [field]: {
+            ...prev[field as keyof typeof prev],
+            [subField]: value
+          }
+        };
+      } else if (field === 'durationFrequency') {
+        // Handle duration frequency fields
+        return {
+          ...prev,
+          durationFrequency: {
+            ...prev.durationFrequency,
+            [value as string]: value
+          }
+        };
+      } else {
+        // Handle simple array fields
+        return {
+          ...prev,
+          [field]: value
+        };
+      }
+    });
+  };
+
+  // Handler for adding items to arrays (referrals, physiotherapy, etc.)
+  const handleAddItem = (field: 'referrals' | 'physiotherapy' | 'rehabilitationExercises' | 'xray' | 'mri' | 'ct', value: string) => {
+    if (!value.trim()) return;
+    
+    setImagingInputData(prev => {
+      if (field === 'xray' || field === 'mri' || field === 'ct') {
+        return {
+          ...prev,
+          imaging: {
+            ...prev.imaging,
+            [field]: [...prev.imaging[field], value.trim()]
+          }
+        };
+      } else {
+        return {
+          ...prev,
+          [field]: [...prev[field], value.trim()]
+        };
+      }
+    });
+  };
+
+  // Handler for removing items from arrays
+  const handleRemoveItem = (field: 'referrals' | 'physiotherapy' | 'rehabilitationExercises' | 'xray' | 'mri' | 'ct', index: number) => {
+    setImagingInputData(prev => {
+      if (field === 'xray' || field === 'mri' || field === 'ct') {
+        const newArray = [...prev.imaging[field]];
+        newArray.splice(index, 1);
+        return {
+          ...prev,
+          imaging: {
+            ...prev.imaging,
+            [field]: newArray
+          }
+        };
+      } else {
+        const newArray = [...prev[field]];
+        newArray.splice(index, 1);
+        return {
+          ...prev,
+          [field]: newArray
+        };
+      }
+    });
+  };
+
+  // Handler for individual area status changes
+  const handleIndividualAreaStatusChange = (areaType: string, areaId: string, status: 'improving' | 'exacerbated' | 'same' | 'resolved', checked: boolean) => {
+    setIndividualAreaStatus(prev => {
+      const currentAreaType = prev[areaType] || {};
+      const currentArea = currentAreaType[areaId] || {
+        improving: false,
+        exacerbated: false,
+        same: false,
+        resolved: false
+      };
+
+      return {
+        ...prev,
+        [areaType]: {
+          ...currentAreaType,
+          [areaId]: {
+            ...currentArea,
+            [status]: checked
+          }
+        }
+      };
+    });
+  };
+
+  // Handler for editing muscle strength array items
+  const handleMuscleStrengthChange = (index: number, value: string) => {
+    setEditableMuscleStrength(prev => {
+      const newMuscleStrength = [...prev.muscleStrength];
+      newMuscleStrength[index] = value;
+      return {
+        ...prev,
+        muscleStrength: newMuscleStrength
+      };
+    });
+  };
+
+  // Handler for adding new muscle strength item
+  const handleAddMuscleStrength = () => {
+    setEditableMuscleStrength(prev => ({
+      ...prev,
+      muscleStrength: [...prev.muscleStrength, '']
+    }));
+  };
+
+  // Handler for removing muscle strength item
+  const handleRemoveMuscleStrength = (index: number) => {
+    setEditableMuscleStrength(prev => {
+      const newMuscleStrength = [...prev.muscleStrength];
+      newMuscleStrength.splice(index, 1);
+      return {
+        ...prev,
+        muscleStrength: newMuscleStrength
+      };
+    });
+  };
+
+  // Handler for editing strength values (right/left)
+  const handleStrengthChange = (key: string, side: 'right' | 'left', value: string) => {
+    setEditableMuscleStrength(prev => {
+      const currentStrength = prev.strength[key];
+      let updatedStrength;
+      
+      if (typeof currentStrength === 'object' && currentStrength !== null) {
+        // If it's an object with right/left properties
+        updatedStrength = {
+          ...currentStrength,
+          [side]: value
+        };
+      } else {
+        // If it's a string, convert to object
+        updatedStrength = {
+          right: side === 'right' ? value : '',
+          left: side === 'left' ? value : ''
+        };
+      }
+      
+      return {
+        ...prev,
+        strength: {
+          ...prev.strength,
+          [key]: updatedStrength
+        }
+      };
+    });
+  };
+
+  // Handler for adding new strength key
+  const handleAddStrengthKey = () => {
+    const newKey = prompt('Enter the strength key (e.g., C5, L2-L3):');
+    if (newKey && newKey.trim()) {
+      setEditableMuscleStrength(prev => ({
+        ...prev,
+        strength: {
+          ...prev.strength,
+          [newKey.trim()]: { right: '', left: '' }
+        }
+      }));
+    }
+  };
+
+  // Handler for removing strength key
+  const handleRemoveStrengthKey = (key: string) => {
+    setEditableMuscleStrength(prev => {
+      const newStrength = { ...prev.strength };
+      delete newStrength[key];
+      return {
+        ...prev,
+        strength: newStrength
+      };
+    });
+  };
+
+  // Handler for editing activities pain data
+  const handleActivitiesPainChange = (field: string, value: string | string[], subField?: string) => {
+    setEditableActivitiesPainData(prev => {
+      if (subField) {
+        // Handle nested fields like durationFrequency.timesPerWeek
+        const currentField = prev[field as keyof typeof prev];
+        if (typeof currentField === 'object' && currentField !== null && !Array.isArray(currentField)) {
+          return {
+            ...prev,
+            [field]: {
+              ...(currentField as Record<string, any>),
+              [subField]: value
+            }
+          };
+        } else {
+          // If field is not an object, create a new object
+          return {
+            ...prev,
+            [field]: {
+              [subField]: value
+            }
+          };
+        }
+      } else {
+        // Handle simple fields
+        return {
+          ...prev,
+          [field]: value
+        };
+      }
+    });
+  };
+
+  // Handler for adding items to arrays in activities pain data
+  const handleAddActivitiesPainItem = (field: 'chiropracticAdjustment' | 'acupuncture' | 'physiotherapy' | 'rehabilitationExercises', value: string) => {
+    if (!value.trim()) return;
+    
+    setEditableActivitiesPainData(prev => ({
+      ...prev,
+      [field]: [...prev[field], value.trim()]
+    }));
+  };
+
+  // Handler for removing items from arrays in activities pain data
+  const handleRemoveActivitiesPainItem = (field: 'chiropracticAdjustment' | 'acupuncture' | 'physiotherapy' | 'rehabilitationExercises', index: number) => {
+    setEditableActivitiesPainData(prev => {
+      const newArray = [...prev[field]];
+      newArray.splice(index, 1);
+      return {
+        ...prev,
+        [field]: newArray
+      };
+    });
+  };
+
   // Handler for saving muscle palpation modal selections
   const handleSaveMusclePalpation = () => {
-    // Update the muscle palpation data with the selections
+    // Update the muscle palpation data with the selections and editable muscle strength
     const updatedMusclePalpationData = {
       ...musclePalpationData,
+      muscleStrength: editableMuscleStrength.muscleStrength,
+      strength: editableMuscleStrength.strength,
       tenderness: muscleTendernessSelections,
       spasm: muscleSpasmSelections,
     };
@@ -396,6 +764,114 @@ const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
 
     alert('Muscle palpation data updated! Click "Save Visit" at the bottom to save all changes.');
     setIsMuscleModalOpen(false);
+  };
+
+  // Handler for saving orthopedic test modal selections
+  const handleSaveOrthoTests = () => {
+    // Update the orthopedic tests data with the selections
+    const updatedOrthoTestsData = { ...orthoTestsData };
+    
+    Object.keys(orthoTestSelections).forEach(region => {
+      if (!updatedOrthoTestsData[region]) {
+        updatedOrthoTestsData[region] = {};
+      }
+      
+      Object.keys(orthoTestSelections[region]).forEach(testName => {
+        const selections = orthoTestSelections[region][testName];
+        const existingTest = updatedOrthoTestsData[region][testName] || { left: '', right: '', ligLaxity: '' };
+        
+        updatedOrthoTestsData[region][testName] = {
+          left: selections.left ? 'true' : existingTest.left,
+          right: selections.right ? 'true' : existingTest.right,
+          ligLaxity: selections.ligLaxity ? 'true' : existingTest.ligLaxity
+        };
+      });
+    });
+
+    // Update the form data (local state only - no backend save)
+    setFormData((prev) => ({
+      ...prev,
+      fetchedData: {
+        ...prev.fetchedData,
+        orthoTestsData: updatedOrthoTestsData,
+      },
+    }));
+
+    // Also update the orthopedic tests state for immediate use
+    setOrthoTestsData(updatedOrthoTestsData);
+
+    alert('Orthopedic tests data updated! Click "Save Visit" at the bottom to save all changes.');
+    setIsOrthoModalOpen(false);
+  };
+
+  // Handler for saving imaging and referrals modal data
+  const handleSaveImagingData = () => {
+    // Update the imaging data with the input data
+    const updatedImagingData = {
+      referrals: imagingInputData.referrals,
+      physiotherapy: imagingInputData.physiotherapy,
+      rehabilitationExercises: imagingInputData.rehabilitationExercises,
+      durationFrequency: imagingInputData.durationFrequency,
+      imaging: imagingInputData.imaging,
+    };
+
+    // Update the form data (local state only - no backend save)
+    setFormData((prev) => ({
+      ...prev,
+      fetchedData: {
+        ...prev.fetchedData,
+        imagingData: updatedImagingData,
+      },
+    }));
+
+    // Also update the imaging data state for immediate use
+    setImagingData(updatedImagingData);
+
+    alert('Imaging and referrals data updated! Click "Save Visit" at the bottom to save all changes.');
+    setIsImagingModalOpen(false);
+  };
+
+  const handleSaveAreasData = () => {
+    // Update the form data with the areas checkboxes and individual area status
+    setFormData((prev) => ({
+      ...prev,
+      fetchedData: {
+        ...prev.fetchedData,
+        areasData: {
+          areasImproving: prev.areasImproving,
+          areasExacerbated: prev.areasExacerbated,
+          areasSame: prev.areasSame,
+          areasResolved: prev.areasResolved,
+          individualAreaStatus: individualAreaStatus,
+        },
+      },
+    }));
+
+    alert('Areas data updated! Click "Save Visit" at the bottom to save all changes.');
+    setIsAreasModalOpen(false);
+  };
+
+  // Handler for saving activities pain modal data
+  const handleSaveActivitiesPain = () => {
+    // Update the activities pain data with the editable data
+    const updatedActivitiesPainData = {
+      ...editableActivitiesPainData
+    };
+
+    // Update the form data (local state only - no backend save)
+    setFormData((prev) => ({
+      ...prev,
+      fetchedData: {
+        ...prev.fetchedData,
+        activitiesPainData: updatedActivitiesPainData,
+      },
+    }));
+
+    // Also update the activities pain state for immediate use
+    setActivitiesPainData(updatedActivitiesPainData);
+
+    alert('Activities pain data updated! Click "Save Visit" at the bottom to save all changes.');
+    setIsActivitiesModalOpen(false);
   };
 
 
@@ -602,6 +1078,13 @@ setPreviousVisits(sortedVisits);
       };
   
       setMusclePalpationData(musclePalpationData);
+      
+      // Initialize editable muscle strength data with fetched data
+      setEditableMuscleStrength({
+        muscleStrength: visit.muscleStrength || [],
+        strength: visit.strength || {}
+      });
+      
       setIsMuscleModalOpen(true);
   
       // Initialize selections for interactive checkboxes
@@ -642,25 +1125,9 @@ setPreviousVisits(sortedVisits);
         [region: string]: {
           [testName: string]: { left: string; right: string; ligLaxity: string };
         };
-      } = visitData.ortho
-        ? Object.entries(visitData.ortho as Record<string, any>).reduce((acc: any, [testName, testResult]) => {
-            const region = testName.split(" ")[0];
-            const { left, right, ligLaxity } = testResult as {
-              left: string;
-              right: string;
-              ligLaxity: string;
-            };
-  
-            if (!acc[region]) acc[region] = {};
-  
-            acc[region][testName] = {
-              left: left || "N/A",
-              right: right || "N/A",
-              ligLaxity: ligLaxity || "N/A",
-            };
-            return acc;
-          }, {})
-        : {};
+      } = visitData.ortho || {};
+      
+      console.log('Loaded orthopedic tests data from visit:', orthoTestsData);
   
       // Extract and structure AROM data
       const aromData: {
@@ -691,6 +1158,23 @@ setPreviousVisits(sortedVisits);
       setOrthoTestsData(orthoTestsData);
       setAromData(aromData);
       setIsOrthoModalOpen(true);
+
+        // Initialize selections for interactive checkboxes based on existing data
+        const initialSelections: {[region: string]: {[testName: string]: {left: boolean; right: boolean; ligLaxity: boolean}}} = {};
+        
+        Object.keys(orthoTestsData).forEach(region => {
+          initialSelections[region] = {};
+          Object.keys(orthoTestsData[region]).forEach(testName => {
+            const testData = orthoTestsData[region][testName];
+            initialSelections[region][testName] = {
+              left: testData.left === 'true',
+              right: testData.right === 'true',
+              ligLaxity: testData.ligLaxity === 'true'
+            };
+          });
+        });
+        
+        setOrthoTestSelections(initialSelections);
   
       // ✅ Save in formData.fetchedData for backend persistence
       setFormData((prev) => ({
@@ -717,28 +1201,75 @@ setPreviousVisits(sortedVisits);
       return;
     }
   
-        try {
+    try {
+      // First, get the selected visit data
       const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
       const visitData = response.data;
 
-      // Filter only treatment plan data
+      console.log('Loading activities pain data from selected visit:', visitData);
+
+      // Also try to get data from all previous visits to find the most recent data
+      const allVisitsResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${id}/visits`);
+      const allVisits = allVisitsResponse.data;
+      
+      // Find the most recent visit with activities pain data
+      let mostRecentActivitiesData = null;
+      for (const visit of allVisits) {
+        if (visit._id === visitId) continue; // Skip the current selected visit
+        
+        // Check for data in various possible locations
+        const hasActivitiesData = visit.chiropracticAdjustment || visit.acupuncture || visit.physiotherapy || 
+                                 visit.rehabilitationExercises || visit.diagnosticUltrasound || visit.disabilityDuration ||
+                                 visit.fetchedData?.activitiesPainData;
+        
+        if (hasActivitiesData) {
+          mostRecentActivitiesData = visit;
+          console.log('Found activities pain data in previous visit:', visit);
+          break;
+        }
+      }
+
+      // Use the most recent data found, or fall back to selected visit data
+      const dataSource = mostRecentActivitiesData || visitData;
+      
+      console.log('Data source being used for activities pain:', dataSource);
+      
+      // Helper function to parse data that might be stored as strings
+      const parseData = (data: any) => {
+        if (typeof data === 'string') {
+          try {
+            return JSON.parse(data);
+          } catch {
+            return data.split(',').map(item => item.trim()).filter(item => item);
+          }
+        }
+        return data;
+      };
+
+      // Filter only treatment plan data - check both direct fields and fetchedData
       const treatmentData = {
-        chiropracticAdjustment: visitData.chiropracticAdjustment || [],
-        chiropracticOther: visitData.chiropracticOther || '',
-        acupuncture: visitData.acupuncture || [],
-        acupunctureOther: visitData.acupunctureOther || '',
-        physiotherapy: visitData.physiotherapy || [],
-        rehabilitationExercises: visitData.rehabilitationExercises || [],
-        durationFrequency: visitData.durationFrequency || {
+        chiropracticAdjustment: parseData(dataSource.chiropracticAdjustment) || parseData(dataSource.fetchedData?.activitiesPainData?.chiropracticAdjustment) || [],
+        chiropracticOther: dataSource.chiropracticOther || dataSource.fetchedData?.activitiesPainData?.chiropracticOther || '',
+        acupuncture: parseData(dataSource.acupuncture) || parseData(dataSource.fetchedData?.activitiesPainData?.acupuncture) || [],
+        acupunctureOther: dataSource.acupunctureOther || dataSource.fetchedData?.activitiesPainData?.acupunctureOther || '',
+        physiotherapy: parseData(dataSource.physiotherapy) || parseData(dataSource.fetchedData?.activitiesPainData?.physiotherapy) || [],
+        rehabilitationExercises: parseData(dataSource.rehabilitationExercises) || parseData(dataSource.fetchedData?.activitiesPainData?.rehabilitationExercises) || [],
+        durationFrequency: dataSource.durationFrequency || dataSource.fetchedData?.activitiesPainData?.durationFrequency || {
           timesPerWeek: '',
           reEvalInWeeks: '',
         },
-        diagnosticUltrasound: visitData.diagnosticUltrasound || '',
-        disabilityDuration: visitData.disabilityDuration || '',
+        diagnosticUltrasound: dataSource.diagnosticUltrasound || dataSource.fetchedData?.activitiesPainData?.diagnosticUltrasound || '',
+        disabilityDuration: dataSource.disabilityDuration || dataSource.fetchedData?.activitiesPainData?.disabilityDuration || '',
       };
+
+      console.log('Processed activities pain data:', treatmentData);
   
       // Show in modal
       setActivitiesPainData(treatmentData);
+      
+      // Initialize editable activities pain data with fetched data
+      setEditableActivitiesPainData(treatmentData);
+      
       setIsActivitiesModalOpen(true);
   
       // ✅ Save to formData.fetchedData for backend submission
@@ -817,27 +1348,111 @@ setPreviousVisits(sortedVisits);
     }
   
         try {
+      // First, get the selected visit data
       const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
       const visitData = response.data;
 
+      console.log('Loading imaging data from selected visit:', visitData);
+
+      // Also try to get data from all previous visits to find the most recent data
+      const allVisitsResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${id}/visits`);
+      const allVisits = allVisitsResponse.data;
+      
+      // Find the most recent visit with imaging data
+      let mostRecentImagingData = null;
+      for (const visit of allVisits) {
+        if (visit._id === visitId) continue; // Skip the current selected visit
+        
+        // Check for data in various possible locations
+        const hasImagingData = visit.referrals || visit.physiotherapy || visit.rehabilitationExercises || visit.imaging ||
+                              visit.fetchedData?.imagingData || visit.fetchedData?.referrals || visit.fetchedData?.physiotherapy;
+        
+        if (hasImagingData) {
+          mostRecentImagingData = visit;
+          console.log('Found imaging data in previous visit:', visit);
+          console.log('Visit fetchedData:', visit.fetchedData);
+          break;
+        }
+      }
+
+      // Use the most recent data found, or fall back to selected visit data
+      const dataSource = mostRecentImagingData || visitData;
+      
+      console.log('Data source being used:', dataSource);
+      console.log('Data source keys:', Object.keys(dataSource));
+      
+      // Helper function to parse data that might be stored as strings
+      const parseData = (data: any) => {
+        if (typeof data === 'string') {
+          try {
+            return JSON.parse(data);
+          } catch {
+            return data.split(',').map(item => item.trim()).filter(item => item);
+          }
+        }
+        return data;
+      };
+
+      // Check for data in different possible locations
       const imagingAndSpecialistData = {
-        physiotherapy: visitData.physiotherapy || [],
-        rehabilitationExercises: visitData.rehabilitationExercises || [],
-        durationFrequency: visitData.durationFrequency || {
+        physiotherapy: parseData(dataSource.physiotherapy) || parseData(dataSource.physiotherapyData) || parseData(dataSource.fetchedData?.imagingData?.physiotherapy) || [],
+        rehabilitationExercises: parseData(dataSource.rehabilitationExercises) || parseData(dataSource.rehabilitationExercisesData) || parseData(dataSource.fetchedData?.imagingData?.rehabilitationExercises) || [],
+        durationFrequency: dataSource.durationFrequency || dataSource.durationFrequencyData || dataSource.fetchedData?.imagingData?.durationFrequency || {
           timesPerWeek: '',
           reEvalInWeeks: '',
         },
-        referrals: visitData.referrals || [],
-        imaging: visitData.imaging || {
+        referrals: parseData(dataSource.referrals) || parseData(dataSource.referralsData) || parseData(dataSource.fetchedData?.imagingData?.referrals) || [],
+        imaging: dataSource.imaging || dataSource.imagingData || dataSource.fetchedData?.imagingData?.imaging || {
           xray: [],
           mri: [],
           ct: [],
         },
       };
+
+      console.log('Processed imaging data:', imagingAndSpecialistData);
+      console.log('Referrals found:', imagingAndSpecialistData.referrals);
+      console.log('Physiotherapy found:', imagingAndSpecialistData.physiotherapy);
+      console.log('Rehabilitation exercises found:', imagingAndSpecialistData.rehabilitationExercises);
+      console.log('Imaging found:', imagingAndSpecialistData.imaging);
+
+      // If no data found, show a message
+      const hasAnyData = imagingAndSpecialistData.referrals.length > 0 || 
+                        imagingAndSpecialistData.physiotherapy.length > 0 || 
+                        imagingAndSpecialistData.rehabilitationExercises.length > 0 ||
+                        imagingAndSpecialistData.imaging.xray.length > 0 ||
+                        imagingAndSpecialistData.imaging.mri.length > 0 ||
+                        imagingAndSpecialistData.imaging.ct.length > 0 ||
+                        imagingAndSpecialistData.durationFrequency.timesPerWeek ||
+                        imagingAndSpecialistData.durationFrequency.reEvalInWeeks;
+
+      if (!hasAnyData) {
+        console.log('No previous imaging data found - starting with empty form');
+      } else {
+        console.log('Previous imaging data found and will be displayed');
+      }
   
       // Set modal data
       setImagingData(imagingAndSpecialistData);
       setIsImagingModalOpen(true);
+
+      // Initialize input data with existing values
+      const initialInputData = {
+        referrals: Array.isArray(imagingAndSpecialistData.referrals) ? imagingAndSpecialistData.referrals : [],
+        physiotherapy: Array.isArray(imagingAndSpecialistData.physiotherapy) ? imagingAndSpecialistData.physiotherapy : [],
+        rehabilitationExercises: Array.isArray(imagingAndSpecialistData.rehabilitationExercises) ? imagingAndSpecialistData.rehabilitationExercises : [],
+        durationFrequency: {
+          timesPerWeek: imagingAndSpecialistData.durationFrequency?.timesPerWeek || '',
+          reEvalInWeeks: imagingAndSpecialistData.durationFrequency?.reEvalInWeeks || ''
+        },
+        imaging: {
+          xray: Array.isArray(imagingAndSpecialistData.imaging?.xray) ? imagingAndSpecialistData.imaging.xray : [],
+          mri: Array.isArray(imagingAndSpecialistData.imaging?.mri) ? imagingAndSpecialistData.imaging.mri : [],
+          ct: Array.isArray(imagingAndSpecialistData.imaging?.ct) ? imagingAndSpecialistData.imaging.ct : []
+        }
+      };
+
+      console.log('Setting initial input data:', initialInputData);
+      setImagingInputData(initialInputData);
   
       // ✅ Store in formData.fetchedData for backend submission
       setFormData((prev) => ({
@@ -1008,6 +1623,82 @@ Generate detailed, personalized home care instructions based on the provided pat
     }
   };
 
+  const fetchAreasData = async (visitId: string) => {
+    if (!visitId) {
+      alert("Please select a valid previous visit.");
+      return;
+    }
+  
+    try {
+      // Get the selected visit data
+      const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
+      const visitData = response.data;
+
+      console.log('Loading areas data from selected visit:', visitData);
+
+      // Check if the selected visit has areas data
+      let areasData = {
+        areasImproving: visitData.areasImproving || false,
+        areasExacerbated: visitData.areasExacerbated || false,
+        areasSame: visitData.areasSame || false,
+        areasResolved: visitData.areasResolved || false,
+      };
+
+      // If the selected visit doesn't have areas data, look for it in previous visits
+      if (!visitData.areasImproving && !visitData.areasExacerbated && 
+          !visitData.areasSame && !visitData.areasResolved) {
+        
+        const allVisitsResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${id}/visits`);
+        const allVisits = allVisitsResponse.data;
+        
+        // Find the most recent visit with areas data (excluding the current selected visit)
+        for (const visit of allVisits) {
+          if (visit._id === visitId) continue; // Skip the current selected visit
+          
+          if (visit.areasImproving || visit.areasExacerbated || 
+              visit.areasSame || visit.areasResolved) {
+            console.log('Found areas data in previous visit:', visit);
+            
+            areasData = {
+              areasImproving: visit.areasImproving || false,
+              areasExacerbated: visit.areasExacerbated || false,
+              areasSame: visit.areasSame || false,
+              areasResolved: visit.areasResolved || false,
+            };
+            break;
+          }
+        }
+      }
+
+      console.log('Processed areas data:', areasData);
+  
+      // Update form data with the found areas data
+      setFormData((prev) => ({
+        ...prev,
+        areasImproving: areasData.areasImproving,
+        areasExacerbated: areasData.areasExacerbated,
+        areasSame: areasData.areasSame,
+        areasResolved: areasData.areasResolved,
+        fetchedData: {
+          ...prev.fetchedData,
+          areasData: areasData,
+          initialVisitData: visitData, // Store the visit data to display areas information
+        },
+      }));
+
+      // Load individual area status from previous visit if available
+      if (visitData.fetchedData?.areasData?.individualAreaStatus) {
+        setIndividualAreaStatus(visitData.fetchedData.areasData.individualAreaStatus);
+      }
+
+      // Open the areas modal
+      setIsAreasModalOpen(true);
+    } catch (error) {
+      console.error("Error fetching areas data:", error);
+      alert("Failed to load areas data.");
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     
@@ -1129,7 +1820,7 @@ Generate detailed, personalized home care instructions based on the provided pat
           worse: formData.overallResponse.worse || false,
           same: formData.overallResponse.same || false
         },
-        referrals: Array.isArray(formData.referrals) ? formData.referrals.join(', ') : (formData.referrals || ''),
+        // referrals: Array.isArray(formData.referrals) ? formData.referrals.join(', ') : (formData.referrals || ''),
         diagnosticStudy: {
           study: formData.diagnosticStudy.study || '',
           bodyPart: formData.diagnosticStudy.bodyPart || '',
@@ -1145,7 +1836,7 @@ Generate detailed, personalized home care instructions based on the provided pat
         notes: formData.notes || '',
         
         // Muscle Palpation Modal Data
-        muscleStrength: musclePalpationData?.muscleStrength || [],
+        muscleStrength: Array.isArray(musclePalpationData?.muscleStrength) ? musclePalpationData.muscleStrength.join(', ') : (musclePalpationData?.muscleStrength || ''),
         strength: musclePalpationData?.strength || {},
         tenderness: musclePalpationData?.tenderness || {},
         spasm: musclePalpationData?.spasm || {},
@@ -1155,23 +1846,28 @@ Generate detailed, personalized home care instructions based on the provided pat
         arom: aromData || {},
         
         // Activities/Treatment Plan Modal Data
-        chiropracticAdjustment: activitiesPainData?.chiropracticAdjustment || [],
+        chiropracticAdjustment: Array.isArray(activitiesPainData?.chiropracticAdjustment) ? activitiesPainData.chiropracticAdjustment.join(', ') : (activitiesPainData?.chiropracticAdjustment || ''),
         chiropracticOther: activitiesPainData?.chiropracticOther || '',
-        acupuncture: activitiesPainData?.acupuncture || [],
+        acupuncture: Array.isArray(activitiesPainData?.acupuncture) ? activitiesPainData.acupuncture.join(', ') : (activitiesPainData?.acupuncture || ''),
         acupunctureOther: activitiesPainData?.acupunctureOther || '',
-        physiotherapy: activitiesPainData?.physiotherapy || [],
-        rehabilitationExercises: activitiesPainData?.rehabilitationExercises || [],
-        durationFrequency: activitiesPainData?.durationFrequency || { timesPerWeek: '', reEvalInWeeks: '' },
+        physiotherapy: Array.isArray(activitiesPainData?.physiotherapy || imagingData?.physiotherapy) ? (activitiesPainData?.physiotherapy || imagingData?.physiotherapy).join(', ') : (activitiesPainData?.physiotherapy || imagingData?.physiotherapy || ''),
+        rehabilitationExercises: Array.isArray(activitiesPainData?.rehabilitationExercises || imagingData?.rehabilitationExercises) ? (activitiesPainData?.rehabilitationExercises || imagingData?.rehabilitationExercises).join(', ') : (activitiesPainData?.rehabilitationExercises || imagingData?.rehabilitationExercises || ''),
+        durationFrequency: activitiesPainData?.durationFrequency || imagingData?.durationFrequency || { timesPerWeek: '', reEvalInWeeks: '' },
         diagnosticUltrasound: activitiesPainData?.diagnosticUltrasound || '',
         disabilityDuration: activitiesPainData?.disabilityDuration || '',
         
         // Treatment List Modal Data
-        nerveStudy: treatmentListData?.nerveStudy || [],
+        nerveStudy: Array.isArray(treatmentListData?.nerveStudy) ? treatmentListData.nerveStudy.join(', ') : (treatmentListData?.nerveStudy || ''),
         restrictions: treatmentListData?.restrictions || { avoidActivityWeeks: '', liftingLimitLbs: '', avoidProlongedSitting: false },
         otherNotes: treatmentListData?.otherNotes || '',
         
         // Imaging and Referrals Modal Data
-        imaging: imagingData?.imaging || { xray: [], mri: [], ct: [] },
+        referrals: Array.isArray(imagingData?.referrals) ? imagingData.referrals.join(', ') : (imagingData?.referrals || ''),
+        imaging: {
+          xray: Array.isArray(imagingData?.imaging?.xray) ? imagingData.imaging.xray.join(', ') : (imagingData?.imaging?.xray || ''),
+          mri: Array.isArray(imagingData?.imaging?.mri) ? imagingData.imaging.mri.join(', ') : (imagingData?.imaging?.mri || ''),
+          ct: Array.isArray(imagingData?.imaging?.ct) ? imagingData.imaging.ct.join(', ') : (imagingData?.imaging?.ct || '')
+        },
         
         // Home Care AI Suggestions
         homeCareSuggestions: homeCareSuggestions || '',
@@ -1183,6 +1879,14 @@ Generate detailed, personalized home care instructions based on the provided pat
         return;
       }
 
+      // Helper function to convert arrays to strings for database compatibility
+      const convertArrayToString = (value: any) => {
+        if (Array.isArray(value)) {
+          return value.join(', ');
+        }
+        return value || '';
+      };
+
       console.log('Sending visit data:', visitData);
       console.log('Modal data summary:');
       console.log('- Muscle palpation data:', !!musclePalpationData);
@@ -1192,6 +1896,21 @@ Generate detailed, personalized home care instructions based on the provided pat
       console.log('- Treatment list data:', !!treatmentListData);
       console.log('- Imaging data:', !!imagingData);
       console.log('- Home care suggestions:', !!homeCareSuggestions);
+      
+      // Debug activities pain data specifically
+      if (activitiesPainData) {
+        console.log('Activities pain data being saved:', activitiesPainData);
+      }
+      
+      // Debug imaging data specifically
+      if (imagingData) {
+        console.log('Imaging data being saved:', imagingData);
+      }
+      
+      // Debug orthopedic tests data specifically
+      if (orthoTestsData) {
+        console.log('Orthopedic tests data being saved:', orthoTestsData);
+      }
       
       const response = await axios.post(`https://emr-h.onrender.com/api/visits`, visitData);
       
@@ -1228,6 +1947,7 @@ Generate detailed, personalized home care instructions based on the provided pat
       
       // Show success message with data summary
       const dataSummary = [];
+      if (formData.areasImproving || formData.areasExacerbated || formData.areasSame || formData.areasResolved) dataSummary.push('Areas status data');
       if (musclePalpationData) dataSummary.push('Muscle palpation data');
       if (orthoTestsData) dataSummary.push('Ortho tests data');
       if (aromData) dataSummary.push('AROM data');
@@ -1632,12 +2352,13 @@ Generate detailed, personalized home care instructions based on the provided pat
       )}
 
       {/* Data Summary */}
-      {(musclePalpationData || orthoTestsData || activitiesPainData || treatmentListData || imagingData || homeCareSuggestions) && (
+      {(musclePalpationData || orthoTestsData || activitiesPainData || treatmentListData || imagingData || homeCareSuggestions || formData.areasImproving || formData.areasExacerbated || formData.areasSame || formData.areasResolved) && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
           <div className="flex">
             <div className="ml-3">
               <p className="text-sm text-blue-700 font-medium">Loaded Data Summary:</p>
               <div className="mt-2 text-xs text-blue-600">
+                {(formData.areasImproving || formData.areasExacerbated || formData.areasSame || formData.areasResolved) && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Areas Status ✓</span>}
                 {musclePalpationData && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Muscle Palpation ✓</span>}
                 {orthoTestsData && Object.keys(orthoTestsData).length > 0 && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Ortho Tests ✓</span>}
                 {activitiesPainData && <span className="inline-block bg-blue-200 px-2 py-1 rounded mr-2 mb-1">Activities Pain ✓</span>}
@@ -1699,12 +2420,15 @@ Generate detailed, personalized home care instructions based on the provided pat
 
           {/* Areas */}
           <div>
-          <button
-  type="button"
-  onClick={() => fetchInitialVisitData(formData.previousVisit)}
-  className="bg-white text-blue-600 font-medium underline hover:text-blue-800 focus:outline-none mb-4" >
-  Areas: Auto generated from Initial
-</button>
+            <button
+              type="button"
+              onClick={() => fetchAreasData(formData.previousVisit)}
+              className={`bg-white font-medium underline focus:outline-none mb-4 ${
+                formData.areasImproving || formData.areasExacerbated || formData.areasSame || formData.areasResolved ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+              }`}
+            >
+              Areas: Auto generated from Initial {(formData.areasImproving || formData.areasExacerbated || formData.areasSame || formData.areasResolved) && '✓'}
+            </button>
 
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
@@ -1787,45 +2511,98 @@ Generate detailed, personalized home care instructions based on the provided pat
       <div className="bg-gray-50 p-4 rounded-md space-y-6">
         {/* Muscle Strength */}
         <div>
-          <h4 className="font-bold text-lg text-gray-800">Muscle Strength:</h4>
-          {musclePalpationData?.muscleStrength ? (
-            <ul className="list-disc ml-5">
-              {musclePalpationData.muscleStrength.map((strength: string, index: number) => (
-                <li key={index} className="text-sm text-gray-700">
-                  {strength || 'N/A'}
-                </li>
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-bold text-lg text-gray-800">Muscle Strength:</h4>
+            <button
+              type="button"
+              onClick={handleAddMuscleStrength}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Item
+            </button>
+          </div>
+          {editableMuscleStrength.muscleStrength.length > 0 ? (
+            <div className="space-y-2">
+              {editableMuscleStrength.muscleStrength.map((strength: string, index: number) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={strength}
+                    onChange={(e) => handleMuscleStrengthChange(index, e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter muscle strength description..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveMuscleStrength(index)}
+                    className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                  >
+                    Remove
+                  </button>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
-            <p>N/A</p>
+            <p className="text-gray-500 italic">No muscle strength items. Click "Add Item" to add one.</p>
           )}
         </div>
 
         {/* Strength */}
         <div>
-          <h4 className="font-bold text-lg text-gray-800">Strength:</h4>
-          {musclePalpationData?.strength ? (
-            Object.entries(musclePalpationData.strength).map(([key, value]) => {
-              if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-bold text-lg text-gray-800">Strength:</h4>
+            <button
+              type="button"
+              onClick={handleAddStrengthKey}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Strength Key
+            </button>
+          </div>
+          {Object.keys(editableMuscleStrength.strength).length > 0 ? (
+            <div className="space-y-4">
+              {Object.entries(editableMuscleStrength.strength).map(([key, value]) => {
+                const strengthValue = typeof value === 'object' && value !== null ? value : { right: '', left: '' };
                 return (
-                  <div key={key} className="text-sm text-gray-700 mb-2">
-                    <span className="font-semibold">{key}:</span>
-                    <div className="ml-4">
-                      <p><span className="font-medium">Right:</span> {(value as any).right || 'N/A'}</p>
-                      <p><span className="font-medium">Left:</span> {(value as any).left || 'N/A'}</p>
+                  <div key={key} className="border border-gray-200 rounded-lg p-3 bg-white">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-gray-800">{key}:</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveStrengthKey(key)}
+                        className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Right:</label>
+                        <input
+                          type="text"
+                          value={strengthValue.right || ''}
+                          onChange={(e) => handleStrengthChange(key, 'right', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="e.g., 5/5"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Left:</label>
+                        <input
+                          type="text"
+                          value={strengthValue.left || ''}
+                          onChange={(e) => handleStrengthChange(key, 'left', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="e.g., 5/5"
+                        />
+                      </div>
                     </div>
                   </div>
                 );
-              } else {
-                return (
-                  <p key={key} className="text-sm text-gray-700">
-                    <span className="font-semibold">{key}:</span> {String(value || 'N/A')}
-                  </p>
-                );
-              }
-            })
+              })}
+            </div>
           ) : (
-            <p>N/A</p>
+            <p className="text-gray-500 italic">No strength keys. Click "Add Strength Key" to add one.</p>
           )}
         </div>
 
@@ -2330,34 +3107,71 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
           {Object.entries(orthoTestsData as Record<string, any>).length > 0 ? (
             Object.entries(orthoTestsData as Record<string, any>).map(([region, tests]) => (
               <div key={region} className="mb-6">
-                <h5 className="font-semibold text-lg text-gray-800">{region}</h5>
+                <h5 className="font-semibold text-lg text-gray-800 mb-4">{region}</h5>
+                
+                {/* Column Headers */}
+                <div className="grid grid-cols-4 gap-4 mb-3">
+                  <div className="font-semibold text-sm text-gray-700">Test Name</div>
+                  <div className="font-semibold text-sm text-gray-700 text-center">Left</div>
+                  <div className="font-semibold text-sm text-gray-700 text-center">Right</div>
+                  <div className="font-semibold text-sm text-gray-700 text-center">Ligament Laxity</div>
+                </div>
+                
+                {/* Test Results */}
                 {Object.entries(tests as Record<string, any>).map(([testName, testResult]) => (
-                  <div key={testName} className="space-y-4">
-                    <div className="flex items-center justify-between">
+                  <div key={testName} className="grid grid-cols-4 gap-4 items-center py-2 border-b border-gray-200">
                       {/* Test Name */}
-                      <span className="font-medium text-gray-600">{testName}:</span>
+                    <div className="font-medium text-gray-600">{testName}</div>
                       
-                      {/* Display Orthopedic Test (Left, Right, Ligament Laxity) */}
-                      <div className="flex space-x-4">
+                    {/* Left Result */}
+                    <div className="flex items-center justify-center space-x-2">
                         <input
                           type="text"
-                          value={(testResult as any).left || 'N/A'}
+                        value={(testResult as any).left === 'N/A' || (testResult as any).left === null || (testResult as any).left === undefined ? '' : (testResult as any).left || ''}
                           readOnly
-                          className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none"
-                        />
+                        className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none text-center bg-gray-100"
+                        placeholder=""
+                      />
+                      <input
+                        type="checkbox"
+                        checked={orthoTestSelections[region]?.[testName]?.left || false}
+                        onChange={(e) => handleOrthoTestChange(region, testName, 'left', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    {/* Right Result */}
+                    <div className="flex items-center justify-center space-x-2">
                         <input
                           type="text"
-                          value={(testResult as any).right || 'N/A'}
+                        value={(testResult as any).right === 'N/A' || (testResult as any).right === null || (testResult as any).right === undefined ? '' : (testResult as any).right || ''}
                           readOnly
-                          className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none"
-                        />
+                        className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none text-center bg-gray-100"
+                        placeholder=""
+                      />
+                      <input
+                        type="checkbox"
+                        checked={orthoTestSelections[region]?.[testName]?.right || false}
+                        onChange={(e) => handleOrthoTestChange(region, testName, 'right', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    {/* Ligament Laxity Result */}
+                    <div className="flex items-center justify-center space-x-2">
                         <input
                           type="text"
-                          value={(testResult as any).ligLaxity || 'N/A'}
+                        value={(testResult as any).ligLaxity === 'N/A' || (testResult as any).ligLaxity === null || (testResult as any).ligLaxity === undefined ? '' : (testResult as any).ligLaxity || ''}
                           readOnly
-                          className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none"
-                        />
-                      </div>
+                        className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none text-center bg-gray-100"
+                        placeholder=""
+                      />
+                      <input
+                        type="checkbox"
+                        checked={orthoTestSelections[region]?.[testName]?.ligLaxity || false}
+                        onChange={(e) => handleOrthoTestChange(region, testName, 'ligLaxity', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
                     </div>
                   </div>
                 ))}
@@ -2370,7 +3184,13 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
       </div>
 
       {/* Close Button */}
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-end space-x-2">
+        <button
+          onClick={handleSaveOrthoTests}
+          className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+        >
+          Save
+        </button>
         <button
           onClick={() => setIsOrthoModalOpen(false)}
           className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
@@ -2424,71 +3244,310 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
         </button>
       </div>
 
-      <div className="bg-gray-50 p-4 rounded-md space-y-4 text-sm text-gray-700">
+      <div className="bg-gray-50 p-4 rounded-md space-y-6 text-sm text-gray-700">
+        {/* Chiropractic Adjustment */}
         <div>
-          <h4 className="font-semibold text-gray-700">Chiropractic Adjustment:</h4>
-          <ul className="list-disc ml-5">
-            {activitiesPainData?.chiropracticAdjustment?.map((item: string, index: number) => (
-              <li key={index}>{item}</li>
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-semibold text-gray-700">Chiropractic Adjustment:</h4>
+            <button
+              type="button"
+              onClick={(e) => {
+                const input = e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement;
+                handleAddActivitiesPainItem('chiropracticAdjustment', input.value);
+                input.value = '';
+              }}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Item
+            </button>
+          </div>
+          <div className="space-y-2">
+            {editableActivitiesPainData.chiropracticAdjustment.map((item: string, index: number) => (
+              <div key={index} className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={item}
+                  onChange={(e) => {
+                    const newArray = [...editableActivitiesPainData.chiropracticAdjustment];
+                    newArray[index] = e.target.value;
+                    handleActivitiesPainChange('chiropracticAdjustment', newArray);
+                  }}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter chiropractic adjustment..."
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveActivitiesPainItem('chiropracticAdjustment', index)}
+                  className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                >
+                  Remove
+                </button>
+              </div>
             ))}
-          </ul>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                placeholder="Add new chiropractic adjustment..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddActivitiesPainItem('chiropracticAdjustment', e.currentTarget.value);
+                    e.currentTarget.value = '';
+                  }
+                }}
+              />
+            </div>
+          </div>
         </div>
 
+        {/* Chiropractic Other */}
         <div>
-          <h4 className="font-semibold text-gray-700">Chiropractic Other:</h4>
-          <p>{activitiesPainData?.chiropracticOther || 'N/A'}</p>
+          <h4 className="font-semibold text-gray-700 mb-2">Chiropractic Other:</h4>
+          <input
+            type="text"
+            value={editableActivitiesPainData.chiropracticOther}
+            onChange={(e) => handleActivitiesPainChange('chiropracticOther', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter chiropractic other details..."
+          />
         </div>
 
+        {/* Acupuncture */}
         <div>
-          <h4 className="font-semibold text-gray-700">Acupuncture:</h4>
-          <ul className="list-disc ml-5">
-            {activitiesPainData?.acupuncture?.map((item: string, index: number) => (
-              <li key={index}>{item}</li>
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-semibold text-gray-700">Acupuncture:</h4>
+            <button
+              type="button"
+              onClick={(e) => {
+                const input = e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement;
+                handleAddActivitiesPainItem('acupuncture', input.value);
+                input.value = '';
+              }}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Item
+            </button>
+          </div>
+          <div className="space-y-2">
+            {editableActivitiesPainData.acupuncture.map((item: string, index: number) => (
+              <div key={index} className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={item}
+                  onChange={(e) => {
+                    const newArray = [...editableActivitiesPainData.acupuncture];
+                    newArray[index] = e.target.value;
+                    handleActivitiesPainChange('acupuncture', newArray);
+                  }}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter acupuncture item..."
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveActivitiesPainItem('acupuncture', index)}
+                  className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                >
+                  Remove
+                </button>
+              </div>
             ))}
-          </ul>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                placeholder="Add new acupuncture item..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddActivitiesPainItem('acupuncture', e.currentTarget.value);
+                    e.currentTarget.value = '';
+                  }
+                }}
+              />
+            </div>
+          </div>
         </div>
 
+        {/* Acupuncture Other */}
         <div>
-          <h4 className="font-semibold text-gray-700">Acupuncture Other:</h4>
-          <p>{activitiesPainData?.acupunctureOther || 'N/A'}</p>
+          <h4 className="font-semibold text-gray-700 mb-2">Acupuncture Other:</h4>
+          <input
+            type="text"
+            value={editableActivitiesPainData.acupunctureOther}
+            onChange={(e) => handleActivitiesPainChange('acupunctureOther', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter acupuncture other details..."
+          />
         </div>
 
+        {/* Physiotherapy */}
         <div>
-          <h4 className="font-semibold text-gray-700">Physiotherapy:</h4>
-          <ul className="list-disc ml-5">
-            {activitiesPainData?.physiotherapy?.map((item: string, index: number) => (
-              <li key={index}>{item}</li>
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-semibold text-gray-700">Physiotherapy:</h4>
+            <button
+              type="button"
+              onClick={(e) => {
+                const input = e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement;
+                handleAddActivitiesPainItem('physiotherapy', input.value);
+                input.value = '';
+              }}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Item
+            </button>
+          </div>
+          <div className="space-y-2">
+            {editableActivitiesPainData.physiotherapy.map((item: string, index: number) => (
+              <div key={index} className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={item}
+                  onChange={(e) => {
+                    const newArray = [...editableActivitiesPainData.physiotherapy];
+                    newArray[index] = e.target.value;
+                    handleActivitiesPainChange('physiotherapy', newArray);
+                  }}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter physiotherapy item..."
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveActivitiesPainItem('physiotherapy', index)}
+                  className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                >
+                  Remove
+                </button>
+              </div>
             ))}
-          </ul>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                placeholder="Add new physiotherapy item..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddActivitiesPainItem('physiotherapy', e.currentTarget.value);
+                    e.currentTarget.value = '';
+                  }
+                }}
+              />
+            </div>
+          </div>
         </div>
 
+        {/* Rehabilitation Exercises */}
         <div>
-          <h4 className="font-semibold text-gray-700">Rehabilitation Exercises:</h4>
-          <ul className="list-disc ml-5">
-            {activitiesPainData?.rehabilitationExercises?.map((item: string, index: number) => (
-              <li key={index}>{item}</li>
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-semibold text-gray-700">Rehabilitation Exercises:</h4>
+            <button
+              type="button"
+              onClick={(e) => {
+                const input = e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement;
+                handleAddActivitiesPainItem('rehabilitationExercises', input.value);
+                input.value = '';
+              }}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Item
+            </button>
+          </div>
+          <div className="space-y-2">
+            {editableActivitiesPainData.rehabilitationExercises.map((item: string, index: number) => (
+              <div key={index} className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={item}
+                  onChange={(e) => {
+                    const newArray = [...editableActivitiesPainData.rehabilitationExercises];
+                    newArray[index] = e.target.value;
+                    handleActivitiesPainChange('rehabilitationExercises', newArray);
+                  }}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter rehabilitation exercise..."
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveActivitiesPainItem('rehabilitationExercises', index)}
+                  className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                >
+                  Remove
+                </button>
+              </div>
             ))}
-          </ul>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                placeholder="Add new rehabilitation exercise..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddActivitiesPainItem('rehabilitationExercises', e.currentTarget.value);
+                    e.currentTarget.value = '';
+                  }
+                }}
+              />
+            </div>
+          </div>
         </div>
 
+        {/* Duration & Frequency */}
         <div>
-          <h4 className="font-semibold text-gray-700">Duration & Frequency:</h4>
-          <p>Times/Week: {activitiesPainData?.durationFrequency?.timesPerWeek || 'N/A'}</p>
-          <p>Re-eval in Weeks: {activitiesPainData?.durationFrequency?.reEvalInWeeks || 'N/A'}</p>
+          <h4 className="font-semibold text-gray-700 mb-3">Duration & Frequency:</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Times/Week:</label>
+              <input
+                type="text"
+                value={editableActivitiesPainData.durationFrequency.timesPerWeek}
+                onChange={(e) => handleActivitiesPainChange('durationFrequency', e.target.value, 'timesPerWeek')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 3x"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Re-eval in Weeks:</label>
+              <input
+                type="text"
+                value={editableActivitiesPainData.durationFrequency.reEvalInWeeks}
+                onChange={(e) => handleActivitiesPainChange('durationFrequency', e.target.value, 'reEvalInWeeks')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 4"
+              />
+            </div>
+          </div>
         </div>
 
+        {/* Diagnostic Ultrasound */}
         <div>
-          <h4 className="font-semibold text-gray-700">Diagnostic Ultrasound:</h4>
-          <p>{activitiesPainData?.diagnosticUltrasound || 'N/A'}</p>
+          <h4 className="font-semibold text-gray-700 mb-2">Diagnostic Ultrasound:</h4>
+          <input
+            type="text"
+            value={editableActivitiesPainData.diagnosticUltrasound}
+            onChange={(e) => handleActivitiesPainChange('diagnosticUltrasound', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter diagnostic ultrasound details..."
+          />
         </div>
 
+        {/* Disability Duration */}
         <div>
-          <h4 className="font-semibold text-gray-700">Disability Duration:</h4>
-          <p>{activitiesPainData?.disabilityDuration || 'N/A'}</p>
+          <h4 className="font-semibold text-gray-700 mb-2">Disability Duration:</h4>
+          <input
+            type="text"
+            value={editableActivitiesPainData.disabilityDuration}
+            onChange={(e) => handleActivitiesPainChange('disabilityDuration', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter disability duration..."
+          />
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-end space-x-2">
+        <button
+          onClick={handleSaveActivitiesPain}
+          className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+        >
+          Save
+        </button>
         <button
           onClick={() => setIsActivitiesModalOpen(false)}
           className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
@@ -2858,66 +3917,317 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
         </button>
       </div>
 
-      <div className="bg-gray-50 p-4 rounded-md space-y-4 text-sm text-gray-700">
+      <div className="bg-gray-50 p-4 rounded-md space-y-6 text-sm text-gray-700">
         {/* Referrals */}
         <div>
-          <h4 className="font-semibold">Specialist Referrals:</h4>
-          <ul className="list-disc ml-5">
-            {imagingData?.referrals?.length > 0 ? (
-              imagingData.referrals.map((item: string, i: number) => (
-                <li key={i}>{item}</li>
-              ))
-            ) : (
-              <li>N/A</li>
-            )}
-          </ul>
+          <h4 className="font-semibold text-gray-800 mb-3">Specialist Referrals:</h4>
+          <div className="space-y-2">
+            {imagingInputData.referrals.map((item, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <span className="text-gray-600">• {item}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveItem('referrals', index)}
+                  className="text-red-500 hover:text-red-700 text-xs"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                placeholder="Add referral..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddItem('referrals', e.currentTarget.value);
+                    e.currentTarget.value = '';
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                  handleAddItem('referrals', input.value);
+                  input.value = '';
+                }}
+                className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                Add
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Physiotherapy */}
         <div>
-          <h4 className="font-semibold">Physiotherapy:</h4>
-          <ul className="list-disc ml-5">
-            {imagingData?.physiotherapy?.length > 0 ? (
-              imagingData.physiotherapy.map((item: string, i: number) => (
-                <li key={i}>{item}</li>
-              ))
-            ) : (
-              <li>N/A</li>
-            )}
-          </ul>
+          <h4 className="font-semibold text-gray-800 mb-3">Physiotherapy:</h4>
+          <div className="space-y-2">
+            {imagingInputData.physiotherapy.map((item, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <span className="text-gray-600">• {item}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveItem('physiotherapy', index)}
+                  className="text-red-500 hover:text-red-700 text-xs"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                placeholder="Add physiotherapy..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddItem('physiotherapy', e.currentTarget.value);
+                    e.currentTarget.value = '';
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                  handleAddItem('physiotherapy', input.value);
+                  input.value = '';
+                }}
+                className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                Add
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Rehabilitation Exercises */}
         <div>
-          <h4 className="font-semibold">Rehabilitation Exercises:</h4>
-          <ul className="list-disc ml-5">
-            {imagingData?.rehabilitationExercises?.length > 0 ? (
-              imagingData.rehabilitationExercises.map((item: string, i: number) => (
-                <li key={i}>{item}</li>
-              ))
-            ) : (
-              <li>N/A</li>
-            )}
-          </ul>
+          <h4 className="font-semibold text-gray-800 mb-3">Rehabilitation Exercises:</h4>
+          <div className="space-y-2">
+            {imagingInputData.rehabilitationExercises.map((item, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <span className="text-gray-600">• {item}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveItem('rehabilitationExercises', index)}
+                  className="text-red-500 hover:text-red-700 text-xs"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                placeholder="Add exercise..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddItem('rehabilitationExercises', e.currentTarget.value);
+                    e.currentTarget.value = '';
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                  handleAddItem('rehabilitationExercises', input.value);
+                  input.value = '';
+                }}
+                className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                Add
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Duration & Frequency */}
         <div>
-          <h4 className="font-semibold">Duration & Frequency:</h4>
-          <p><strong>Times per Week:</strong> {imagingData?.durationFrequency?.timesPerWeek || 'N/A'}</p>
-          <p><strong>Re-evaluation in Weeks:</strong> {imagingData?.durationFrequency?.reEvalInWeeks || 'N/A'}</p>
+          <h4 className="font-semibold text-gray-800 mb-3">Duration & Frequency:</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Times per Week:</label>
+              <input
+                type="text"
+                value={imagingInputData.durationFrequency.timesPerWeek}
+                onChange={(e) => setImagingInputData(prev => ({
+                  ...prev,
+                  durationFrequency: {
+                    ...prev.durationFrequency,
+                    timesPerWeek: e.target.value
+                  }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 3x"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Re-evaluation in Weeks:</label>
+              <input
+                type="text"
+                value={imagingInputData.durationFrequency.reEvalInWeeks}
+                onChange={(e) => setImagingInputData(prev => ({
+                  ...prev,
+                  durationFrequency: {
+                    ...prev.durationFrequency,
+                    reEvalInWeeks: e.target.value
+                  }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 4"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Imaging */}
         <div>
-          <h4 className="font-semibold">Imaging:</h4>
-          <p><strong>X-ray:</strong> {imagingData?.imaging?.xray?.join(', ') || 'N/A'}</p>
-          <p><strong>MRI:</strong> {imagingData?.imaging?.mri?.join(', ') || 'N/A'}</p>
-          <p><strong>CT:</strong> {imagingData?.imaging?.ct?.join(', ') || 'N/A'}</p>
+          <h4 className="font-semibold text-gray-800 mb-3">Imaging:</h4>
+          
+          {/* X-ray */}
+          <div className="mb-4">
+            <h5 className="font-medium text-gray-700 mb-2">X-ray:</h5>
+            <div className="space-y-2">
+              {imagingInputData.imaging.xray.map((item, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <span className="text-gray-600">• {item}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem('xray', index)}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  placeholder="Add X-ray..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddItem('xray', e.currentTarget.value);
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                    handleAddItem('xray', input.value);
+                    input.value = '';
+                  }}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                >
+                  Add
+                </button>
+              </div>
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end">
+          {/* MRI */}
+          <div className="mb-4">
+            <h5 className="font-medium text-gray-700 mb-2">MRI:</h5>
+            <div className="space-y-2">
+              {imagingInputData.imaging.mri.map((item, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <span className="text-gray-600">• {item}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem('mri', index)}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  placeholder="Add MRI..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddItem('mri', e.currentTarget.value);
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                    handleAddItem('mri', input.value);
+                    input.value = '';
+                  }}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* CT */}
+          <div>
+            <h5 className="font-medium text-gray-700 mb-2">CT:</h5>
+            <div className="space-y-2">
+              {imagingInputData.imaging.ct.map((item, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <span className="text-gray-600">• {item}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem('ct', index)}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  placeholder="Add CT..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddItem('ct', e.currentTarget.value);
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                    handleAddItem('ct', input.value);
+                    input.value = '';
+                  }}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex justify-end space-x-2">
+        <button
+          onClick={handleSaveImagingData}
+          className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+        >
+          Save
+        </button>
         <button
           onClick={() => setIsImagingModalOpen(false)}
           className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
@@ -3136,6 +4446,658 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
           </div>
         </div>
       </form>
+
+      {/* Areas Modal */}
+      {isAreasModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-800">Areas Status</h3>
+              <button
+                onClick={() => setIsAreasModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Close modal"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-md space-y-6">
+              <div>
+                <h4 className="font-bold text-lg text-gray-800 mb-4">Areas from Previous Visit:</h4>
+                
+                {/* Display Chief Complaint */}
+                {formData.fetchedData?.initialVisitData?.chiefComplaint && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-2">Chief Complaint:</h5>
+                    <p className="text-gray-700">{formData.fetchedData.initialVisitData.chiefComplaint}</p>
+                  </div>
+                )}
+
+                {/* Display Pain Location */}
+                {formData.fetchedData?.initialVisitData?.painLocation && formData.fetchedData.initialVisitData.painLocation.length > 0 && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-2">Pain Location:</h5>
+                    <div className="space-y-2">
+                      {formData.fetchedData.initialVisitData.painLocation.map((location: string, index: number) => {
+                        const areaId = `painLocation-${index}`;
+                        const areaStatus = individualAreaStatus.painLocation?.[areaId] || {
+                          improving: false,
+                          exacerbated: false,
+                          same: false,
+                          resolved: false
+                        };
+                        
+                        return (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <span className="text-gray-700">{location}</span>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`improving-${areaId}`}
+                                  checked={areaStatus.improving}
+                                  onChange={(e) => handleIndividualAreaStatusChange('painLocation', areaId, 'improving', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`exacerbated-${areaId}`}
+                                  checked={areaStatus.exacerbated}
+                                  onChange={(e) => handleIndividualAreaStatusChange('painLocation', areaId, 'exacerbated', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`same-${areaId}`}
+                                  checked={areaStatus.same}
+                                  onChange={(e) => handleIndividualAreaStatusChange('painLocation', areaId, 'same', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`resolved-${areaId}`}
+                                  checked={areaStatus.resolved}
+                                  onChange={(e) => handleIndividualAreaStatusChange('painLocation', areaId, 'resolved', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Display Radiating Pain */}
+                {formData.fetchedData?.initialVisitData?.radiatingTo && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-2">Radiating Pain:</h5>
+                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="text-gray-700">{formData.fetchedData.initialVisitData.radiatingTo}</span>
+                      <div className="flex items-center space-x-4">
+                        {(() => {
+                          const areaId = 'radiating';
+                          const areaStatus = individualAreaStatus.radiating?.[areaId] || {
+                            improving: false,
+                            exacerbated: false,
+                            same: false,
+                            resolved: false
+                          };
+                          
+                          return (
+                            <>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id="improving-radiating"
+                                  checked={areaStatus.improving}
+                                  onChange={(e) => handleIndividualAreaStatusChange('radiating', areaId, 'improving', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor="improving-radiating" className="ml-2 text-xs text-gray-600">Improving</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id="exacerbated-radiating"
+                                  checked={areaStatus.exacerbated}
+                                  onChange={(e) => handleIndividualAreaStatusChange('radiating', areaId, 'exacerbated', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor="exacerbated-radiating" className="ml-2 text-xs text-gray-600">Exacerbated</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id="same-radiating"
+                                  checked={areaStatus.same}
+                                  onChange={(e) => handleIndividualAreaStatusChange('radiating', areaId, 'same', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor="same-radiating" className="ml-2 text-xs text-gray-600">Same</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id="resolved-radiating"
+                                  checked={areaStatus.resolved}
+                                  onChange={(e) => handleIndividualAreaStatusChange('radiating', areaId, 'resolved', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor="resolved-radiating" className="ml-2 text-xs text-gray-600">Resolved</label>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Display Joint Dysfunction */}
+                {formData.fetchedData?.initialVisitData?.jointDysfunction && formData.fetchedData.initialVisitData.jointDysfunction.length > 0 && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-2">Joint Dysfunction:</h5>
+                    <div className="space-y-2">
+                      {formData.fetchedData.initialVisitData.jointDysfunction.map((joint: string, index: number) => {
+                        const areaId = `jointDysfunction-${index}`;
+                        const areaStatus = individualAreaStatus.jointDysfunction?.[areaId] || {
+                          improving: false,
+                          exacerbated: false,
+                          same: false,
+                          resolved: false
+                        };
+                        
+                        return (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <span className="text-gray-700">{joint}</span>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`improving-${areaId}`}
+                                  checked={areaStatus.improving}
+                                  onChange={(e) => handleIndividualAreaStatusChange('jointDysfunction', areaId, 'improving', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`exacerbated-${areaId}`}
+                                  checked={areaStatus.exacerbated}
+                                  onChange={(e) => handleIndividualAreaStatusChange('jointDysfunction', areaId, 'exacerbated', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`same-${areaId}`}
+                                  checked={areaStatus.same}
+                                  onChange={(e) => handleIndividualAreaStatusChange('jointDysfunction', areaId, 'same', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`resolved-${areaId}`}
+                                  checked={areaStatus.resolved}
+                                  onChange={(e) => handleIndividualAreaStatusChange('jointDysfunction', areaId, 'resolved', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Display Joint Other */}
+                {formData.fetchedData?.initialVisitData?.jointOther && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-2">Joint Other:</h5>
+                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="text-gray-700">{formData.fetchedData.initialVisitData.jointOther}</span>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="improving-joint-other"
+                            name="areasImproving"
+                            checked={formData.areasImproving}
+                            onChange={handleChange}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="improving-joint-other" className="ml-2 text-xs text-gray-600">Improving</label>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="exacerbated-joint-other"
+                            name="areasExacerbated"
+                            checked={formData.areasExacerbated}
+                            onChange={handleChange}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="exacerbated-joint-other" className="ml-2 text-xs text-gray-600">Exacerbated</label>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="same-joint-other"
+                            name="areasSame"
+                            checked={formData.areasSame}
+                            onChange={handleChange}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="same-joint-other" className="ml-2 text-xs text-gray-600">Same</label>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="resolved-joint-other"
+                            name="areasResolved"
+                            checked={formData.areasResolved}
+                            onChange={handleChange}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="resolved-joint-other" className="ml-2 text-xs text-gray-600">Resolved</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Display Walk Tests */}
+                {formData.fetchedData?.initialVisitData?.walkTests && formData.fetchedData.initialVisitData.walkTests.length > 0 && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-2">Walk Tests:</h5>
+                    <div className="space-y-2">
+                      {formData.fetchedData.initialVisitData.walkTests.map((test: string, index: number) => {
+                        const areaId = `walkTests-${index}`;
+                        const areaStatus = individualAreaStatus.walkTests?.[areaId] || {
+                          improving: false,
+                          exacerbated: false,
+                          same: false,
+                          resolved: false
+                        };
+                        
+                        return (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <span className="text-gray-700">{test}</span>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`improving-${areaId}`}
+                                  checked={areaStatus.improving}
+                                  onChange={(e) => handleIndividualAreaStatusChange('walkTests', areaId, 'improving', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`exacerbated-${areaId}`}
+                                  checked={areaStatus.exacerbated}
+                                  onChange={(e) => handleIndividualAreaStatusChange('walkTests', areaId, 'exacerbated', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`same-${areaId}`}
+                                  checked={areaStatus.same}
+                                  onChange={(e) => handleIndividualAreaStatusChange('walkTests', areaId, 'same', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`resolved-${areaId}`}
+                                  checked={areaStatus.resolved}
+                                  onChange={(e) => handleIndividualAreaStatusChange('walkTests', areaId, 'resolved', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Display Diagnosis */}
+                {formData.fetchedData?.initialVisitData?.diagnosis && formData.fetchedData.initialVisitData.diagnosis.length > 0 && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-2">Diagnosis:</h5>
+                    <div className="space-y-2">
+                      {formData.fetchedData.initialVisitData.diagnosis.map((diagnosis: string, index: number) => {
+                        const areaId = `diagnosis-${index}`;
+                        const areaStatus = individualAreaStatus.diagnosis?.[areaId] || {
+                          improving: false,
+                          exacerbated: false,
+                          same: false,
+                          resolved: false
+                        };
+                        
+                        return (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <span className="text-gray-700">{diagnosis}</span>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`improving-${areaId}`}
+                                  checked={areaStatus.improving}
+                                  onChange={(e) => handleIndividualAreaStatusChange('diagnosis', areaId, 'improving', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`exacerbated-${areaId}`}
+                                  checked={areaStatus.exacerbated}
+                                  onChange={(e) => handleIndividualAreaStatusChange('diagnosis', areaId, 'exacerbated', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`same-${areaId}`}
+                                  checked={areaStatus.same}
+                                  onChange={(e) => handleIndividualAreaStatusChange('diagnosis', areaId, 'same', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`resolved-${areaId}`}
+                                  checked={areaStatus.resolved}
+                                  onChange={(e) => handleIndividualAreaStatusChange('diagnosis', areaId, 'resolved', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Display Tenderness */}
+                {formData.fetchedData?.initialVisitData?.tenderness && Object.keys(formData.fetchedData.initialVisitData.tenderness).length > 0 && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-2">Tenderness:</h5>
+                    <div className="space-y-2">
+                      {Object.entries(formData.fetchedData.initialVisitData.tenderness).map(([region, labels], index: number) => {
+                        const displayLabels = Array.isArray(labels) ? labels : [labels];
+                        const areaId = `tenderness-${index}`;
+                        const areaStatus = individualAreaStatus.tenderness?.[areaId] || {
+                          improving: false,
+                          exacerbated: false,
+                          same: false,
+                          resolved: false
+                        };
+                        
+                        return (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <div>
+                              <span className="text-gray-700 font-medium">{region}:</span>
+                              <span className="text-gray-600 ml-2">{Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}</span>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`improving-${areaId}`}
+                                  checked={areaStatus.improving}
+                                  onChange={(e) => handleIndividualAreaStatusChange('tenderness', areaId, 'improving', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`exacerbated-${areaId}`}
+                                  checked={areaStatus.exacerbated}
+                                  onChange={(e) => handleIndividualAreaStatusChange('tenderness', areaId, 'exacerbated', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`same-${areaId}`}
+                                  checked={areaStatus.same}
+                                  onChange={(e) => handleIndividualAreaStatusChange('tenderness', areaId, 'same', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`resolved-${areaId}`}
+                                  checked={areaStatus.resolved}
+                                  onChange={(e) => handleIndividualAreaStatusChange('tenderness', areaId, 'resolved', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Display Spasm */}
+                {formData.fetchedData?.initialVisitData?.spasm && Object.keys(formData.fetchedData.initialVisitData.spasm).length > 0 && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-2">Spasm:</h5>
+                    <div className="space-y-2">
+                      {Object.entries(formData.fetchedData.initialVisitData.spasm).map(([region, labels], index: number) => {
+                        const displayLabels = Array.isArray(labels) ? labels : [labels];
+                        const areaId = `spasm-${index}`;
+                        const areaStatus = individualAreaStatus.spasm?.[areaId] || {
+                          improving: false,
+                          exacerbated: false,
+                          same: false,
+                          resolved: false
+                        };
+                        
+                        return (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <div>
+                              <span className="text-gray-700 font-medium">{region}:</span>
+                              <span className="text-gray-600 ml-2">{Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}</span>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`improving-${areaId}`}
+                                  checked={areaStatus.improving}
+                                  onChange={(e) => handleIndividualAreaStatusChange('spasm', areaId, 'improving', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`exacerbated-${areaId}`}
+                                  checked={areaStatus.exacerbated}
+                                  onChange={(e) => handleIndividualAreaStatusChange('spasm', areaId, 'exacerbated', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`same-${areaId}`}
+                                  checked={areaStatus.same}
+                                  onChange={(e) => handleIndividualAreaStatusChange('spasm', areaId, 'same', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
+                              </div>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`resolved-${areaId}`}
+                                  checked={areaStatus.resolved}
+                                  onChange={(e) => handleIndividualAreaStatusChange('spasm', areaId, 'resolved', e.target.checked)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Overall Areas Status */}
+                <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <h5 className="font-semibold text-blue-800 mb-3">Overall Areas Status:</h5>
+                  <div className="grid grid-cols-2 gap-4">
+                    {(() => {
+                      const areaId = 'overall';
+                      const areaStatus = individualAreaStatus.overall?.[areaId] || {
+                        improving: false,
+                        exacerbated: false,
+                        same: false,
+                        resolved: false
+                      };
+                      
+                      return (
+                        <>
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id="modal-areasImproving"
+                              checked={areaStatus.improving}
+                              onChange={(e) => handleIndividualAreaStatusChange('overall', areaId, 'improving', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="modal-areasImproving" className="ml-2 text-sm text-gray-700">
+                              Improving
+                            </label>
+                          </div>
+
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id="modal-areasExacerbated"
+                              checked={areaStatus.exacerbated}
+                              onChange={(e) => handleIndividualAreaStatusChange('overall', areaId, 'exacerbated', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="modal-areasExacerbated" className="ml-2 text-sm text-gray-700">
+                              Exacerbated
+                            </label>
+                          </div>
+
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id="modal-areasSame"
+                              checked={areaStatus.same}
+                              onChange={(e) => handleIndividualAreaStatusChange('overall', areaId, 'same', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="modal-areasSame" className="ml-2 text-sm text-gray-700">
+                              Same
+                            </label>
+                          </div>
+
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id="modal-areasResolved"
+                              checked={areaStatus.resolved}
+                              onChange={(e) => handleIndividualAreaStatusChange('overall', areaId, 'resolved', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="modal-areasResolved" className="ml-2 text-sm text-gray-700">
+                              Resolved
+                            </label>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Note:</strong> The checkboxes next to each area allow you to track the status of specific areas. 
+                    The overall status checkboxes represent the general progress across all areas.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={handleSaveAreasData}
+                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setIsAreasModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
