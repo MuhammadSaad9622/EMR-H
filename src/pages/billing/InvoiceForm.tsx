@@ -11,6 +11,19 @@ interface Patient {
   _id: string;
   firstName: string;
   lastName: string;
+  attorney?: {
+    name?: string;
+    firm?: string;
+    phone?: string;
+    email?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      zipCode?: string;
+      country?: string;
+    };
+  };
 }
 
 interface Visit {
@@ -28,6 +41,7 @@ const InvoiceForm: React.FC = () => {
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -93,6 +107,11 @@ const InvoiceForm: React.FC = () => {
   }
 });
 
+          // Set selected patient for attorney info
+          if (invoiceData.patient) {
+            setSelectedPatient(invoiceData.patient);
+          }
+
           
           // Fetch visits for this patient
           if (invoiceData.patient._id) {
@@ -108,6 +127,10 @@ const InvoiceForm: React.FC = () => {
           const patientId = searchParams.get('patient');
           if (patientId) {
             setFormData(prev => ({ ...prev, patient: patientId }));
+            
+            // Fetch patient data for attorney info
+            const patientResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${patientId}`);
+            setSelectedPatient(patientResponse.data);
             
             // Fetch visits for this patient
             const visitsResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${patientId}/visits`);
@@ -147,8 +170,13 @@ const InvoiceForm: React.FC = () => {
 
   const fetchPatientVisits = async (patientId: string) => {
     try {
-      const response = await axios.get(`https://emr-h.onrender.com/api/patients/${patientId}/visits`);
-      setVisits(response.data);
+      // Fetch patient data for attorney info
+      const patientResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${patientId}`);
+      setSelectedPatient(patientResponse.data);
+      
+      // Fetch visits for this patient
+      const visitsResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${patientId}/visits`);
+      setVisits(visitsResponse.data);
     } catch (error) {
       console.error('Error fetching patient visits:', error);
     }
@@ -247,13 +275,16 @@ const InvoiceForm: React.FC = () => {
       const dateIssued = formData.dateIssued instanceof Date ? formData.dateIssued : new Date(formData.dateIssued);
       const dueDate = new Date(dateIssued);
       dueDate.setDate(dateIssued.getDate() + 30);
+      // Use patient's attorney information if available, otherwise use form data
+      const attorneyData = selectedPatient?.attorney || formData.attorney;
+      
       const invoiceData = {
   ...formData,
   dateIssued: dateIssued.toISOString(),
   dueDate: dueDate.toISOString(),
   visit: formData.visit || undefined, // 👈 ensures empty string is not sent
   patient: formData.patient || undefined,
-  attorney: formData.attorney || undefined
+  attorney: attorneyData || undefined
 };
 
       
@@ -435,19 +466,37 @@ const InvoiceForm: React.FC = () => {
           {/* Right: Attorney Info */}
           <div className="space-y-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
             <h3 className="text-md font-semibold text-gray-700 mb-2">Attorney Information</h3>
-            <input type="text" placeholder="Name" value={formData.attorney.name} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, name: e.target.value } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
-            <input type="text" placeholder="Firm" value={formData.attorney.firm} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, firm: e.target.value } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
-            <input type="text" placeholder="Phone" value={formData.attorney.phone} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, phone: e.target.value } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
-            <input type="email" placeholder="Email" value={formData.attorney.email} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, email: e.target.value } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
-            <input type="text" placeholder="Street" value={formData.attorney.address.street} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, street: e.target.value } } }))} className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2" />
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <input type="text" placeholder="City" value={formData.attorney.address.city} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, city: e.target.value } } }))} className="px-3 py-2 border border-gray-300 rounded-md" />
-              <input type="text" placeholder="State" value={formData.attorney.address.state} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, state: e.target.value } } }))} className="px-3 py-2 border border-gray-300 rounded-md" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <input type="text" placeholder="Zip Code" value={formData.attorney.address.zipCode} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, zipCode: e.target.value } } }))} className="px-3 py-2 border border-gray-300 rounded-md" />
-              <input type="text" placeholder="Country" value={formData.attorney.address.country} onChange={e => setFormData(prev => ({ ...prev, attorney: { ...prev.attorney, address: { ...prev.attorney.address, country: e.target.value } } }))} className="px-3 py-2 border border-gray-300 rounded-md" />
-            </div>
+            {selectedPatient?.attorney ? (
+              <div className="space-y-2">
+                <div className="bg-white p-3 rounded border border-gray-200">
+                  <p className="font-medium text-gray-800">{selectedPatient.attorney.name || 'Attorney Name Not Available'}</p>
+                  {selectedPatient.attorney.firm && (
+                    <p className="text-sm text-gray-600">{selectedPatient.attorney.firm}</p>
+                  )}
+                </div>
+                {selectedPatient.attorney.address && (
+                  <div className="bg-white p-3 rounded border border-gray-200">
+                    <p className="text-sm text-gray-800">
+                      {selectedPatient.attorney.address.street && `${selectedPatient.attorney.address.street}`}
+                    </p>
+                    <p className="text-sm text-gray-800">
+                      {selectedPatient.attorney.address.city && selectedPatient.attorney.address.state ? 
+                        `${selectedPatient.attorney.address.city}, ${selectedPatient.attorney.address.state} ${selectedPatient.attorney.address.zipCode || ''}` :
+                        selectedPatient.attorney.address.city || selectedPatient.attorney.address.state || 'Address Not Available'
+                      }
+                    </p>
+                    {selectedPatient.attorney.address.country && (
+                      <p className="text-sm text-gray-800">{selectedPatient.attorney.address.country}</p>
+                    )}
+                  </div>
+                )}
+                {(!selectedPatient.attorney.name && !selectedPatient.attorney.address) && (
+                  <p className="text-gray-500 italic">No attorney information available for this patient</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">Select a patient to view attorney information</p>
+            )}
           </div>
         </div>
 
