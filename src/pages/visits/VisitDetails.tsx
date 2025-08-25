@@ -980,7 +980,7 @@ const VisitDetails: React.FC = () => {
     )}
 
     {/* Examination */}
-    {(visit.musclePalpation || visit.painRadiating || visit.romWnlNoPain || visit.romWnlWithPain || visit.romImproved || visit.romDecreased || visit.romSame || (visit.orthos?.tests || visit.orthos?.result)) && (
+    {(visit.musclePalpation || visit.painRadiating || visit.romWnlNoPain || visit.romWnlWithPain || visit.romImproved || visit.romDecreased || visit.romSame || (visit.orthos?.tests || visit.orthos?.result) || visit.muscleStrength || visit.strength || visit.tenderness || visit.spasm || visit.ortho || visit.arom) && (
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">Examination</h3>
         <div className="space-y-2 text-sm">
@@ -1014,18 +1014,148 @@ const VisitDetails: React.FC = () => {
               <span className="font-medium">Orthopedic Tests:</span> {visit.orthos?.tests || 'N/A'}, Result: {visit.orthos?.result || 'N/A'}
           </p>
         )}
+
+        {/* Direct Muscle Strength Data */}
+        {visit.muscleStrength && (
+          <p className="text-gray-700">
+            <span className="font-medium">Muscle Strength:</span> {Array.isArray(visit.muscleStrength) ? visit.muscleStrength.join(', ') : (typeof visit.muscleStrength === 'string' ? visit.muscleStrength : JSON.stringify(visit.muscleStrength))}
+          </p>
+        )}
+
+        {/* Direct Strength Testing Data */}
+        {visit.strength && Object.keys(visit.strength).length > 0 && (
+          <div>
+            <p className="font-medium text-gray-700">Strength Testing:</p>
+            {Object.entries(visit.strength).map(([muscle, data]) => (
+              <p key={muscle} className="ml-4 text-gray-600">
+                {muscle}: {typeof data === 'object' ? `R: ${data.right || 'N/A'}, L: ${data.left || 'N/A'}` : data}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Direct Tenderness Data */}
+        {visit.tenderness && Object.keys(visit.tenderness).length > 0 && (
+          <div>
+            <p className="font-medium text-gray-700">Tenderness:</p>
+            {Object.entries(visit.tenderness).map(([region, data]) => (
+              <p key={region} className="ml-4 text-gray-600">
+                {region}: {typeof data === 'string' ? data : Array.isArray(data) ? data.join(', ') : JSON.stringify(data)}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Direct Spasm Data */}
+        {visit.spasm && Object.keys(visit.spasm).length > 0 && (
+          <div>
+            <p className="font-medium text-gray-700">Spasm:</p>
+            {Object.entries(visit.spasm).map(([region, data]) => (
+              <p key={region} className="ml-4 text-gray-600">
+                {region}: {typeof data === 'string' ? data : Array.isArray(data) ? data.join(', ') : JSON.stringify(data)}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Direct Ortho Tests Data */}
+        {visit.ortho && Object.keys(visit.ortho).length > 0 && (
+          <div>
+            <p className="font-medium text-gray-700">Orthopedic Tests:</p>
+            {Object.entries(visit.ortho).map(([region, tests]) => (
+              <div key={region} className="ml-4">
+                <p className="font-medium text-gray-600">{region}:</p>
+                {Object.entries(tests).map(([testName, data]) => (
+                  <p key={testName} className="ml-4 text-gray-600">
+                    {testName}: L-{data.left || 'N/A'}, R-{data.right || 'N/A'}, Bilateral-{data.bilateral || 'N/A'}
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Direct AROM Data */}
+        {visit.arom && Object.keys(visit.arom).length > 0 && (
+          <div>
+            <p className="font-medium text-gray-700">Active Range of Motion:</p>
+            {Object.entries(visit.arom).map(([region, movements]) => (
+              <div key={region} className="ml-4">
+                <p className="font-medium text-gray-600">{region}:</p>
+                {Object.entries(movements).map(([movementName, data]) => (
+                  <p key={movementName} className="ml-4 text-gray-600">
+                    {movementName}: L-{data.left || 'N/A'}, R-{data.right || 'N/A'}, Bilateral-{data.bilateral || 'N/A'}
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
         </div>
       </div>
     )}
 
     {/* Activities that still cause pain */}
-    {(visit.activitiesCausePain || visit.activitiesCausePainOther) && (
+    {(visit.activitiesCausePain || visit.activitiesCausePainOther || visit.chiropracticAdjustment || visit.acupuncture || visit.physiotherapy || visit.rehabilitationExercises) && (
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">Activities that Still Cause Pain</h3>
-        <p className="text-gray-700">
-          {visit.activitiesCausePain}
-          {visit.activitiesCausePainOther && ` Other: ${visit.activitiesCausePainOther}`}
-        </p>
+        <div className="space-y-2 text-sm">
+          {visit.activitiesCausePain && (
+            <p className="text-gray-700">
+              <span className="font-medium">Activities:</span> {visit.activitiesCausePain}
+            </p>
+          )}
+          {visit.activitiesCausePainOther && (
+            <p className="text-gray-700">
+              <span className="font-medium">Other Activities:</span> {visit.activitiesCausePainOther}
+            </p>
+          )}
+          {visit.chiropracticAdjustment && (
+            <p className="text-gray-700">
+              <span className="font-medium">Chiropractic Adjustment:</span> {Array.isArray(visit.chiropracticAdjustment) ? visit.chiropracticAdjustment.join(', ') : (typeof visit.chiropracticAdjustment === 'string' ? visit.chiropracticAdjustment : JSON.stringify(visit.chiropracticAdjustment))}
+            </p>
+          )}
+          {visit.chiropracticOther && (
+            <p className="text-gray-700">
+              <span className="font-medium">Chiropractic Other:</span> {visit.chiropracticOther}
+            </p>
+          )}
+          {visit.acupuncture && (
+            <p className="text-gray-700">
+              <span className="font-medium">Acupuncture:</span> {Array.isArray(visit.acupuncture) ? visit.acupuncture.join(', ') : (typeof visit.acupuncture === 'string' ? visit.acupuncture : JSON.stringify(visit.acupuncture))}
+            </p>
+          )}
+          {visit.acupunctureOther && (
+            <p className="text-gray-700">
+              <span className="font-medium">Acupuncture Other:</span> {visit.acupunctureOther}
+            </p>
+          )}
+          {visit.physiotherapy && (
+            <p className="text-gray-700">
+              <span className="font-medium">Physiotherapy:</span> {Array.isArray(visit.physiotherapy) ? visit.physiotherapy.join(', ') : (typeof visit.physiotherapy === 'string' ? visit.physiotherapy : JSON.stringify(visit.physiotherapy))}
+            </p>
+          )}
+          {visit.rehabilitationExercises && (
+            <p className="text-gray-700">
+              <span className="font-medium">Rehabilitation Exercises:</span> {Array.isArray(visit.rehabilitationExercises) ? visit.rehabilitationExercises.join(', ') : (typeof visit.rehabilitationExercises === 'string' ? visit.rehabilitationExercises : JSON.stringify(visit.rehabilitationExercises))}
+            </p>
+          )}
+          {visit.durationFrequency && (
+            <p className="text-gray-700">
+              <span className="font-medium">Duration & Frequency:</span> {visit.durationFrequency.timesPerWeek} times per week, re-evaluation in {visit.durationFrequency.reEvalInWeeks} weeks
+            </p>
+          )}
+          {visit.diagnosticUltrasound && (
+            <p className="text-gray-700">
+              <span className="font-medium">Diagnostic Ultrasound:</span> {visit.diagnosticUltrasound}
+            </p>
+          )}
+          {visit.disabilityDuration && (
+            <p className="text-gray-700">
+              <span className="font-medium">Disability Duration:</span> {visit.disabilityDuration}
+            </p>
+          )}
+        </div>
       </div>
     )}
 
@@ -1102,10 +1232,35 @@ const VisitDetails: React.FC = () => {
         )}
 
         {/* Referrals */}
-        {visit.referrals && (
+        {(visit.referrals || visit.nerveStudy || visit.imaging) && (
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Referrals</h3>
-        <p className="text-gray-700">{visit.referrals}</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Referrals & Imaging</h3>
+        <div className="space-y-2 text-sm">
+          {visit.referrals && (
+            <p className="text-gray-700">
+              <span className="font-medium">Referrals:</span> {Array.isArray(visit.referrals) ? visit.referrals.join(', ') : (typeof visit.referrals === 'string' ? visit.referrals : JSON.stringify(visit.referrals))}
+            </p>
+          )}
+          {visit.nerveStudy && (
+            <p className="text-gray-700">
+              <span className="font-medium">Nerve Study:</span> {Array.isArray(visit.nerveStudy) ? visit.nerveStudy.join(', ') : (typeof visit.nerveStudy === 'string' ? visit.nerveStudy : JSON.stringify(visit.nerveStudy))}
+            </p>
+          )}
+          {visit.imaging && (
+            <div>
+              <p className="font-medium text-gray-700">Imaging:</p>
+              {visit.imaging.xray && (
+                <p className="ml-4 text-gray-600">X-ray: {Array.isArray(visit.imaging.xray) ? visit.imaging.xray.join(', ') : (typeof visit.imaging.xray === 'string' ? visit.imaging.xray : JSON.stringify(visit.imaging.xray))}</p>
+              )}
+              {visit.imaging.mri && (
+                <p className="ml-4 text-gray-600">MRI: {Array.isArray(visit.imaging.mri) ? visit.imaging.mri.join(', ') : (typeof visit.imaging.mri === 'string' ? visit.imaging.mri : JSON.stringify(visit.imaging.mri))}</p>
+              )}
+              {visit.imaging.ct && (
+                <p className="ml-4 text-gray-600">CT: {Array.isArray(visit.imaging.ct) ? visit.imaging.ct.join(', ') : (typeof visit.imaging.ct === 'string' ? visit.imaging.ct : JSON.stringify(visit.imaging.ct))}</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
         )}
 
@@ -1151,18 +1306,78 @@ const VisitDetails: React.FC = () => {
       </div>
     )}
 
-    {/* Home Care Suggestions */}
-    {visit.homeCareSuggestions && (
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Home Care Suggestions</h3>
-        <p className="text-gray-700 whitespace-pre-line">{visit.homeCareSuggestions}</p>
-      </div>
-    )}
+            {/* Restrictions */}
+        {visit.restrictions && (
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Activity Restrictions</h3>
+            <div className="space-y-2 text-sm">
+              {visit.restrictions.avoidActivityWeeks && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Avoid Activity:</span> {visit.restrictions.avoidActivityWeeks} week(s)
+                </p>
+              )}
+              {visit.restrictions.liftingLimitLbs && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Lifting Limit:</span> {visit.restrictions.liftingLimitLbs} lbs
+                </p>
+              )}
+              {visit.restrictions.avoidProlongedSitting && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Avoid Prolonged Sitting:</span> Yes
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Other Notes */}
+        {visit.otherNotes && (
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Other Notes</h3>
+            <p className="text-gray-700 whitespace-pre-line">{visit.otherNotes}</p>
+          </div>
+        )}
+
+        {/* Home Care Suggestions */}
+        {visit.homeCareSuggestions && (
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Home Care Suggestions</h3>
+            <p className="text-gray-700 whitespace-pre-line">{visit.homeCareSuggestions}</p>
+          </div>
+        )}
 
     {/* Fetched Data from Modals */}
     {visit.fetchedData && (
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">Additional Examination Data</h3>
+        
+        {/* Areas Data */}
+        {visit.fetchedData.areasData && (
+          <div className="mb-4">
+            <h4 className="font-medium text-gray-800 mb-2">Areas Status</h4>
+            <div className="space-y-2 text-sm">
+              {visit.fetchedData.areasData.areasImproving && <p className="text-gray-700">• Areas Improving</p>}
+              {visit.fetchedData.areasData.areasExacerbated && <p className="text-gray-700">• Areas Exacerbated</p>}
+              {visit.fetchedData.areasData.areasSame && <p className="text-gray-700">• Areas Same</p>}
+              {visit.fetchedData.areasData.areasResolved && <p className="text-gray-700">• Areas Resolved</p>}
+              {visit.fetchedData.areasData.individualAreaStatus && (
+                <div>
+                  <p className="font-medium text-gray-700">Individual Area Status:</p>
+                  {Object.entries(visit.fetchedData.areasData.individualAreaStatus).map(([areaType, areas]) => (
+                    <div key={areaType} className="ml-4">
+                      <p className="font-medium text-gray-600">{areaType}:</p>
+                      {Object.entries(areas).map(([areaId, status]) => (
+                        <p key={areaId} className="ml-4 text-gray-600">
+                          {areaId}: {Object.entries(status).filter(([key, value]) => value).map(([key]) => key).join(', ')}
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Muscle Palpation Data */}
         {visit.fetchedData.musclePalpationData && (
@@ -1170,28 +1385,53 @@ const VisitDetails: React.FC = () => {
             <h4 className="font-medium text-gray-800 mb-2">Muscle Palpation</h4>
             <div className="space-y-2 text-sm">
               {visit.fetchedData.musclePalpationData.muscleStrength && (
-          <p className="text-gray-700">
-                  <span className="font-medium">Muscle Strength:</span> {visit.fetchedData.musclePalpationData.muscleStrength}
+                <p className="text-gray-700">
+                  <span className="font-medium">Muscle Strength:</span> {Array.isArray(visit.fetchedData.musclePalpationData.muscleStrength) ? visit.fetchedData.musclePalpationData.muscleStrength.join(', ') : (typeof visit.fetchedData.musclePalpationData.muscleStrength === 'string' ? visit.fetchedData.musclePalpationData.muscleStrength : JSON.stringify(visit.fetchedData.musclePalpationData.muscleStrength))}
                 </p>
               )}
-              {visit.fetchedData.musclePalpationData.strength && (
-                <p className="text-gray-700">
-                  <span className="font-medium">Strength Testing:</span> {JSON.stringify(visit.fetchedData.musclePalpationData.strength)}
-                </p>
+              {visit.fetchedData.musclePalpationData.strength && Object.keys(visit.fetchedData.musclePalpationData.strength).length > 0 && (
+                <div>
+                  <p className="font-medium text-gray-700">Strength Testing:</p>
+                  {Object.entries(visit.fetchedData.musclePalpationData.strength).map(([muscle, data]) => (
+                    <p key={muscle} className="ml-4 text-gray-600">
+                      {muscle}: {typeof data === 'object' ? `R: ${data.right || 'N/A'}, L: ${data.left || 'N/A'}` : data}
+                    </p>
+                  ))}
+                </div>
               )}
-              {visit.fetchedData.musclePalpationData.tenderness && (
-                <p className="text-gray-700">
-                  <span className="font-medium">Tenderness:</span> {JSON.stringify(visit.fetchedData.musclePalpationData.tenderness)}
-                </p>
+              {visit.fetchedData.musclePalpationData.tenderness && Object.keys(visit.fetchedData.musclePalpationData.tenderness).length > 0 && (
+                <div>
+                  <p className="font-medium text-gray-700">Tenderness:</p>
+                  {Object.entries(visit.fetchedData.musclePalpationData.tenderness).map(([region, anatomicalParts]) => (
+                    <div key={region} className="ml-4">
+                      <p className="font-medium text-gray-600">{region}:</p>
+                      {Object.entries(anatomicalParts).map(([part, severities]) => (
+                        <p key={part} className="ml-4 text-gray-600">
+                          {part}: {Array.isArray(severities) ? severities.join(', ') : (typeof severities === 'string' ? severities : JSON.stringify(severities))}
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               )}
-              {visit.fetchedData.musclePalpationData.spasm && (
-                <p className="text-gray-700">
-                  <span className="font-medium">Spasm:</span> {JSON.stringify(visit.fetchedData.musclePalpationData.spasm)}
-          </p>
-        )}
+              {visit.fetchedData.musclePalpationData.spasm && Object.keys(visit.fetchedData.musclePalpationData.spasm).length > 0 && (
+                <div>
+                  <p className="font-medium text-gray-700">Spasm:</p>
+                  {Object.entries(visit.fetchedData.musclePalpationData.spasm).map(([region, anatomicalParts]) => (
+                    <div key={region} className="ml-4">
+                      <p className="font-medium text-gray-600">{region}:</p>
+                      {Object.entries(anatomicalParts).map(([part, severities]) => (
+                        <p key={part} className="ml-4 text-gray-600">
+                          {part}: {Array.isArray(severities) ? severities.join(', ') : (typeof severities === 'string' ? severities : JSON.stringify(severities))}
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-      </div>
-    )}
+          </div>
+        )}
 
         {/* Orthopedic Tests Data */}
         {visit.fetchedData.orthoTestsData && (
@@ -1561,10 +1801,59 @@ const VisitDetails: React.FC = () => {
         )}
 
         {/* Activities Causing Pain */}
-    {visit.activitiesCausePain && (
+    {(visit.activitiesCausePain || visit.chiropracticAdjustment || visit.acupuncture || visit.physiotherapy || visit.rehabilitationExercises) && (
           <div>
             <h4 className="font-medium text-gray-800 mb-1">Activities Causing Pain</h4>
-            <p className="text-gray-700 text-sm">{visit.activitiesCausePain}</p>
+            <div className="space-y-1 text-sm">
+              {visit.activitiesCausePain && (
+                <p className="text-gray-700">Activities: {visit.activitiesCausePain}</p>
+              )}
+              {visit.chiropracticAdjustment && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Chiropractic Adjustment:</span> {Array.isArray(visit.chiropracticAdjustment) ? visit.chiropracticAdjustment.join(', ') : (typeof visit.chiropracticAdjustment === 'string' ? visit.chiropracticAdjustment : JSON.stringify(visit.chiropracticAdjustment))}
+                </p>
+              )}
+              {visit.chiropracticOther && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Chiropractic Other:</span> {visit.chiropracticOther}
+                </p>
+              )}
+              {visit.acupuncture && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Acupuncture:</span> {Array.isArray(visit.acupuncture) ? visit.acupuncture.join(', ') : (typeof visit.acupuncture === 'string' ? visit.acupuncture : JSON.stringify(visit.acupuncture))}
+                </p>
+              )}
+              {visit.acupunctureOther && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Acupuncture Other:</span> {visit.acupunctureOther}
+                </p>
+              )}
+              {visit.physiotherapy && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Physiotherapy:</span> {Array.isArray(visit.physiotherapy) ? visit.physiotherapy.join(', ') : (typeof visit.physiotherapy === 'string' ? visit.physiotherapy : JSON.stringify(visit.physiotherapy))}
+                </p>
+              )}
+              {visit.rehabilitationExercises && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Rehabilitation Exercises:</span> {Array.isArray(visit.rehabilitationExercises) ? visit.rehabilitationExercises.join(', ') : (typeof visit.rehabilitationExercises === 'string' ? visit.rehabilitationExercises : JSON.stringify(visit.rehabilitationExercises))}
+                </p>
+              )}
+              {visit.durationFrequency && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Duration & Frequency:</span> {visit.durationFrequency.timesPerWeek} times per week, re-evaluation in {visit.durationFrequency.reEvalInWeeks} weeks
+                </p>
+              )}
+              {visit.diagnosticUltrasound && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Diagnostic Ultrasound:</span> {visit.diagnosticUltrasound}
+                </p>
+              )}
+              {visit.disabilityDuration && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Disability Duration:</span> {visit.disabilityDuration}
+                </p>
+              )}
+            </div>
           </div>
     )}
 
@@ -1649,17 +1938,45 @@ const VisitDetails: React.FC = () => {
         )}
 
         {/* Referrals and Notes */}
-    {visit.referralsNotes && (
+    {(visit.referralsNotes || visit.referrals || visit.nerveStudy || visit.imaging) && (
           <div>
-            <h4 className="font-medium text-gray-800 mb-1">Referrals / Notes</h4>
-            <p className="text-gray-700 text-sm">{visit.referralsNotes}</p>
+            <h4 className="font-medium text-gray-800 mb-1">Referrals & Imaging</h4>
+            <div className="space-y-1 text-sm">
+              {visit.referralsNotes && (
+                <p className="text-gray-700">Notes: {visit.referralsNotes}</p>
+              )}
+              {visit.referrals && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Referrals:</span> {Array.isArray(visit.referrals) ? visit.referrals.join(', ') : (typeof visit.referrals === 'string' ? visit.referrals : JSON.stringify(visit.referrals))}
+                </p>
+              )}
+              {visit.nerveStudy && (
+                <p className="text-gray-700">
+                  <span className="font-medium">Nerve Study:</span> {Array.isArray(visit.nerveStudy) ? visit.nerveStudy.join(', ') : (typeof visit.nerveStudy === 'string' ? visit.nerveStudy : JSON.stringify(visit.nerveStudy))}
+                </p>
+              )}
+              {visit.imaging && (
+                <div>
+                  <p className="font-medium text-gray-700">Imaging:</p>
+                  {visit.imaging.xray && (
+                    <p className="ml-2 text-gray-600">X-ray: {Array.isArray(visit.imaging.xray) ? visit.imaging.xray.join(', ') : (typeof visit.imaging.xray === 'string' ? visit.imaging.xray : JSON.stringify(visit.imaging.xray))}</p>
+                  )}
+                  {visit.imaging.mri && (
+                    <p className="ml-2 text-gray-600">MRI: {Array.isArray(visit.imaging.mri) ? visit.imaging.mri.join(', ') : (typeof visit.imaging.mri === 'string' ? visit.imaging.mri : JSON.stringify(visit.imaging.mri))}</p>
+                  )}
+                  {visit.imaging.ct && (
+                    <p className="ml-2 text-gray-600">CT: {Array.isArray(visit.imaging.ct) ? visit.imaging.ct.join(', ') : (typeof visit.imaging.ct === 'string' ? visit.imaging.ct : JSON.stringify(visit.imaging.ct))}</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
     </div>
 
     {/* Additional Examination Data (if available from follow-up data) */}
-    {(visit.muscleStrength?.length > 0 || visit.tenderness || visit.spasm || visit.ortho || visit.arom) && (
+    {(visit.muscleStrength?.length > 0 || visit.tenderness || visit.spasm || visit.ortho || visit.arom || visit.fetchedData) && (
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">Additional Examination Data</h3>
         <div className="space-y-3">
@@ -1667,9 +1984,23 @@ const VisitDetails: React.FC = () => {
           {visit.muscleStrength?.length > 0 && (
             <div>
               <h4 className="font-medium text-gray-800 mb-1">Muscle Strength</h4>
-              <p className="text-gray-700 text-sm">{visit.muscleStrength.join(', ')}</p>
-  </div>
-)}
+              <p className="text-gray-700 text-sm">{Array.isArray(visit.muscleStrength) ? visit.muscleStrength.join(', ') : (typeof visit.muscleStrength === 'string' ? visit.muscleStrength : JSON.stringify(visit.muscleStrength))}</p>
+            </div>
+          )}
+
+          {/* Strength Testing */}
+          {visit.strength && Object.keys(visit.strength).length > 0 && (
+            <div>
+              <h4 className="font-medium text-gray-800 mb-1">Strength Testing</h4>
+              <div className="space-y-1 text-sm">
+                {Object.entries(visit.strength).map(([muscle, data]) => (
+                  <p key={muscle} className="text-gray-700">
+                    {muscle}: {typeof data === 'object' ? `R: ${data.right || 'N/A'}, L: ${data.left || 'N/A'}` : data}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Tenderness */}
           {visit.tenderness && Object.keys(visit.tenderness).length > 0 && (
@@ -1679,7 +2010,7 @@ const VisitDetails: React.FC = () => {
                 {Object.entries(visit.tenderness).map(([region, areas]) => (
                   <div key={region} className="border p-2 rounded">
                     <div className="font-medium">{region}</div>
-                    <div>{Array.isArray(areas) ? areas.join(', ') : areas}</div>
+                    <div>{Array.isArray(areas) ? areas.join(', ') : (typeof areas === 'string' ? areas : JSON.stringify(areas))}</div>
                   </div>
                 ))}
               </div>
@@ -1694,7 +2025,7 @@ const VisitDetails: React.FC = () => {
                 {Object.entries(visit.spasm).map(([region, areas]) => (
                   <div key={region} className="border p-2 rounded">
                     <div className="font-medium">{region}</div>
-                    <div>{Array.isArray(areas) ? areas.join(', ') : areas}</div>
+                    <div>{Array.isArray(areas) ? areas.join(', ') : (typeof areas === 'string' ? areas : JSON.stringify(areas))}</div>
                   </div>
                 ))}
               </div>
@@ -1746,6 +2077,331 @@ const VisitDetails: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Fetched Data from Modals */}
+          {visit.fetchedData && (
+            <div>
+              <h4 className="font-medium text-gray-800 mb-2">Modal Data</h4>
+              
+              {/* Areas Data */}
+              {visit.fetchedData.areasData && (
+                <div className="mb-4">
+                  <h5 className="font-medium text-gray-700 mb-1">Areas Status</h5>
+                  <div className="space-y-1 text-sm">
+                    {visit.fetchedData.areasData.areasImproving && <p className="text-gray-600">• Areas Improving</p>}
+                    {visit.fetchedData.areasData.areasExacerbated && <p className="text-gray-600">• Areas Exacerbated</p>}
+                    {visit.fetchedData.areasData.areasSame && <p className="text-gray-600">• Areas Same</p>}
+                    {visit.fetchedData.areasData.areasResolved && <p className="text-gray-600">• Areas Resolved</p>}
+                    {visit.fetchedData.areasData.individualAreaStatus && (
+                      <div>
+                        <p className="font-medium text-gray-600">Individual Area Status:</p>
+                        {Object.entries(visit.fetchedData.areasData.individualAreaStatus).map(([areaType, areas]) => (
+                          <div key={areaType} className="ml-4">
+                            <p className="font-medium text-gray-600">{areaType}:</p>
+                            {Object.entries(areas).map(([areaId, status]) => (
+                              <p key={areaId} className="ml-4 text-gray-600">
+                                {areaId}: {Object.entries(status).filter(([key, value]) => value).map(([key]) => key).join(', ')}
+                              </p>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Muscle Palpation Data */}
+              {visit.fetchedData.musclePalpationData && (
+                <div className="mb-4">
+                  <h5 className="font-medium text-gray-700 mb-1">Muscle Palpation</h5>
+                  <div className="space-y-1 text-sm">
+                    {visit.fetchedData.musclePalpationData.muscleStrength && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Muscle Strength:</span> {Array.isArray(visit.fetchedData.musclePalpationData.muscleStrength) ? visit.fetchedData.musclePalpationData.muscleStrength.join(', ') : (typeof visit.fetchedData.musclePalpationData.muscleStrength === 'string' ? visit.fetchedData.musclePalpationData.muscleStrength : JSON.stringify(visit.fetchedData.musclePalpationData.muscleStrength))}
+                      </p>
+                    )}
+                    {visit.fetchedData.musclePalpationData.strength && Object.keys(visit.fetchedData.musclePalpationData.strength).length > 0 && (
+                      <div>
+                        <p className="font-medium text-gray-600">Strength Testing:</p>
+                        {Object.entries(visit.fetchedData.musclePalpationData.strength).map(([muscle, data]) => (
+                          <p key={muscle} className="ml-4 text-gray-600">
+                            {muscle}: {typeof data === 'object' ? `R: ${data.right || 'N/A'}, L: ${data.left || 'N/A'}` : data}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {visit.fetchedData.musclePalpationData.tenderness && Object.keys(visit.fetchedData.musclePalpationData.tenderness).length > 0 && (
+                      <div>
+                        <p className="font-medium text-gray-600">Tenderness:</p>
+                        {Object.entries(visit.fetchedData.musclePalpationData.tenderness).map(([region, anatomicalParts]) => (
+                          <div key={region} className="ml-4">
+                            <p className="font-medium text-gray-600">{region}:</p>
+                            {Object.entries(anatomicalParts).map(([part, severities]) => (
+                              <p key={part} className="ml-4 text-gray-600">
+                                {part}: {Array.isArray(severities) ? severities.join(', ') : (typeof severities === 'string' ? severities : JSON.stringify(severities))}
+                              </p>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {visit.fetchedData.musclePalpationData.spasm && Object.keys(visit.fetchedData.musclePalpationData.spasm).length > 0 && (
+                      <div>
+                        <p className="font-medium text-gray-600">Spasm:</p>
+                        {Object.entries(visit.fetchedData.musclePalpationData.spasm).map(([region, anatomicalParts]) => (
+                          <div key={region} className="ml-4">
+                            <p className="font-medium text-gray-600">{region}:</p>
+                            {Object.entries(anatomicalParts).map(([part, severities]) => (
+                              <p key={part} className="ml-4 text-gray-600">
+                                {part}: {Array.isArray(severities) ? severities.join(', ') : (typeof severities === 'string' ? severities : JSON.stringify(severities))}
+                              </p>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Orthopedic Tests Data */}
+              {visit.fetchedData.orthoTestsData && (
+                <div className="mb-4">
+                  <h5 className="font-medium text-gray-700 mb-1">Orthopedic Tests</h5>
+                  <div className="space-y-1 text-sm">
+                    {Object.entries(visit.fetchedData.orthoTestsData).map(([region, tests]) => (
+                      <div key={region} className="border p-2 rounded">
+                        <p className="font-medium">{region}</p>
+                        {Object.entries(tests).map(([testName, data]) => (
+                          <p key={testName} className="text-gray-600 ml-2">
+                            {testName}: L-{data.left}, R-{data.right}
+                            {data.bilateral && `, Bilateral: ${data.bilateral}`}
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* AROM Data */}
+              {visit.fetchedData.aromData && (
+                <div className="mb-4">
+                  <h5 className="font-medium text-gray-700 mb-1">Active Range of Motion</h5>
+                  <div className="space-y-1 text-sm">
+                    {Object.entries(visit.fetchedData.aromData).map(([region, movements]) => (
+                      <div key={region} className="border p-2 rounded">
+                        <p className="font-medium">{region}</p>
+                        {Object.entries(movements).map(([movementName, data]) => (
+                          <p key={movementName} className="text-gray-600 ml-2">
+                            {movementName}: L-{data.left}, R-{data.right}
+                            {data.bilateral && `, Bilateral: ${data.bilateral}`}
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Activities/Pain Data */}
+              {visit.fetchedData.activitiesPainData && (
+                <div className="mb-4">
+                  <h5 className="font-medium text-gray-700 mb-1">Activities and Pain Assessment</h5>
+                  <div className="space-y-1 text-sm">
+                    {visit.fetchedData.activitiesPainData.chiropracticAdjustment?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Chiropractic Adjustment:</span> {visit.fetchedData.activitiesPainData.chiropracticAdjustment.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.activitiesPainData.chiropracticOther && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Chiropractic Other:</span> {visit.fetchedData.activitiesPainData.chiropracticOther}
+                      </p>
+                    )}
+                    {visit.fetchedData.activitiesPainData.acupuncture?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Acupuncture:</span> {visit.fetchedData.activitiesPainData.acupuncture.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.activitiesPainData.acupunctureOther && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Acupuncture Other:</span> {visit.fetchedData.activitiesPainData.acupunctureOther}
+                      </p>
+                    )}
+                    {visit.fetchedData.activitiesPainData.physiotherapy?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Physiotherapy:</span> {visit.fetchedData.activitiesPainData.physiotherapy.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.activitiesPainData.rehabilitationExercises?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Rehabilitation Exercises:</span> {visit.fetchedData.activitiesPainData.rehabilitationExercises.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.activitiesPainData.durationFrequency && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Duration & Frequency:</span> {visit.fetchedData.activitiesPainData.durationFrequency.timesPerWeek} times per week, re-evaluation in {visit.fetchedData.activitiesPainData.durationFrequency.reEvalInWeeks} weeks
+                      </p>
+                    )}
+                    {visit.fetchedData.activitiesPainData.diagnosticUltrasound && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Diagnostic Ultrasound:</span> {visit.fetchedData.activitiesPainData.diagnosticUltrasound}
+                      </p>
+                    )}
+                    {visit.fetchedData.activitiesPainData.disabilityDuration && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Disability Duration:</span> {visit.fetchedData.activitiesPainData.disabilityDuration}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Treatment List Data */}
+              {visit.fetchedData.treatmentListData && (
+                <div className="mb-4">
+                  <h5 className="font-medium text-gray-700 mb-1">Treatment List</h5>
+                  <div className="space-y-1 text-sm">
+                    {visit.fetchedData.treatmentListData.chiropracticAdjustment?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Chiropractic Adjustment:</span> {visit.fetchedData.treatmentListData.chiropracticAdjustment.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.chiropracticOther && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Chiropractic Other:</span> {visit.fetchedData.treatmentListData.chiropracticOther}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.acupuncture?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Acupuncture:</span> {visit.fetchedData.treatmentListData.acupuncture.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.acupunctureOther && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Acupuncture Other:</span> {visit.fetchedData.treatmentListData.acupunctureOther}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.physiotherapy?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Physiotherapy:</span> {visit.fetchedData.treatmentListData.physiotherapy.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.rehabilitationExercises?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Rehabilitation Exercises:</span> {visit.fetchedData.treatmentListData.rehabilitationExercises.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.durationFrequency && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Duration & Frequency:</span> {visit.fetchedData.treatmentListData.durationFrequency.timesPerWeek} times per week, re-evaluation in {visit.fetchedData.treatmentListData.durationFrequency.reEvalInWeeks} weeks
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.referrals?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Referrals:</span> {visit.fetchedData.treatmentListData.referrals.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.imaging && (
+                      <div>
+                        <p className="font-medium text-gray-600">Imaging:</p>
+                        {visit.fetchedData.treatmentListData.imaging.xray?.length > 0 && (
+                          <p className="ml-2 text-gray-600">X-ray: {visit.fetchedData.treatmentListData.imaging.xray.join(', ')}</p>
+                        )}
+                        {visit.fetchedData.treatmentListData.imaging.mri?.length > 0 && (
+                          <p className="ml-2 text-gray-600">MRI: {visit.fetchedData.treatmentListData.imaging.mri.join(', ')}</p>
+                        )}
+                        {visit.fetchedData.treatmentListData.imaging.ct?.length > 0 && (
+                          <p className="ml-2 text-gray-600">CT: {visit.fetchedData.treatmentListData.imaging.ct.join(', ')}</p>
+                        )}
+                      </div>
+                    )}
+                    {visit.fetchedData.treatmentListData.diagnosticUltrasound && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Diagnostic Ultrasound:</span> {visit.fetchedData.treatmentListData.diagnosticUltrasound}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.nerveStudy?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Nerve Study:</span> {visit.fetchedData.treatmentListData.nerveStudy.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.restrictions && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Restrictions:</span> Avoid activity for {visit.fetchedData.treatmentListData.restrictions.avoidActivityWeeks} weeks, lifting limit {visit.fetchedData.treatmentListData.restrictions.liftingLimitLbs} lbs
+                        {visit.fetchedData.treatmentListData.restrictions.avoidProlongedSitting && ', avoid prolonged sitting'}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.disabilityDuration && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Disability Duration:</span> {visit.fetchedData.treatmentListData.disabilityDuration}
+                      </p>
+                    )}
+                    {visit.fetchedData.treatmentListData.otherNotes && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Other Notes:</span> {visit.fetchedData.treatmentListData.otherNotes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Imaging Data */}
+              {visit.fetchedData.imagingData && (
+                <div className="mb-4">
+                  <h5 className="font-medium text-gray-700 mb-1">Imaging and Specialist Data</h5>
+                  <div className="space-y-1 text-sm">
+                    {visit.fetchedData.imagingData.physiotherapy?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Physiotherapy:</span> {visit.fetchedData.imagingData.physiotherapy.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.imagingData.rehabilitationExercises?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Rehabilitation Exercises:</span> {visit.fetchedData.imagingData.rehabilitationExercises.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.imagingData.durationFrequency && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Duration & Frequency:</span> {visit.fetchedData.imagingData.durationFrequency.timesPerWeek} times per week, re-evaluation in {visit.fetchedData.imagingData.durationFrequency.reEvalInWeeks} weeks
+                      </p>
+                    )}
+                    {visit.fetchedData.imagingData.referrals?.length > 0 && (
+                      <p className="text-gray-600">
+                        <span className="font-medium">Referrals:</span> {visit.fetchedData.imagingData.referrals.join(', ')}
+                      </p>
+                    )}
+                    {visit.fetchedData.imagingData.imaging && (
+                      <div>
+                        <p className="font-medium text-gray-600">Imaging:</p>
+                        {visit.fetchedData.imagingData.imaging.xray?.length > 0 && (
+                          <p className="ml-2 text-gray-600">X-ray: {visit.fetchedData.imagingData.imaging.xray.join(', ')}</p>
+                        )}
+                        {visit.fetchedData.imagingData.imaging.mri?.length > 0 && (
+                          <p className="ml-2 text-gray-600">MRI: {visit.fetchedData.imagingData.imaging.mri.join(', ')}</p>
+                        )}
+                        {visit.fetchedData.imagingData.imaging.ct?.length > 0 && (
+                          <p className="ml-2 text-gray-600">CT: {visit.fetchedData.imagingData.imaging.ct.join(', ')}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Croft Criteria Data */}
+              {visit.fetchedData.croftCriteria && (
+                <div className="mb-4">
+                  <h5 className="font-medium text-gray-700 mb-1">Croft Criteria</h5>
+                  <div className="space-y-1 text-sm">
+                    <p className="text-gray-600">{visit.fetchedData.croftCriteria}</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
