@@ -499,46 +499,48 @@ const DischargeVisitForm: React.FC = () => {
     try {
       const response = await axios.get(`https://emr-h.onrender.com/api/visits/${lastFollowupVisit._id}`);
       const data = response.data;
-      setFollowupData(data);
+      
+      // Safely set followup data
+      setFollowupData(data || {});
       
       // Initialize individual area status checkboxes
       const initialStatus: { [key: string]: { improving: boolean; exacerbated: boolean; same: boolean; resolved: boolean; } } = {};
       
       // Add status for each element that has data
-      if (data.musclePalpation) {
+      if (data?.musclePalpation) {
         initialStatus['musclePalpation'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.painRadiating) {
+      if (data?.painRadiating) {
         initialStatus['painRadiating'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.romPercent) {
+      if (data?.romPercent) {
         initialStatus['romPercent'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.orthos?.tests || data.orthos?.result) {
+      if (data?.orthos?.tests || data?.orthos?.result) {
         initialStatus['orthos'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.activitiesCausePain) {
+      if (data?.activitiesCausePain) {
         initialStatus['activitiesCausePain'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.otherNotes) {
+      if (data?.otherNotes) {
         initialStatus['otherNotes'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.muscleStrength && data.muscleStrength.length > 0) {
+      if (data?.muscleStrength && data.muscleStrength.length > 0) {
         initialStatus['muscleStrength'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.tenderness && Object.keys(data.tenderness).length > 0) {
+      if (data?.tenderness && Object.keys(data.tenderness).length > 0) {
         initialStatus['tenderness'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.spasm && Object.keys(data.spasm).length > 0) {
+      if (data?.spasm && Object.keys(data.spasm).length > 0) {
         initialStatus['spasm'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.ortho && Object.keys(data.ortho).length > 0) {
+      if (data?.ortho && Object.keys(data.ortho).length > 0) {
         initialStatus['ortho'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.arom && Object.keys(data.arom).length > 0) {
+      if (data?.arom && Object.keys(data.arom).length > 0) {
         initialStatus['arom'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
-      if (data.homeCareSuggestions) {
+      if (data?.homeCareSuggestions) {
         initialStatus['homeCareSuggestions'] = { improving: false, exacerbated: false, same: false, resolved: false };
       }
       
@@ -549,24 +551,24 @@ const DischargeVisitForm: React.FC = () => {
         cervical: { part: 'cervical', severities: [] },
         thoracic: { part: 'thoracic', severities: [] },
         lumbar: { part: 'lumbar', severities: [] },
-        ...data.tenderness
+        ...(data?.tenderness || {})
       };
       
       const defaultSpasm = {
         cervical: { part: 'cervical', severities: [] },
         thoracic: { part: 'thoracic', severities: [] },
         lumbar: { part: 'lumbar', severities: [] },
-        ...data.spasm
+        ...(data?.spasm || {})
       };
       
       setEditableAdditionalData({
         tenderness: defaultTenderness,
         spasm: defaultSpasm,
-        ortho: data.ortho || {},
-        arom: data.arom || {},
-        muscleStrength: data.muscleStrength || [],
-        activities: data.activities || {},
-        croftCriteria: data.croftCriteria || {}
+        ortho: data?.ortho || {},
+        arom: data?.arom || {},
+        muscleStrength: data?.muscleStrength || [],
+        activities: data?.activities || {},
+        croftCriteria: data?.croftCriteria || {}
       });
       
       // Toggle side by side view instead of modal
@@ -575,6 +577,183 @@ const DischargeVisitForm: React.FC = () => {
       console.error('Error fetching followup visit data:', error);
       alert('Failed to load followup visit data.');
     }
+  };
+
+  // Helper function to render orthopedic test data specifically
+  const renderOrthoTestData = (data: any): string => {
+    console.log('Ortho Test Data:', data, typeof data);
+    if (typeof data === 'string') return data;
+    if (typeof data === 'object' && data !== null) {
+      const parts = [];
+      
+      // Handle left, right, bilateral properties that might be objects
+      if (data.left !== undefined) {
+        if (typeof data.left === 'object' && data.left !== null) {
+          // If left is an object, try to extract meaningful data
+          if (data.left.result !== undefined) parts.push(`Left: ${data.left.result}`);
+          else if (data.left.value !== undefined) parts.push(`Left: ${data.left.value}`);
+          else if (data.left.status !== undefined) parts.push(`Left: ${data.left.status}`);
+          else parts.push(`Left: ${JSON.stringify(data.left)}`);
+        } else {
+          parts.push(`Left: ${data.left}`);
+        }
+      }
+      
+      if (data.right !== undefined) {
+        if (typeof data.right === 'object' && data.right !== null) {
+          if (data.right.result !== undefined) parts.push(`Right: ${data.right.result}`);
+          else if (data.right.value !== undefined) parts.push(`Right: ${data.right.value}`);
+          else if (data.right.status !== undefined) parts.push(`Right: ${data.right.status}`);
+          else parts.push(`Right: ${JSON.stringify(data.right)}`);
+        } else {
+          parts.push(`Right: ${data.right}`);
+        }
+      }
+      
+      if (data.bilateral !== undefined) {
+        if (typeof data.bilateral === 'object' && data.bilateral !== null) {
+          if (data.bilateral.result !== undefined) parts.push(`Bilateral: ${data.bilateral.result}`);
+          else if (data.bilateral.value !== undefined) parts.push(`Bilateral: ${data.bilateral.value}`);
+          else if (data.bilateral.status !== undefined) parts.push(`Bilateral: ${data.bilateral.status}`);
+          else parts.push(`Bilateral: ${JSON.stringify(data.bilateral)}`);
+        } else {
+          parts.push(`Bilateral: ${data.bilateral}`);
+        }
+      }
+      
+      if (data.result !== undefined) parts.push(`Result: ${data.result}`);
+      if (data.details !== undefined) parts.push(`Details: ${data.details}`);
+      if (data.name !== undefined) parts.push(`Name: ${data.name}`);
+      
+      if (parts.length > 0) return parts.join(' | ');
+      
+      // If no specific properties found, try to render all properties
+      const allParts = Object.entries(data).map(([key, value]) => {
+        if (typeof value === 'object' && value !== null) {
+          // Try to extract meaningful data from nested objects
+          const obj = value as any;
+          if (obj.result !== undefined) return `${key}: ${obj.result}`;
+          if (obj.value !== undefined) return `${key}: ${obj.value}`;
+          if (obj.status !== undefined) return `${key}: ${obj.status}`;
+          if (obj.text !== undefined) return `${key}: ${obj.text}`;
+          return `${key}: ${JSON.stringify(value)}`;
+        }
+        return `${key}: ${value}`;
+      });
+      if (allParts.length > 0) return allParts.join(' | ');
+    }
+    return safeRenderData(data);
+  };
+
+  // Helper function to render AROM data specifically
+  const renderAromData = (data: any): string => {
+    console.log('AROM Data:', data, typeof data);
+    if (typeof data === 'string') return data;
+    if (typeof data === 'object' && data !== null) {
+      const parts = [];
+      
+      // Handle left, right, bilateral properties that might be objects
+      if (data.left !== undefined) {
+        if (typeof data.left === 'object' && data.left !== null) {
+          const obj = data.left as any;
+          if (obj.result !== undefined) parts.push(`Left: ${obj.result}`);
+          else if (obj.value !== undefined) parts.push(`Left: ${obj.value}`);
+          else if (obj.status !== undefined) parts.push(`Left: ${obj.status}`);
+          else parts.push(`Left: ${JSON.stringify(data.left)}`);
+        } else {
+          parts.push(`Left: ${data.left}`);
+        }
+      }
+      
+      if (data.right !== undefined) {
+        if (typeof data.right === 'object' && data.right !== null) {
+          const obj = data.right as any;
+          if (obj.result !== undefined) parts.push(`Right: ${obj.result}`);
+          else if (obj.value !== undefined) parts.push(`Right: ${obj.value}`);
+          else if (obj.status !== undefined) parts.push(`Right: ${obj.status}`);
+          else parts.push(`Right: ${JSON.stringify(data.right)}`);
+        } else {
+          parts.push(`Right: ${data.right}`);
+        }
+      }
+      
+      if (data.bilateral !== undefined) {
+        if (typeof data.bilateral === 'object' && data.bilateral !== null) {
+          const obj = data.bilateral as any;
+          if (obj.result !== undefined) parts.push(`Bilateral: ${obj.result}`);
+          else if (obj.value !== undefined) parts.push(`Bilateral: ${obj.value}`);
+          else if (obj.status !== undefined) parts.push(`Bilateral: ${obj.status}`);
+          else parts.push(`Bilateral: ${JSON.stringify(data.bilateral)}`);
+        } else {
+          parts.push(`Bilateral: ${data.bilateral}`);
+        }
+      }
+      
+      if (data.range !== undefined) parts.push(`Range: ${data.range}`);
+      if (data.quality !== undefined) parts.push(`Quality: ${data.quality}`);
+      if (data.pain !== undefined) parts.push(`Pain: ${data.pain}`);
+      
+      if (parts.length > 0) return parts.join(' | ');
+      
+      // If no specific properties found, try to render all properties
+      const allParts = Object.entries(data).map(([key, value]) => {
+        if (typeof value === 'object' && value !== null) {
+          const obj = value as any;
+          if (obj.result !== undefined) return `${key}: ${obj.result}`;
+          if (obj.value !== undefined) return `${key}: ${obj.value}`;
+          if (obj.status !== undefined) return `${key}: ${obj.status}`;
+          if (obj.text !== undefined) return `${key}: ${obj.text}`;
+          return `${key}: ${JSON.stringify(value)}`;
+        }
+        return `${key}: ${value}`;
+      });
+      if (allParts.length > 0) return allParts.join(' | ');
+    }
+    return safeRenderData(data);
+  };
+
+  // Helper function to safely render data as human-readable string
+  const safeRenderData = (data: any): string => {
+    if (data === null || data === undefined) return 'N/A';
+    if (typeof data === 'string') return data;
+    if (typeof data === 'number') return String(data);
+    if (typeof data === 'boolean') return data ? 'Yes' : 'No';
+    if (Array.isArray(data)) return data.join(', ');
+    if (typeof data === 'object') {
+      // Handle specific object types for better readability
+      if (data.left !== undefined || data.right !== undefined || data.bilateral !== undefined) {
+        const parts = [];
+        if (data.left !== undefined) parts.push(`Left: ${data.left}`);
+        if (data.right !== undefined) parts.push(`Right: ${data.right}`);
+        if (data.bilateral !== undefined) parts.push(`Bilateral: ${data.bilateral}`);
+        return parts.join(' | ');
+      }
+      if (data.name !== undefined || data.severity !== undefined || data.frequency !== undefined) {
+        const parts = [];
+        if (data.name !== undefined) parts.push(`Name: ${data.name}`);
+        if (data.severity !== undefined) parts.push(`Severity: ${data.severity}`);
+        if (data.frequency !== undefined) parts.push(`Frequency: ${data.frequency}`);
+        return parts.join(' | ');
+      }
+      if (data.grade !== undefined || data.treatmentGuideline !== undefined) {
+        const parts = [];
+        if (data.grade !== undefined) parts.push(`Grade: ${data.grade}`);
+        if (data.frequency !== undefined) parts.push(`Frequency: ${data.frequency}`);
+        if (data.treatmentGuideline !== undefined) parts.push(`Treatment: ${data.treatmentGuideline}`);
+        if (data.notes !== undefined) parts.push(`Notes: ${data.notes}`);
+        return parts.join(' | ');
+      }
+      // For other objects, try to make them readable
+      const entries = Object.entries(data);
+      if (entries.length === 0) return 'Empty';
+      return entries.map(([key, value]) => {
+        if (typeof value === 'object' && value !== null) {
+          return `${key}: ${safeRenderData(value)}`;
+        }
+        return `${key}: ${value}`;
+      }).join(' | ');
+    }
+    return 'N/A';
   };
 
   // Function to apply followup data to form
@@ -614,13 +793,16 @@ const DischargeVisitForm: React.FC = () => {
     }));
 
     // Store individual area status in form data for later use
-      setFormData((prev: FormData) => ({
+    setFormData((prev: FormData) => ({
       ...prev,
       individualAreaStatus: individualAreaStatus,
       tenderness: editableAdditionalData.tenderness || {},
       spasm: editableAdditionalData.spasm || {},
       ortho: editableAdditionalData.ortho || {},
-      arom: editableAdditionalData.arom || {}
+      arom: editableAdditionalData.arom || {},
+      muscleStrength: editableAdditionalData.muscleStrength || [],
+      activities: editableAdditionalData.activities || {},
+      croftCriteria: editableAdditionalData.croftCriteria || {}
     }));
 
     setIsModalOpen(false);
@@ -804,18 +986,93 @@ const handleSubmit = async (e: React.FormEvent) => {
   setIsSaving(true);
 
   try {
+    // Create payload matching the discharge visit schema
     const payload = {
-      ...formData,
       visitType: 'discharge',
       patient: id,
+      
+      // Required fields from schema
+      areasImproving: formData.areasImproving || false,
+      areasExacerbated: formData.areasExacerbated || false,
+      areasSame: formData.areasSame || false,
+      areasResolved: formData.areasResolved || false,
+      
+      // Assessment fields
+      musclePalpation: formData.musclePalpation || '',
+      painRadiating: formData.painRadiating || '',
+      romPercent: formData.romPercent ? Number(formData.romPercent) : undefined,
+      
+      // ROM fields
+      romWnlNoPain: formData.romWnlNoPain || false,
+      romWnlWithPain: formData.romWnlWithPain || false,
+      romImproved: formData.romImproved || false,
+      romDecreased: formData.romDecreased || false,
+      romSame: formData.romSame || false,
+      
+      // Orthos data
+      orthos: {
+        tests: formData.orthos?.tests || '',
+        result: formData.orthos?.result || ''
+      },
+      ortho: editableAdditionalData.ortho || {},
+      arom: editableAdditionalData.arom || {},
+      
+      // Activities and notes
+      activitiesCausePain: formData.activitiesCausePain || '',
+      otherNotes: formData.otherNotes || '',
+      
+      // Assessment and plan
+      prognosis: formData.prognosis || '',
+      diagnosticStudy: {
+        study: formData.diagnosticStudy?.study || '',
+        bodyPart: formData.diagnosticStudy?.bodyPart || '',
+        result: formData.diagnosticStudy?.result || ''
+      },
+      futureMedicalCare: formData.futureMedicalCare || [],
+      croftCriteria: formData.croftCriteria || '',
+      amaDisability: formData.amaDisability || '',
+      homeCare: formData.homeCare || [],
+      referralsNotes: formData.referralsNotes || '',
+      
+      // Additional assessment data
+      muscleStrength: Array.isArray(editableAdditionalData.muscleStrength) ? editableAdditionalData.muscleStrength : [],
+      tenderness: editableAdditionalData.tenderness || {},
+      spasm: editableAdditionalData.spasm || {},
+      homeCareSuggestions: formData.homeCareSuggestions || ''
     };
 
-    await axios.post('https://emr-h.onrender.com/api/visits', payload);
+    console.log('Sending discharge form data:', payload);
 
+    const response = await axios.post('https://emr-h.onrender.com/api/visits', payload);
+    
+    console.log('Response:', response.data);
+
+    alert('Discharge form submitted successfully! All assessment data has been saved to the database.');
     navigate(`/patients/${id}`);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error submitting form', err);
-    alert('Form submission failed. Check console for details.');
+    
+    // Log more detailed error information
+    if (err.response) {
+      console.error('Error response:', err.response.data);
+      console.error('Error status:', err.response.status);
+      
+      // Log specific validation errors if they exist
+      if (err.response.data?.errors && Array.isArray(err.response.data.errors)) {
+        console.error('Validation errors:', err.response.data.errors);
+        const errorMessages = err.response.data.errors.map((error: any) => 
+          `${error.field || 'Unknown field'}: ${error.message || error}`
+        ).join('\n');
+        alert(`Form submission failed:\n${errorMessages}`);
+      } else {
+        alert(`Form submission failed: ${err.response.data?.message || 'Server error'}`);
+      }
+    } else if (err.request) {
+      console.error('Error request:', err.request);
+      alert('Form submission failed: Network error');
+    } else {
+      alert('Form submission failed: Unknown error');
+    }
   } finally {
     setIsSaving(false);
   }
@@ -1207,7 +1464,9 @@ const handleSubmit = async (e: React.FormEvent) => {
        </form>
 
         {/* Previous Data Side Panel */}
-        {showSideBySide && followupData && (
+        {showSideBySide && followupData && (() => {
+          try {
+            return (
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 shadow-md">
             <div className="mb-6">
               <h3 className="text-xl font-bold text-blue-800 mb-2">Previous Followup Data</h3>
@@ -1273,47 +1532,87 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <div className="space-y-4">
                   {followupData.musclePalpation && (
                     <div>
-                      <h5 className="font-medium text-gray-700 mb-1">Muscle Palpation:</h5>
-                      <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.musclePalpation}</p>
+                      <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                        <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                        Muscle Palpation
+                      </h5>
+                      <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                        <p className="text-sm text-gray-700">{followupData.musclePalpation}</p>
+                      </div>
                     </div>
                   )}
                   {followupData.painRadiating && (
                     <div>
-                      <h5 className="font-medium text-gray-700 mb-1">Pain Radiating:</h5>
-                      <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.painRadiating}</p>
+                      <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                        <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                        Pain Radiating
+                      </h5>
+                      <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                        <p className="text-sm text-gray-700">{followupData.painRadiating}</p>
+                      </div>
                     </div>
                   )}
                   {followupData.romPercent && (
                     <div>
-                      <h5 className="font-medium text-gray-700 mb-1">ROM %:</h5>
-                      <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.romPercent}%</p>
+                      <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                        Range of Motion (ROM)
+                      </h5>
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        <p className="text-sm text-gray-700 font-semibold">{followupData.romPercent}% of pre-injury status</p>
+                      </div>
                     </div>
                   )}
                   {followupData.muscleStrength && followupData.muscleStrength.length > 0 && (
                     <div>
-                      <h5 className="font-medium text-gray-700 mb-1">Muscle Strength:</h5>
-                      <div className="space-y-1">
-                        {followupData.muscleStrength.map((muscle: string, index: number) => (
-                          <div key={index} className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                            • {muscle}
-                          </div>
-                        ))}
+                      <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                        <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span>
+                        Muscle Strength Assessment
+                      </h5>
+                      <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+                        <div className="space-y-1">
+                          {followupData.muscleStrength.map((muscle: string, index: number) => (
+                            <div key={index} className="text-sm text-gray-700 flex items-center">
+                              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mr-2"></span>
+                              {muscle}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
+                  
                   {/* Orthos Tests - Enhanced Display */}
-                  {(followupData.orthos?.tests || Object.keys(editableAdditionalData.ortho).length > 0) && (
+                  {(followupData.orthos?.tests || followupData.ortho || (editableAdditionalData.ortho && Object.keys(editableAdditionalData.ortho).length > 0)) && (
                     <div>
-                      <h5 className="font-medium text-gray-700 mb-1">Orthos Tests:</h5>
+                      <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                        <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        Orthopedic Tests
+                      </h5>
                       {followupData.orthos?.tests ? (
-                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.orthos.tests}</p>
+                        <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                          <p className="text-sm text-gray-700">{followupData.orthos.tests}</p>
+                        </div>
+                      ) : followupData.ortho && Object.keys(followupData.ortho).length > 0 ? (
+                        <div className="space-y-2">
+                          {Object.entries(followupData.ortho).map(([test, data]: [string, any]) => (
+                            <div key={test} className="bg-green-50 p-3 rounded-lg border border-green-200">
+                              <div className="font-semibold text-green-700 mb-1">{test}</div>
+                              <div className="text-sm text-gray-700">
+                                {renderOrthoTestData(data)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       ) : (
                         <div className="space-y-2">
-                          {Object.entries(editableAdditionalData.ortho).map(([test, data]: [string, any]) => (
-                            <div key={test} className="bg-gray-50 p-2 rounded text-sm">
-                              <div className="font-medium">{data.name || test.replace(/([A-Z])/g, ' $1').trim()}</div>
-                              <div className="text-xs text-gray-600">Result: {data.result || 'N/A'}</div>
-                              {data.details && <div className="text-xs text-gray-600">Details: {data.details}</div>}
+                          {editableAdditionalData.ortho && Object.entries(editableAdditionalData.ortho).map(([test, data]: [string, any]) => (
+                            <div key={test} className="bg-green-50 p-3 rounded-lg border border-green-200">
+                              <div className="font-semibold text-green-700 mb-1">{data.name || test.replace(/([A-Z])/g, ' $1').trim()}</div>
+                              <div className="text-sm text-gray-700">
+                                Result: {data.result || 'N/A'}
+                                {data.details && <div className="mt-1">Details: {data.details}</div>}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1322,44 +1621,76 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
 
                   {/* Activities Causing Pain - Enhanced Display */}
-                  {(followupData.activitiesCausePain || Object.keys(editableAdditionalData.activities).length > 0) && (
+                  {(followupData.activitiesCausePain || followupData.activities || (editableAdditionalData.activities && Object.keys(editableAdditionalData.activities).length > 0)) && (
                     <div>
-                      <h5 className="font-medium text-gray-700 mb-1">Activities Causing Pain:</h5>
+                      <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                        <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                        Activities Causing Pain
+                      </h5>
                       {followupData.activitiesCausePain ? (
-                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.activitiesCausePain}</p>
+                        <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                          <p className="text-sm text-gray-700">{followupData.activitiesCausePain}</p>
+                        </div>
+                      ) : followupData.activities && Object.keys(followupData.activities).length > 0 ? (
+                        <div className="space-y-2">
+                          {Object.entries(followupData.activities).map(([activity, data]: [string, any]) => (
+                            <div key={activity} className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                              <div className="font-semibold text-orange-700 mb-1">{activity}</div>
+                              <div className="text-sm text-gray-700">
+                                {safeRenderData(data)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       ) : (
                         <div className="space-y-2">
-                          {Object.entries(editableAdditionalData.activities).map(([activity, data]: [string, any]) => (
-                            <div key={activity} className="bg-gray-50 p-2 rounded text-sm">
-                              <div className="font-medium">{data.name || activity.replace(/([A-Z])/g, ' $1').trim()}</div>
-                              <div className="text-xs text-gray-600">Severity: {data.severity || 'N/A'}</div>
-                              {data.frequency && <div className="text-xs text-gray-600">Frequency: {data.frequency}</div>}
+                          {editableAdditionalData.activities && Object.entries(editableAdditionalData.activities).map(([activity, data]: [string, any]) => (
+                            <div key={activity} className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                              <div className="font-semibold text-orange-700 mb-1">{data.name || activity.replace(/([A-Z])/g, ' $1').trim()}</div>
+                              <div className="text-sm text-gray-700">
+                                Severity: {data.severity || 'N/A'}
+                                {data.frequency && <div className="mt-1">Frequency: {data.frequency}</div>}
+                              </div>
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
                   )}
+                  
                   {followupData.otherNotes && (
                     <div>
-                      <h5 className="font-medium text-gray-700 mb-1">Other Notes:</h5>
-                      <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.otherNotes}</p>
+                      <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                        <span className="w-2 h-2 bg-gray-500 rounded-full mr-2"></span>
+                        Other Notes
+                      </h5>
+                      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <p className="text-sm text-gray-700">{followupData.otherNotes}</p>
+                      </div>
                     </div>
                   )}
+                  
                   {/* Croft Criteria - Enhanced Display */}
                   {(followupData.croftCriteria || Object.keys(editableAdditionalData.croftCriteria).length > 0) && (
                     <div>
-                      <h5 className="font-medium text-gray-700 mb-1">Croft Criteria:</h5>
+                      <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                        <span className="w-2 h-2 bg-teal-500 rounded-full mr-2"></span>
+                        Croft Criteria Assessment
+                      </h5>
                       {followupData.croftCriteria ? (
-                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{followupData.croftCriteria}</p>
+                        <div className="bg-teal-50 p-3 rounded-lg border border-teal-200">
+                          <p className="text-sm text-gray-700">{followupData.croftCriteria}</p>
+                        </div>
                       ) : (
                         <div className="space-y-2">
-                          {Object.entries(editableAdditionalData.croftCriteria).map(([criteria, data]: [string, any]) => (
-                            <div key={criteria} className="bg-gray-50 p-2 rounded text-sm">
-                              <div className="font-medium">Grade {data.grade || 'N/A'}</div>
-                              <div className="text-xs text-gray-600">Frequency: {data.frequency || 'N/A'}</div>
-                              {data.treatmentGuideline && <div className="text-xs text-gray-600">Treatment Guideline: {data.treatmentGuideline}</div>}
-                              {data.notes && <div className="text-xs text-gray-600">Notes: {data.notes}</div>}
+                          {editableAdditionalData.croftCriteria && Object.entries(editableAdditionalData.croftCriteria).map(([criteria, data]: [string, any]) => (
+                            <div key={criteria} className="bg-teal-50 p-3 rounded-lg border border-teal-200">
+                              <div className="font-semibold text-teal-700 mb-1">Grade {data.grade || 'N/A'}</div>
+                              <div className="text-sm text-gray-700">
+                                Frequency: {data.frequency || 'N/A'}
+                                {data.treatmentGuideline && <div className="mt-1">Treatment: {data.treatmentGuideline}</div>}
+                                {data.notes && <div className="mt-1">Notes: {data.notes}</div>}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1374,133 +1705,226 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <h4 className="font-semibold text-blue-800 mb-3">Additional Assessment Data</h4>
                 <div className="space-y-3">
                   {/* Tenderness */}
-                  {Object.keys(editableAdditionalData.tenderness).length > 0 && (
+                  {((editableAdditionalData.tenderness && Object.keys(editableAdditionalData.tenderness).length > 0) || (followupData.tenderness && Object.keys(followupData.tenderness).length > 0)) && (
                     <div>
                       <h5 className="font-medium text-gray-700 mb-2">Tenderness:</h5>
                       <div className="space-y-2">
-                        {Object.entries(editableAdditionalData.tenderness).map(([region, data]: [string, any]) => (
-                          <div key={region} className="bg-gray-50 p-2 rounded text-sm">
-                            <span className="font-medium">{data.part || region}:</span> {data.severity || 'N/A'}
-                          </div>
-                        ))}
+                        {/* Show data from database first */}
+                        {followupData.tenderness && Object.keys(followupData.tenderness).length > 0 && 
+                          Object.entries(followupData.tenderness).map(([region, data]: [string, any]) => (
+                            <div key={region} className="bg-gray-50 p-3 rounded text-sm border-l-4 border-red-200">
+                              <div className="font-semibold text-red-700 capitalize mb-1">{region} Region</div>
+                              <div className="text-gray-700">
+                                {safeRenderData(data)}
+                              </div>
+                            </div>
+                          ))
+                        }
+                        {/* Show editable data */}
+                        {editableAdditionalData.tenderness && Object.keys(editableAdditionalData.tenderness).length > 0 && 
+                          Object.entries(editableAdditionalData.tenderness).map(([region, data]: [string, any]) => (
+                            <div key={region} className="bg-gray-50 p-2 rounded text-sm">
+                              <span className="font-medium">{data.part || region}:</span> 
+                              {data.severities && data.severities.length > 0 ? data.severities.join(', ') : (data.severity || 'N/A')}
+                            </div>
+                          ))
+                        }
                       </div>
                     </div>
                   )}
 
                   {/* Spasm */}
-                  {Object.keys(editableAdditionalData.spasm).length > 0 && (
+                  {((editableAdditionalData.spasm && Object.keys(editableAdditionalData.spasm).length > 0) || (followupData.spasm && Object.keys(followupData.spasm).length > 0)) && (
                     <div>
                       <h5 className="font-medium text-gray-700 mb-2">Spasm:</h5>
                       <div className="space-y-2">
-                        {Object.entries(editableAdditionalData.spasm).map(([region, data]: [string, any]) => (
-                          <div key={region} className="bg-gray-50 p-2 rounded text-sm">
-                            <span className="font-medium">{data.part || region}:</span> {data.severity || 'N/A'}
-                          </div>
-                        ))}
+                        {/* Show data from database first */}
+                        {followupData.spasm && Object.keys(followupData.spasm).length > 0 && 
+                          Object.entries(followupData.spasm).map(([region, data]: [string, any]) => (
+                            <div key={region} className="bg-gray-50 p-3 rounded text-sm border-l-4 border-orange-200">
+                              <div className="font-semibold text-orange-700 capitalize mb-1">{region} Region</div>
+                              <div className="text-gray-700">
+                                {safeRenderData(data)}
+                              </div>
+                            </div>
+                          ))
+                        }
+                        {/* Show editable data */}
+                        {editableAdditionalData.spasm && Object.keys(editableAdditionalData.spasm).length > 0 && 
+                          Object.entries(editableAdditionalData.spasm).map(([region, data]: [string, any]) => (
+                            <div key={region} className="bg-gray-50 p-2 rounded text-sm">
+                              <span className="font-medium">{data.part || region}:</span> 
+                              {data.severities && data.severities.length > 0 ? data.severities.join(', ') : (data.severity || 'N/A')}
+                            </div>
+                          ))
+                        }
                       </div>
                     </div>
                   )}
 
                   {/* Ortho Tests */}
-                  {Object.keys(editableAdditionalData.ortho).length > 0 && (
+                  {((editableAdditionalData.ortho && Object.keys(editableAdditionalData.ortho).length > 0) || (followupData.ortho && Object.keys(followupData.ortho).length > 0)) && (
                     <div>
                       <h5 className="font-medium text-gray-700 mb-2">Ortho Tests:</h5>
                       <div className="space-y-2">
-                        {Object.entries(editableAdditionalData.ortho).map(([test, data]: [string, any]) => (
-                          <div key={test} className="bg-gray-50 p-3 rounded text-sm">
-                            <div className="font-medium text-gray-800 mb-1">{data.name || test.replace(/([A-Z])/g, ' $1').trim()}</div>
-                            <div className="space-y-1 text-xs">
-                              <div><span className="font-medium">Result:</span> <span className={`px-2 py-1 rounded text-xs ${
-                                data.result === 'Positive' ? 'bg-red-100 text-red-800' :
-                                data.result === 'Negative' ? 'bg-green-100 text-green-800' :
-                                data.result === 'Equivocal' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>{data.result || 'Not specified'}</span></div>
-                              {data.details && (
-                                <div><span className="font-medium">Details:</span> {data.details}</div>
-                              )}
+                        {/* Show data from database first */}
+                        {followupData.ortho && Object.keys(followupData.ortho).length > 0 && 
+                          Object.entries(followupData.ortho).map(([test, data]: [string, any]) => (
+                            <div key={test} className="bg-gray-50 p-3 rounded text-sm border-l-4 border-green-200">
+                              <div className="font-semibold text-green-700 mb-1">{test}</div>
+                              <div className="text-gray-700 text-sm">
+                                {renderOrthoTestData(data)}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))
+                        }
+                        {/* Show editable data */}
+                        {editableAdditionalData.ortho && Object.keys(editableAdditionalData.ortho).length > 0 && 
+                          Object.entries(editableAdditionalData.ortho).map(([test, data]: [string, any]) => (
+                            <div key={test} className="bg-gray-50 p-3 rounded text-sm">
+                              <div className="font-medium text-gray-800 mb-1">{data.name || test.replace(/([A-Z])/g, ' $1').trim()}</div>
+                              <div className="space-y-1 text-xs">
+                                <div><span className="font-medium">Result:</span> <span className={`px-2 py-1 rounded text-xs ${
+                                  data.result === 'Positive' ? 'bg-red-100 text-red-800' :
+                                  data.result === 'Negative' ? 'bg-green-100 text-green-800' :
+                                  data.result === 'Equivocal' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>{data.result || 'Not specified'}</span></div>
+                                {data.details && (
+                                  <div><span className="font-medium">Details:</span> {data.details}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        }
                       </div>
                     </div>
                   )}
 
                   {/* Activities */}
-                  {Object.keys(editableAdditionalData.activities).length > 0 && (
+                  {((editableAdditionalData.activities && Object.keys(editableAdditionalData.activities).length > 0) || (followupData.activities && Object.keys(followupData.activities).length > 0)) && (
                     <div>
                       <h5 className="font-medium text-gray-700 mb-2">Activities Causing Pain:</h5>
                       <div className="space-y-2">
-                        {Object.entries(editableAdditionalData.activities).map(([activity, data]: [string, any]) => (
-                          <div key={activity} className="bg-gray-50 p-3 rounded text-sm">
-                            <div className="font-medium text-gray-800 mb-1">{data.name || activity.replace(/([A-Z])/g, ' $1').trim()}</div>
-                            <div className="space-y-1 text-xs">
-                              <div><span className="font-medium">Severity:</span> <span className={`px-2 py-1 rounded text-xs ${
-                                data.severity === 'Severe' ? 'bg-red-100 text-red-800' :
-                                data.severity === 'Moderate' ? 'bg-orange-100 text-orange-800' :
-                                data.severity === 'Mild' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>{data.severity || 'Not specified'}</span></div>
-                              {data.frequency && (
-                                <div><span className="font-medium">Frequency:</span> <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">{data.frequency}</span></div>
-                              )}
+                        {/* Show data from database first */}
+                        {followupData.activities && Object.keys(followupData.activities).length > 0 && 
+                          Object.entries(followupData.activities).map(([activity, data]: [string, any]) => (
+                            <div key={activity} className="bg-gray-50 p-3 rounded text-sm border-l-4 border-orange-200">
+                              <div className="font-semibold text-orange-700 mb-1">{activity}</div>
+                              <div className="text-gray-700 text-sm">
+                                {safeRenderData(data)}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))
+                        }
+                        {/* Show editable data */}
+                        {editableAdditionalData.activities && Object.keys(editableAdditionalData.activities).length > 0 && 
+                          Object.entries(editableAdditionalData.activities).map(([activity, data]: [string, any]) => (
+                            <div key={activity} className="bg-gray-50 p-3 rounded text-sm">
+                              <div className="font-medium text-gray-800 mb-1">{data.name || activity.replace(/([A-Z])/g, ' $1').trim()}</div>
+                              <div className="space-y-1 text-xs">
+                                <div><span className="font-medium">Severity:</span> <span className={`px-2 py-1 rounded text-xs ${
+                                  data.severity === 'Severe' ? 'bg-red-100 text-red-800' :
+                                  data.severity === 'Moderate' ? 'bg-orange-100 text-orange-800' :
+                                  data.severity === 'Mild' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>{data.severity || 'Not specified'}</span></div>
+                                {data.frequency && (
+                                  <div><span className="font-medium">Frequency:</span> <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">{data.frequency}</span></div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        }
                       </div>
                     </div>
                   )}
 
                   {/* Croft Criteria */}
-                  {Object.keys(editableAdditionalData.croftCriteria).length > 0 && (
+                  {((editableAdditionalData.croftCriteria && Object.keys(editableAdditionalData.croftCriteria).length > 0) || followupData.croftCriteria) && (
                     <div>
                       <h5 className="font-medium text-gray-700 mb-2">Croft Criteria:</h5>
                       <div className="space-y-2">
-                        {Object.entries(editableAdditionalData.croftCriteria).map(([criteria, data]: [string, any]) => (
-                          <div key={criteria} className="bg-gray-50 p-3 rounded text-sm">
-                            <div className="font-medium text-gray-800 mb-1">{criteria.replace(/([A-Z])/g, ' $1').trim()}</div>
-                            <div className="space-y-1 text-xs">
-                              <div><span className="font-medium">Grade:</span> <span className="px-2 py-1 rounded text-xs bg-teal-100 text-teal-800">Grade {data.grade || 'N/A'}</span></div>
-                              {data.frequency && (
-                                <div><span className="font-medium">Frequency:</span> <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">{data.frequency}</span></div>
-                              )}
-                              {data.treatmentGuideline && (
-                                <div><span className="font-medium">Treatment Guideline:</span> <span className="text-gray-600">{data.treatmentGuideline}</span></div>
-                              )}
-                              {data.notes && (
-                                <div><span className="font-medium">Notes:</span> <span className="text-gray-600">{data.notes}</span></div>
-                              )}
-                            </div>
+                        {/* Show data from database first */}
+                        {followupData.croftCriteria && (
+                          <div className="bg-gray-50 p-3 rounded text-sm">
+                            <div className="font-medium text-gray-800 mb-1">Database Data</div>
+                            <div className="text-xs text-gray-600">{followupData.croftCriteria}</div>
                           </div>
-                        ))}
+                        )}
+                        {/* Show editable data */}
+                        {editableAdditionalData.croftCriteria && Object.keys(editableAdditionalData.croftCriteria).length > 0 && 
+                          Object.entries(editableAdditionalData.croftCriteria).map(([criteria, data]: [string, any]) => (
+                            <div key={criteria} className="bg-gray-50 p-3 rounded text-sm">
+                              <div className="font-medium text-gray-800 mb-1">{criteria.replace(/([A-Z])/g, ' $1').trim()}</div>
+                              <div className="space-y-1 text-xs">
+                                <div><span className="font-medium">Grade:</span> <span className="px-2 py-1 rounded text-xs bg-teal-100 text-teal-800">Grade {data.grade || 'N/A'}</span></div>
+                                {data.frequency && (
+                                  <div><span className="font-medium">Frequency:</span> <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">{data.frequency}</span></div>
+                                )}
+                                {data.treatmentGuideline && (
+                                  <div><span className="font-medium">Treatment Guideline:</span> <span className="text-gray-600">{data.treatmentGuideline}</span></div>
+                                )}
+                                {data.notes && (
+                                  <div><span className="font-medium">Notes:</span> <span className="text-gray-600">{data.notes}</span></div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        }
                       </div>
                     </div>
                   )}
 
                   {/* Muscle Strength */}
-                  {editableAdditionalData.muscleStrength && editableAdditionalData.muscleStrength.length > 0 && (
+                  {(editableAdditionalData.muscleStrength && editableAdditionalData.muscleStrength.length > 0) || (followupData.muscleStrength && followupData.muscleStrength.length > 0) && (
                     <div>
                       <h5 className="font-medium text-gray-700 mb-2">Muscle Strength:</h5>
                       <div className="space-y-2">
-                                {editableAdditionalData.muscleStrength.map((muscle: string, index: number) => (
-          <div key={index} className="bg-gray-50 p-2 rounded text-sm">
-            <span className="font-medium">• {muscle}</span>
-          </div>
-        ))}
+                        {/* Show data from database first */}
+                        {followupData.muscleStrength && followupData.muscleStrength.length > 0 && 
+                          followupData.muscleStrength.map((muscle: string, index: number) => (
+                            <div key={index} className="bg-gray-50 p-2 rounded text-sm">
+                              <span className="font-medium">• {muscle}</span>
+                            </div>
+                          ))
+                        }
+                        {/* Show editable data */}
+                        {editableAdditionalData.muscleStrength && editableAdditionalData.muscleStrength.length > 0 && 
+                          editableAdditionalData.muscleStrength.map((muscle: string, index: number) => (
+                            <div key={index} className="bg-gray-50 p-2 rounded text-sm">
+                              <span className="font-medium">• {muscle}</span>
+                            </div>
+                          ))
+                        }
                       </div>
                     </div>
                   )}
 
                   {/* AROM */}
-                  {Object.keys(editableAdditionalData.arom).length > 0 && (
+                  {((editableAdditionalData.arom && Object.keys(editableAdditionalData.arom).length > 0) || (followupData.arom && Object.keys(followupData.arom).length > 0)) && (
                     <div>
                       <h5 className="font-medium text-gray-700 mb-2">AROM:</h5>
                       <div className="space-y-2">
-                        {Object.entries(editableAdditionalData.arom).map(([movement, data]: [string, any]) => (
-                          <div key={movement} className="bg-gray-50 p-2 rounded text-sm">
-                            <span className="font-medium">{movement.replace(/([A-Z])/g, ' $1').trim()}:</span> {data.range || 'N/A'} - {data.quality || 'N/A'} - {data.pain || 'N/A'}
-                          </div>
-                        ))}
+                        {/* Show data from database first */}
+                        {followupData.arom && Object.keys(followupData.arom).length > 0 && 
+                          Object.entries(followupData.arom).map(([movement, data]: [string, any]) => (
+                            <div key={movement} className="bg-gray-50 p-3 rounded text-sm border-l-4 border-blue-200">
+                              <div className="font-semibold text-blue-700 capitalize mb-1">{movement.replace(/([A-Z])/g, ' $1').trim()}</div>
+                              <div className="text-gray-700 text-sm">
+                                {renderAromData(data)}
+                              </div>
+                            </div>
+                          ))
+                        }
+                        {/* Show editable data */}
+                        {editableAdditionalData.arom && Object.keys(editableAdditionalData.arom).length > 0 && 
+                          Object.entries(editableAdditionalData.arom).map(([movement, data]: [string, any]) => (
+                            <div key={movement} className="bg-gray-50 p-2 rounded text-sm">
+                              <span className="font-medium">{movement.replace(/([A-Z])/g, ' $1').trim()}:</span> {data.range || 'N/A'} - {data.quality || 'N/A'} - {data.pain || 'N/A'}
+                            </div>
+                          ))
+                        }
                       </div>
                     </div>
                   )}
@@ -1518,7 +1942,25 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             </div>
           </div>
-        )}
+            );
+          } catch (error) {
+            console.error('Error rendering side panel:', error);
+            return (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 shadow-md">
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-red-800 mb-2">Error Loading Data</h3>
+                  <p className="text-red-600 text-sm">There was an error loading the previous visit data. Please try again.</p>
+                </div>
+                <button
+                  onClick={() => setShowSideBySide(false)}
+                  className="w-full px-6 py-3 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all shadow-md hover:shadow-lg"
+                >
+                  Close
+                </button>
+              </div>
+            );
+          }
+        })()}
       </div>
 
        {/* Followup Data Modal */}
@@ -2289,7 +2731,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </div>
                      <div className="space-y-3">
                                {editableAdditionalData.muscleStrength.map((muscle: string, index: number) => (
-          <div key={index} className="bg-white rounded-lg p-3 border border-indigo-200">
+                          <div key={index} className="bg-white rounded-lg p-3 border border-indigo-200">
                            <div className="flex items-center space-x-2">
                              <input
                                type="text"
@@ -2305,26 +2747,26 @@ const handleSubmit = async (e: React.FormEvent) => {
                                Remove
                   </button>
                 </div>
-              </div>
-                       ))}
+                          </div>
+                        ))}
                        {editableAdditionalData.muscleStrength.length === 0 && (
                          <p className="text-gray-500 italic text-sm text-center py-4">No muscle strength items. Click "Add Muscle" to add one.</p>
                        )}
-                            </div>
-                          </div>
+                      </div>
+                    </div>
                       </div>
 
                  {/* Right Column - Tenderness & Spasm */}
                  <div className="space-y-6">
                                       {/* Tenderness Data - Editable with Severity */}
-                   <div className="bg-gradient-to-br from-red-50 to-pink-50 border border-red-200 rounded-xl p-5 shadow-sm">
+                    <div className="bg-gradient-to-br from-red-50 to-pink-50 border border-red-200 rounded-xl p-5 shadow-sm">
                      <div className="flex items-center justify-between mb-3">
                        <div className="flex items-center">
-                         <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">T</span>
-                         </div>
-                         <h4 className="text-lg font-bold text-red-800">Tenderness Assessment</h4>
-                       </div>
+                        <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mr-3">
+                          <span className="text-white text-sm font-bold">T</span>
+                        </div>
+                        <h4 className="text-lg font-bold text-red-800">Tenderness Assessment</h4>
+                      </div>
                        <button
                          onClick={handleAddTendernessItem}
                          className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
@@ -2350,7 +2792,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                    Remove
                                  </button>
                                </div>
-                               <div className="space-y-2">
+                              <div className="space-y-2">
                                  <input
                                    type="text"
                                    value={regionData.part || region}
@@ -2372,7 +2814,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                          <span className="text-xs text-gray-700">{severity}</span>
                                        </label>
                                      ))}
-                                   </div>
+                                  </div>
                                  </div>
                                </div>
                              </div>
@@ -2419,25 +2861,25 @@ const handleSubmit = async (e: React.FormEvent) => {
                                        />
                                        <span className="text-xs text-gray-700">{severity}</span>
                                      </label>
-                                   ))}
-                                 </div>
-                               </div>
+                                ))}
+                              </div>
+                              </div>
                              </div>
-                           </div>
-                         ))}
-                       </div>
-                     </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                    </div>
 
                                       {/* Spasm Assessment - Editable with Severity */}
-                   <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
+                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
                      <div className="flex items-center justify-between mb-3">
                        <div className="flex items-center">
-                         <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
-                           <span className="text-white text-sm font-bold">S</span>
-                         </div>
-                         <h4 className="text-lg font-bold text-orange-800">Spasm Assessment</h4>
-                       </div>
+                        <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
+                          <span className="text-white text-sm font-bold">S</span>
+                        </div>
+                        <h4 className="text-lg font-bold text-orange-800">Spasm Assessment</h4>
+                      </div>
                        <button
                          onClick={handleAddSpasmItem}
                          className="px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700"
@@ -2463,7 +2905,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                    Remove
                                  </button>
                                </div>
-                               <div className="space-y-2">
+                              <div className="space-y-2">
                                  <input
                                    type="text"
                                    value={regionData.part || region}
@@ -2485,7 +2927,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                          <span className="text-xs text-gray-700">{severity}</span>
                                        </label>
                                      ))}
-                                   </div>
+                                  </div>
                                  </div>
                                </div>
                              </div>
@@ -2532,41 +2974,41 @@ const handleSubmit = async (e: React.FormEvent) => {
                                        />
                                        <span className="text-xs text-gray-700">{severity}</span>
                                      </label>
-                                   ))}
-                                 </div>
-                               </div>
+                                ))}
+                              </div>
+                              </div>
                              </div>
-                           </div>
-                         ))}
-                       </div>
-                     </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                    </div>
               </div>
                         </div>
 
-                                     {/* No Data Message */}
+                  {/* No Data Message */}
                    {!followupData.musclePalpation && (!editableAdditionalData.muscleStrength || editableAdditionalData.muscleStrength.length === 0) && 
                     Object.keys(editableAdditionalData.tenderness).filter(key => !['cervical', 'thoracic', 'lumbar'].includes(key)).length === 0 && 
                     Object.keys(editableAdditionalData.spasm).filter(key => !['cervical', 'thoracic', 'lumbar'].includes(key)).length === 0 && (
-                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-                       <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                         <span className="text-gray-600 text-2xl">📋</span>
-                       </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
+                      <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-gray-600 text-2xl">📋</span>
+                      </div>
                        <h4 className="text-lg font-semibold text-gray-700 mb-2">No Additional Muscle Data Available</h4>
                        <p className="text-gray-500">No additional muscle palpation, strength, tenderness, or spasm data found in the followup visit. You can still edit the default body regions.</p>
-                     </div>
-                   )}
+                    </div>
+                  )}
               </div>
 
               {/* Footer */}
               <div className="bg-gray-50 px-6 py-4 rounded-b-xl border-t border-gray-200">
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-gray-600">
-                   <span className="font-medium">Ready to apply muscle palpation data to your form?</span>
+                    <span className="font-medium">Ready to apply muscle palpation data to your form?</span>
                   </div>
                   <div className="flex space-x-3">
                     <button
-                     onClick={() => setIsMuscleModalOpen(false)}
+                      onClick={() => setIsMuscleModalOpen(false)}
                       className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
                     >
                       Cancel
@@ -2576,10 +3018,10 @@ const handleSubmit = async (e: React.FormEvent) => {
                      className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-medium hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-md hover:shadow-lg"
                    >
                      Save Changes
-                   </button>
-                   <button
-                     onClick={applyMusclePalpationData}
-                     className="px-6 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all shadow-md hover:shadow-lg"
+                    </button>
+                    <button
+                      onClick={applyMusclePalpationData}
+                      className="px-6 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all shadow-md hover:shadow-lg"
                     >
                       Apply to Form
                     </button>
@@ -2614,7 +3056,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
                 <div className="space-y-6">
                   {/* Orthos Tests - Editable */}
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 shadow-sm">
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 shadow-sm">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
@@ -2628,7 +3070,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       >
                         Add Test
                       </button>
-                    </div>
+                            </div>
                     <div className="space-y-3">
                       {Object.entries(editableAdditionalData.ortho).map(([testKey, testData]: [string, any]) => (
                         <div key={testKey} className="bg-white rounded-lg p-4 border border-green-200">
@@ -2665,7 +3107,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 <option value="Equivocal">Equivocal</option>
                                 <option value="Not Tested">Not Tested</option>
                               </select>
-                            </div>
+                          </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Details:</label>
                               <textarea
@@ -2675,15 +3117,15 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 rows={2}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
                               />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                      </div>
+                    </div>
+                                    </div>
+                                  ))}
                       {Object.keys(editableAdditionalData.ortho).length === 0 && (
                         <p className="text-gray-500 italic text-sm text-center py-4">No orthopedic tests. Click "Add Test" to add one.</p>
-                      )}
-                    </div>
-                  </div>
+                              )}
+                            </div>
+                          </div>
                 </div>
               </div>
 
@@ -2743,7 +3185,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
                 <div className="space-y-6">
                   {/* Activities - Editable */}
-                  <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
+                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
@@ -2757,7 +3199,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       >
                         Add Activity
                       </button>
-                    </div>
+                      </div>
                     <div className="space-y-3">
                       {Object.entries(editableAdditionalData.activities).map(([activityKey, activityData]: [string, any]) => (
                         <div key={activityKey} className="bg-white rounded-lg p-4 border border-orange-200">
@@ -2769,8 +3211,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                             >
                               Remove
                             </button>
-                          </div>
-                          <div className="space-y-3">
+                      </div>
+                      <div className="space-y-3">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Activity Name:</label>
                               <input
@@ -2780,7 +3222,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 placeholder="Enter activity name..."
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500"
                               />
-                            </div>
+                                    </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Severity:</label>
                               <select
@@ -2793,7 +3235,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 <option value="Moderate">Moderate</option>
                                 <option value="Severe">Severe</option>
                               </select>
-                            </div>
+                                </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Frequency:</label>
                               <select
@@ -2807,15 +3249,15 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 <option value="Frequently">Frequently</option>
                                 <option value="Always">Always</option>
                               </select>
+                                </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
                       {Object.keys(editableAdditionalData.activities).length === 0 && (
                         <p className="text-gray-500 italic text-sm text-center py-4">No activities. Click "Add Activity" to add one.</p>
                       )}
+                      </div>
                     </div>
-                  </div>
                 </div>
               </div>
 
@@ -2847,9 +3289,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+                       </div>
+         </div>
+       )}
 
         {/* Croft Criteria Modal */}
         {isCroftModalOpen && followupData && (
@@ -2889,7 +3331,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       >
                         Add Criteria
                       </button>
-                    </div>
+                        </div>
                     <div className="space-y-3">
                       {Object.entries(editableAdditionalData.croftCriteria).map(([criteriaKey, criteriaData]: [string, any]) => (
                         <div key={criteriaKey} className="bg-white rounded-lg p-4 border border-teal-200">
@@ -2901,7 +3343,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                             >
                               Remove
                             </button>
-                          </div>
+                      </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Grade:</label>
@@ -2915,7 +3357,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 <option value="2">Grade 2</option>
                                 <option value="3">Grade 3</option>
                               </select>
-                            </div>
+                    </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Frequency:</label>
                               <select
@@ -2929,7 +3371,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 <option value="Frequently">Frequently</option>
                                 <option value="Always">Always</option>
                               </select>
-                            </div>
+                      </div>
                             <div className="md:col-span-2">
                               <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Guideline:</label>
                               <input
@@ -2939,7 +3381,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 placeholder="Enter treatment guideline..."
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
                               />
-                            </div>
+                    </div>
                             <div className="md:col-span-2">
                               <label className="block text-sm font-medium text-gray-700 mb-1">Notes:</label>
                               <textarea
