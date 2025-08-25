@@ -80,6 +80,18 @@ interface Patient {
     bodyPart: {
       part: string;
       side: string;
+      severity?: string;
+      quality?: string[];
+      timing?: string;
+      context?: string;
+      exacerbatedBy?: string[];
+      symptoms?: string[];
+      notes?: string;
+      radiatingTo?: string;
+      radiatingRight?: boolean;
+      radiatingLeft?: boolean;
+      sciaticaRight?: boolean;
+      sciaticaLeft?: boolean;
     }[];
     intakes?: SubjectiveIntake[];
   };
@@ -1754,18 +1766,18 @@ const PatientDetails: React.FC<{}> = () => {
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
-              {/* Body Part Info - these properties exist on the subjective level, not body part level */}
+              {/* Severity */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Severity</dt>
-                <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.severity || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{bp.severity || 'N/A'}</dd>
               </div>
               
               {/* Quality */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Quality</dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  {patient.subjective?.quality?.length
-                    ? patient.subjective.quality.join(', ')
+                  {bp.quality?.length
+                    ? bp.quality.join(', ')
                     : 'N/A'}
                 </dd>
               </div>
@@ -1773,21 +1785,21 @@ const PatientDetails: React.FC<{}> = () => {
               {/* Timing */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Timing</dt>
-                <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.timing || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{bp.timing || 'N/A'}</dd>
               </div>
               
               {/* Context */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Context</dt>
-                <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.context || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{bp.context || 'N/A'}</dd>
               </div>
               
               {/* Exacerbated By */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Exacerbated By</dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  {patient.subjective?.exacerbatedBy?.length
-                    ? patient.subjective.exacerbatedBy.join(', ')
+                  {bp.exacerbatedBy?.length
+                    ? bp.exacerbatedBy.join(', ')
                     : 'N/A'}
                 </dd>
               </div>
@@ -1796,8 +1808,8 @@ const PatientDetails: React.FC<{}> = () => {
               <div>
                 <dt className="text-sm font-medium text-gray-500">Symptoms</dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  {patient.subjective?.symptoms?.length
-                    ? patient.subjective.symptoms.join(', ')
+                  {bp.symptoms?.length
+                    ? bp.symptoms.join(', ')
                     : 'N/A'}
                 </dd>
               </div>
@@ -1805,7 +1817,7 @@ const PatientDetails: React.FC<{}> = () => {
               {/* Radiating To */}
               <div>
                 <dt className="text-sm font-medium text-gray-500">Radiating To</dt>
-                <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.radiatingTo || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{bp.radiatingTo || 'N/A'}</dd>
               </div>
               
               {/* Radiating Pain */}
@@ -1813,8 +1825,8 @@ const PatientDetails: React.FC<{}> = () => {
                 <dt className="text-sm font-medium text-gray-500">Radiating Pain</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {[
-                    patient.subjective?.radiatingLeft && 'Left',
-                    patient.subjective?.radiatingRight && 'Right',
+                    bp.radiatingLeft && 'Left',
+                    bp.radiatingRight && 'Right',
                   ].filter(Boolean).join(', ') || 'None'}
                 </dd>
               </div>
@@ -1824,8 +1836,8 @@ const PatientDetails: React.FC<{}> = () => {
                 <dt className="text-sm font-medium text-gray-500">Sciatica</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {[
-                    patient.subjective?.sciaticaLeft && 'Left',
-                    patient.subjective?.sciaticaRight && 'Right',
+                    bp.sciaticaLeft && 'Left',
+                    bp.sciaticaRight && 'Right',
                   ].filter(Boolean).join(', ') || 'None'}
                 </dd>
               </div>
@@ -1833,7 +1845,7 @@ const PatientDetails: React.FC<{}> = () => {
               {/* Notes */}
               <div className="md:col-span-2">
                 <dt className="text-sm font-medium text-gray-500">Notes</dt>
-                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{patient.subjective?.notes || 'N/A'}</dd>
+                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{bp.notes || 'N/A'}</dd>
               </div>
             </div>
           </div>
@@ -1951,7 +1963,8 @@ const PatientDetails: React.FC<{}> = () => {
 
     {/* Legacy subjective data display for backward compatibility */}
     {(!patient.subjective?.intakes || patient.subjective.intakes.length === 0) && 
-     (!patient.subjective?.bodyPart || patient.subjective.bodyPart.length === 0) && (
+     (!patient.subjective?.bodyPart || patient.subjective.bodyPart.length === 0) && 
+     (patient.subjective?.severity || patient.subjective?.timing || patient.subjective?.context || patient.subjective?.quality || patient.subjective?.exacerbatedBy || patient.subjective?.symptoms || patient.subjective?.radiatingTo || patient.subjective?.radiatingLeft || patient.subjective?.radiatingRight || patient.subjective?.sciaticaLeft || patient.subjective?.sciaticaRight || patient.subjective?.notes) && (
       <div className="mt-4 pt-4 border-t border-gray-200">
         <h3 className="text-md font-medium text-gray-800 mb-3">Legacy Subjective Data</h3>
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
