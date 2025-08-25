@@ -379,21 +379,19 @@ const InvoiceDetails: React.FC = () => {
                   <p>Email: {invoice.patient.email}</p>
                 </div>
                 {/* Attorney Info */}
-                {invoice.attorney && (invoice.attorney.name || invoice.attorney.firm || invoice.attorney.phone || invoice.attorney.email) && (
+                {invoice.attorney && (invoice.attorney.name || invoice.attorney.address) && (
                   <div className="mt-6">
                     <h3 className="text-gray-600 font-medium mb-2">Attorney Information:</h3>
                     <div className="text-gray-800">
-                      {invoice.attorney.name && <p><span className="font-medium">Name:</span> {invoice.attorney.name}</p>}
-                      {invoice.attorney.firm && <p><span className="font-medium">Firm:</span> {invoice.attorney.firm}</p>}
-                      {invoice.attorney.phone && <p><span className="font-medium">Phone:</span> {invoice.attorney.phone}</p>}
-                      {invoice.attorney.email && <p><span className="font-medium">Email:</span> {invoice.attorney.email}</p>}
+                      {invoice.attorney.name && <p className="font-medium">{invoice.attorney.name}</p>}
+                      {invoice.attorney.firm && <p className="text-sm text-gray-600">{invoice.attorney.firm}</p>}
                       {invoice.attorney.address && (
                         <>
-                          {invoice.attorney.address.street && <p>{invoice.attorney.address.street}</p>}
+                          {invoice.attorney.address.street && <p className="text-sm">{invoice.attorney.address.street}</p>}
                           {(invoice.attorney.address.city || invoice.attorney.address.state) && (
-                            <p>{invoice.attorney.address.city}, {invoice.attorney.address.state} {invoice.attorney.address.zipCode}</p>
+                            <p className="text-sm">{invoice.attorney.address.city}, {invoice.attorney.address.state} {invoice.attorney.address.zipCode}</p>
                           )}
-                          {invoice.attorney.address.country && <p>{invoice.attorney.address.country}</p>}
+                          {invoice.attorney.address.country && <p className="text-sm">{invoice.attorney.address.country}</p>}
                         </>
                       )}
                     </div>
