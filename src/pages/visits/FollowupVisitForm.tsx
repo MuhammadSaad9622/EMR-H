@@ -106,7 +106,7 @@ interface FollowupVisitFormData {
         [testName: string]: {
           left: string;
           right: string;
-          ligLaxity: string;
+          bilateral: string;
         };
       };
     };
@@ -116,7 +116,7 @@ interface FollowupVisitFormData {
         [movementName: string]: {
           left: string;
           right: string;
-          ligLaxity: string;
+          bilateral: string;
         };
       };
     };
@@ -264,7 +264,7 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
   });
 
   // State for Orthopedic Tests modal interactive selections
-  const [orthoTestSelections, setOrthoTestSelections] = useState<{[region: string]: {[testName: string]: {left: boolean; right: boolean; ligLaxity: boolean}}}>({});
+  const [orthoTestSelections, setOrthoTestSelections] = useState<{[region: string]: {[testName: string]: {left: boolean; right: boolean; bilateral: boolean}}}>({});
   
   // State for Imaging and Referrals modal interactive data
   const [imagingInputData, setImagingInputData] = useState<{
@@ -477,10 +477,10 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
   };
 
   // Handler for orthopedic test checkbox changes
-  const handleOrthoTestChange = (region: string, testName: string, field: 'left' | 'right' | 'ligLaxity', checked: boolean) => {
+  const handleOrthoTestChange = (region: string, testName: string, field: 'left' | 'right' | 'bilateral', checked: boolean) => {
     setOrthoTestSelections(prev => {
       const currentRegion = prev[region] || {};
-      const currentTest = currentRegion[testName] || { left: false, right: false, ligLaxity: false };
+      const currentTest = currentRegion[testName] || { left: false, right: false, bilateral: false };
       
       return {
         ...prev,
@@ -783,7 +783,7 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
         updatedOrthoTestsData[region][testName] = {
           left: selections.left ? 'true' : existingTest.left,
           right: selections.right ? 'true' : existingTest.right,
-          ligLaxity: selections.ligLaxity ? 'true' : existingTest.ligLaxity
+          bilateral: selections.bilateral ? 'true' : existingTest.bilateral
         };
       });
     });
@@ -852,26 +852,36 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
   };
 
   // Handler for saving activities pain modal data
-  const handleSaveActivitiesPain = () => {
-    // Update the activities pain data with the editable data
-    const updatedActivitiesPainData = {
-      ...editableActivitiesPainData
-    };
+  const handleSaveActivitiesPain = async () => {
+    try {
+      // Update the activities pain data with the editable data
+      const updatedActivitiesPainData = {
+        ...editableActivitiesPainData
+      };
 
-    // Update the form data (local state only - no backend save)
-    setFormData((prev) => ({
-      ...prev,
-      fetchedData: {
-        ...prev.fetchedData,
-        activitiesPainData: updatedActivitiesPainData,
-      },
-    }));
+      // Save to database if we have a previous visit
+      if (formData.previousVisit) {
+        await saveActivitiesPainData(formData.previousVisit, updatedActivitiesPainData);
+      }
 
-    // Also update the activities pain state for immediate use
-    setActivitiesPainData(updatedActivitiesPainData);
+      // Update the form data (local state only - no backend save)
+      setFormData((prev) => ({
+        ...prev,
+        fetchedData: {
+          ...prev.fetchedData,
+          activitiesPainData: updatedActivitiesPainData,
+        },
+      }));
 
-    alert('Activities pain data updated! Click "Save Visit" at the bottom to save all changes.');
-    setIsActivitiesModalOpen(false);
+      // Also update the activities pain state for immediate use
+      setActivitiesPainData(updatedActivitiesPainData);
+
+      alert('Activities pain data saved successfully!');
+      setIsActivitiesModalOpen(false);
+    } catch (error) {
+      console.error('Error saving activities pain data:', error);
+      alert('Failed to save activities pain data. Please try again.');
+    }
   };
 
 
@@ -967,6 +977,27 @@ setPreviousVisits(sortedVisits);
     }
   };
   
+  const saveActivitiesPainData = async (visitId: string, data: any) => {
+    if (!visitId) return;
+    try {
+      await axios.put(`https://emr-h.onrender.com/api/visits/${visitId}`, {
+        chiropracticAdjustment: data.chiropracticAdjustment,
+        chiropracticOther: data.chiropracticOther,
+        acupuncture: data.acupuncture,
+        acupunctureOther: data.acupunctureOther,
+        physiotherapy: data.physiotherapy,
+        rehabilitationExercises: data.rehabilitationExercises,
+        durationFrequency: data.durationFrequency,
+        diagnosticUltrasound: data.diagnosticUltrasound,
+        disabilityDuration: data.disabilityDuration,
+      });
+      console.log("✅ Activities pain data saved");
+    } catch (error) {
+      console.error("❌ Failed to save activities pain data", error);
+      throw error;
+    }
+  };
+
   const saveTreatmentPlanData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
@@ -1123,7 +1154,7 @@ setPreviousVisits(sortedVisits);
       // Extract and structure ortho tests data
       const orthoTestsData: {
         [region: string]: {
-          [testName: string]: { left: string; right: string; ligLaxity: string };
+          [testName: string]: { left: string; right: string; bilateral: string };
         };
       } = visitData.ortho || {};
       
@@ -1132,21 +1163,21 @@ setPreviousVisits(sortedVisits);
       // Extract and structure AROM data
       const aromData: {
         [region: string]: {
-          [movementName: string]: { left: string; right: string; ligLaxity: string };
+          [movementName: string]: { left: string; right: string; bilateral: string };
         };
       } = visitData.arom
         ? Object.entries(visitData.arom as Record<string, any>).reduce((acc: any, [region, movements]) => {
             acc[region] = Object.entries(movements as Record<string, any>).reduce((movementAcc: any, [movementName, movementData]) => {
-              const { left, right, ligLaxity } = movementData as {
+              const { left, right, bilateral } = movementData as {
                 left: string;
                 right: string;
-                ligLaxity: string;
+                bilateral: string;
               };
   
               movementAcc[movementName] = {
                 left: left || "N/A",
                 right: right || "N/A",
-                ligLaxity: ligLaxity || "N/A",
+                bilateral: bilateral || "N/A",
               };
               return movementAcc;
             }, {});
@@ -1160,7 +1191,7 @@ setPreviousVisits(sortedVisits);
       setIsOrthoModalOpen(true);
 
         // Initialize selections for interactive checkboxes based on existing data
-        const initialSelections: {[region: string]: {[testName: string]: {left: boolean; right: boolean; ligLaxity: boolean}}} = {};
+        const initialSelections: {[region: string]: {[testName: string]: {left: boolean; right: boolean; bilateral: boolean}}} = {};
         
         Object.keys(orthoTestsData).forEach(region => {
           initialSelections[region] = {};
@@ -1169,7 +1200,7 @@ setPreviousVisits(sortedVisits);
             initialSelections[region][testName] = {
               left: testData.left === 'true',
               right: testData.right === 'true',
-              ligLaxity: testData.ligLaxity === 'true'
+              bilateral: testData.bilateral === 'true'
             };
           });
         });
@@ -1220,7 +1251,7 @@ setPreviousVisits(sortedVisits);
         // Check for data in various possible locations
         const hasActivitiesData = visit.chiropracticAdjustment || visit.acupuncture || visit.physiotherapy || 
                                  visit.rehabilitationExercises || visit.diagnosticUltrasound || visit.disabilityDuration ||
-                                 visit.fetchedData?.activitiesPainData;
+                                 visit.fetchedData?.activitiesPainData || visit.activitiesCausePain;
         
         if (hasActivitiesData) {
           mostRecentActivitiesData = visit;
@@ -1243,7 +1274,7 @@ setPreviousVisits(sortedVisits);
             return data.split(',').map(item => item.trim()).filter(item => item);
           }
         }
-        return data;
+        return data || [];
       };
 
       // Filter only treatment plan data - check both direct fields and fetchedData
@@ -1788,12 +1819,25 @@ Generate detailed, personalized home care instructions based on the provided pat
         areasExacerbated: formData.areasExacerbated || false,
         areasSame: formData.areasSame || false,
         areasResolved: formData.areasResolved || false,
+        
+        // Areas data from modal
+        areasData: formData.fetchedData?.areasData || {
+          areasImproving: formData.areasImproving || false,
+          areasExacerbated: formData.areasExacerbated || false,
+          areasSame: formData.areasSame || false,
+          areasResolved: formData.areasResolved || false,
+          individualAreaStatus: individualAreaStatus || {}
+        },
         painRadiating: formData.painRadiating || '',
+        
+        // ROM data
         romWnlNoPain: formData.romWnlNoPain || false,
         romWnlWithPain: formData.romWnlWithPain || false,
         romImproved: formData.romImproved || false,
         romDecreased: formData.romDecreased || false,
         romSame: formData.romSame || false,
+        
+        // Orthos data
         orthos: {
           tests: formData.orthos.tests || '',
           result: formData.orthos.result || ''
@@ -1850,8 +1894,8 @@ Generate detailed, personalized home care instructions based on the provided pat
         chiropracticOther: activitiesPainData?.chiropracticOther || '',
         acupuncture: Array.isArray(activitiesPainData?.acupuncture) ? activitiesPainData.acupuncture.join(', ') : (activitiesPainData?.acupuncture || ''),
         acupunctureOther: activitiesPainData?.acupunctureOther || '',
-        physiotherapy: Array.isArray(activitiesPainData?.physiotherapy || imagingData?.physiotherapy) ? (activitiesPainData?.physiotherapy || imagingData?.physiotherapy).join(', ') : (activitiesPainData?.physiotherapy || imagingData?.physiotherapy || ''),
-        rehabilitationExercises: Array.isArray(activitiesPainData?.rehabilitationExercises || imagingData?.rehabilitationExercises) ? (activitiesPainData?.rehabilitationExercises || imagingData?.rehabilitationExercises).join(', ') : (activitiesPainData?.rehabilitationExercises || imagingData?.rehabilitationExercises || ''),
+        physiotherapy: Array.isArray(activitiesPainData?.physiotherapy || imagingData?.physiotherapy) ? (activitiesPainData?.physiotherapy || imagingData?.physiotherapy || []).join(', ') : (activitiesPainData?.physiotherapy || imagingData?.physiotherapy || ''),
+        rehabilitationExercises: Array.isArray(activitiesPainData?.rehabilitationExercises || imagingData?.rehabilitationExercises) ? (activitiesPainData?.rehabilitationExercises || imagingData?.rehabilitationExercises || []).join(', ') : (activitiesPainData?.rehabilitationExercises || imagingData?.rehabilitationExercises || ''),
         durationFrequency: activitiesPainData?.durationFrequency || imagingData?.durationFrequency || { timesPerWeek: '', reEvalInWeeks: '' },
         diagnosticUltrasound: activitiesPainData?.diagnosticUltrasound || '',
         disabilityDuration: activitiesPainData?.disabilityDuration || '',
@@ -1871,6 +1915,9 @@ Generate detailed, personalized home care instructions based on the provided pat
         
         // Home Care AI Suggestions
         homeCareSuggestions: homeCareSuggestions || '',
+        
+        // Individual Area Status Data
+        individualAreaStatus: individualAreaStatus || {},
       };
       
       // Final validation
@@ -3114,7 +3161,7 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   <div className="font-semibold text-sm text-gray-700">Test Name</div>
                   <div className="font-semibold text-sm text-gray-700 text-center">Left</div>
                   <div className="font-semibold text-sm text-gray-700 text-center">Right</div>
-                  <div className="font-semibold text-sm text-gray-700 text-center">Ligament Laxity</div>
+                  <div className="font-semibold text-sm text-gray-700 text-center">Bilateral</div>
                 </div>
                 
                 {/* Test Results */}
@@ -3157,19 +3204,19 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                       />
                     </div>
                     
-                    {/* Ligament Laxity Result */}
+                    {/* Bilateral Result */}
                     <div className="flex items-center justify-center space-x-2">
                         <input
                           type="text"
-                        value={(testResult as any).ligLaxity === 'N/A' || (testResult as any).ligLaxity === null || (testResult as any).ligLaxity === undefined ? '' : (testResult as any).ligLaxity || ''}
+                        value={(testResult as any).bilateral === 'N/A' || (testResult as any).bilateral === null || (testResult as any).bilateral === undefined ? '' : (testResult as any).bilateral || ''}
                           readOnly
                         className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none text-center bg-gray-100"
                         placeholder=""
                       />
                       <input
                         type="checkbox"
-                        checked={orthoTestSelections[region]?.[testName]?.ligLaxity || false}
-                        onChange={(e) => handleOrthoTestChange(region, testName, 'ligLaxity', e.target.checked)}
+                        checked={orthoTestSelections[region]?.[testName]?.bilateral || false}
+                        onChange={(e) => handleOrthoTestChange(region, testName, 'bilateral', e.target.checked)}
                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
                     </div>
@@ -3244,22 +3291,54 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
         </button>
       </div>
 
+      {/* Data Summary */}
+      {activitiesPainData && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <h4 className="font-semibold text-blue-800 mb-2">Loaded Data Summary:</h4>
+          <div className="text-xs text-blue-700 space-y-1">
+            {editableActivitiesPainData.chiropracticAdjustment.length > 0 && (
+              <div>• Chiropractic Adjustments: {editableActivitiesPainData.chiropracticAdjustment.length} items</div>
+            )}
+            {editableActivitiesPainData.acupuncture.length > 0 && (
+              <div>• Acupuncture: {editableActivitiesPainData.acupuncture.length} items</div>
+            )}
+            {editableActivitiesPainData.physiotherapy.length > 0 && (
+              <div>• Physiotherapy: {editableActivitiesPainData.physiotherapy.length} items</div>
+            )}
+            {editableActivitiesPainData.rehabilitationExercises.length > 0 && (
+              <div>• Rehabilitation Exercises: {editableActivitiesPainData.rehabilitationExercises.length} items</div>
+            )}
+            {editableActivitiesPainData.chiropracticOther && (
+              <div>• Chiropractic Other: {editableActivitiesPainData.chiropracticOther}</div>
+            )}
+            {editableActivitiesPainData.acupunctureOther && (
+              <div>• Acupuncture Other: {editableActivitiesPainData.acupunctureOther}</div>
+            )}
+            {editableActivitiesPainData.diagnosticUltrasound && (
+              <div>• Diagnostic Ultrasound: {editableActivitiesPainData.diagnosticUltrasound}</div>
+            )}
+            {editableActivitiesPainData.disabilityDuration && (
+              <div>• Disability Duration: {editableActivitiesPainData.disabilityDuration}</div>
+            )}
+            {(!editableActivitiesPainData.chiropracticAdjustment.length && 
+              !editableActivitiesPainData.acupuncture.length && 
+              !editableActivitiesPainData.physiotherapy.length && 
+              !editableActivitiesPainData.rehabilitationExercises.length && 
+              !editableActivitiesPainData.chiropracticOther && 
+              !editableActivitiesPainData.acupunctureOther && 
+              !editableActivitiesPainData.diagnosticUltrasound && 
+              !editableActivitiesPainData.disabilityDuration) && (
+              <div className="text-yellow-700">• No previous data found - starting with empty form</div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="bg-gray-50 p-4 rounded-md space-y-6 text-sm text-gray-700">
         {/* Chiropractic Adjustment */}
         <div>
           <div className="flex justify-between items-center mb-3">
             <h4 className="font-semibold text-gray-700">Chiropractic Adjustment:</h4>
-            <button
-              type="button"
-              onClick={(e) => {
-                const input = e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement;
-                handleAddActivitiesPainItem('chiropracticAdjustment', input.value);
-                input.value = '';
-              }}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-            >
-              Add Item
-            </button>
           </div>
           <div className="space-y-2">
             {editableActivitiesPainData.chiropracticAdjustment.map((item: string, index: number) => (
@@ -3287,6 +3366,7 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
             <div className="flex space-x-2">
               <input
                 type="text"
+                id="chiropracticAdjustmentInput"
                 placeholder="Add new chiropractic adjustment..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 onKeyPress={(e) => {
@@ -3296,6 +3376,19 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   }
                 }}
               />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('chiropracticAdjustmentInput') as HTMLInputElement;
+                  if (input && input.value.trim()) {
+                    handleAddActivitiesPainItem('chiropracticAdjustment', input.value);
+                    input.value = '';
+                  }
+                }}
+                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              >
+                Add Item
+              </button>
             </div>
           </div>
         </div>
@@ -3316,17 +3409,6 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
         <div>
           <div className="flex justify-between items-center mb-3">
             <h4 className="font-semibold text-gray-700">Acupuncture:</h4>
-            <button
-              type="button"
-              onClick={(e) => {
-                const input = e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement;
-                handleAddActivitiesPainItem('acupuncture', input.value);
-                input.value = '';
-              }}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-            >
-              Add Item
-            </button>
           </div>
           <div className="space-y-2">
             {editableActivitiesPainData.acupuncture.map((item: string, index: number) => (
@@ -3354,6 +3436,7 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
             <div className="flex space-x-2">
               <input
                 type="text"
+                id="acupunctureInput"
                 placeholder="Add new acupuncture item..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 onKeyPress={(e) => {
@@ -3363,6 +3446,19 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   }
                 }}
               />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('acupunctureInput') as HTMLInputElement;
+                  if (input && input.value.trim()) {
+                    handleAddActivitiesPainItem('acupuncture', input.value);
+                    input.value = '';
+                  }
+                }}
+                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              >
+                Add Item
+              </button>
             </div>
           </div>
         </div>
@@ -3383,17 +3479,6 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
         <div>
           <div className="flex justify-between items-center mb-3">
             <h4 className="font-semibold text-gray-700">Physiotherapy:</h4>
-            <button
-              type="button"
-              onClick={(e) => {
-                const input = e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement;
-                handleAddActivitiesPainItem('physiotherapy', input.value);
-                input.value = '';
-              }}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-            >
-              Add Item
-            </button>
           </div>
           <div className="space-y-2">
             {editableActivitiesPainData.physiotherapy.map((item: string, index: number) => (
@@ -3421,6 +3506,7 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
             <div className="flex space-x-2">
               <input
                 type="text"
+                id="physiotherapyInput"
                 placeholder="Add new physiotherapy item..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 onKeyPress={(e) => {
@@ -3430,6 +3516,19 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   }
                 }}
               />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('physiotherapyInput') as HTMLInputElement;
+                  if (input && input.value.trim()) {
+                    handleAddActivitiesPainItem('physiotherapy', input.value);
+                    input.value = '';
+                  }
+                }}
+                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              >
+                Add Item
+              </button>
             </div>
           </div>
         </div>
@@ -3438,17 +3537,6 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
         <div>
           <div className="flex justify-between items-center mb-3">
             <h4 className="font-semibold text-gray-700">Rehabilitation Exercises:</h4>
-            <button
-              type="button"
-              onClick={(e) => {
-                const input = e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement;
-                handleAddActivitiesPainItem('rehabilitationExercises', input.value);
-                input.value = '';
-              }}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-            >
-              Add Item
-            </button>
           </div>
           <div className="space-y-2">
             {editableActivitiesPainData.rehabilitationExercises.map((item: string, index: number) => (
@@ -3476,6 +3564,7 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
             <div className="flex space-x-2">
               <input
                 type="text"
+                id="rehabilitationExercisesInput"
                 placeholder="Add new rehabilitation exercise..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 onKeyPress={(e) => {
@@ -3485,6 +3574,19 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   }
                 }}
               />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('rehabilitationExercisesInput') as HTMLInputElement;
+                  if (input && input.value.trim()) {
+                    handleAddActivitiesPainItem('rehabilitationExercises', input.value);
+                    input.value = '';
+                  }
+                }}
+                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              >
+                Add Item
+              </button>
             </div>
           </div>
         </div>
