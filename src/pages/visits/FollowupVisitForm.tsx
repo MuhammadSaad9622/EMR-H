@@ -27,12 +27,6 @@ interface FollowupVisitFormData {
   areasExacerbated: boolean;
   areasSame: boolean;
   areasResolved: boolean;
-  painRadiating: string;
-  romWnlNoPain: boolean;
-  romWnlWithPain: boolean;
-  romImproved: boolean;
-  romDecreased: boolean;
-  romSame: boolean;
   orthos: {
     tests: string;
     result: string;
@@ -195,6 +189,16 @@ interface FollowupVisitFormData {
           };
         };
       };
+      muscleTenderness?: {
+        [region: string]: {
+          [anatomicalPart: string]: string[];
+        };
+      };
+      muscleSpasm?: {
+        [region: string]: {
+          [anatomicalPart: string]: string[];
+        };
+      };
     };
   };
 }
@@ -327,12 +331,6 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
     areasExacerbated: false,
     areasSame: false,
     areasResolved: false,
-    painRadiating: '',
-    romWnlNoPain: false,
-    romWnlWithPain: false,
-    romImproved: false,
-    romDecreased: false,
-    romSame: false,
     orthos: {
       tests: '',
       result: ''
@@ -832,7 +830,7 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
   };
 
   const handleSaveAreasData = () => {
-    // Update the form data with the areas checkboxes and individual area status
+    // Update the form data with the areas checkboxes, individual area status, and muscle severity data
     setFormData((prev) => ({
       ...prev,
       fetchedData: {
@@ -843,8 +841,18 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
           areasSame: prev.areasSame,
           areasResolved: prev.areasResolved,
           individualAreaStatus: individualAreaStatus,
+          muscleTenderness: muscleTendernessSelections,
+          muscleSpasm: muscleSpasmSelections,
         },
       },
+    }));
+
+    // Also update the main form state to ensure the data is available for immediate use
+    setFormData((prev) => ({
+      ...prev,
+      individualAreaStatus: individualAreaStatus,
+      muscleTenderness: muscleTendernessSelections,
+      muscleSpasm: muscleSpasmSelections,
     }));
 
     alert('Areas data updated! Click "Save Visit" at the bottom to save all changes.');
@@ -1826,16 +1834,13 @@ Generate detailed, personalized home care instructions based on the provided pat
           areasExacerbated: formData.areasExacerbated || false,
           areasSame: formData.areasSame || false,
           areasResolved: formData.areasResolved || false,
-          individualAreaStatus: individualAreaStatus || {}
+          individualAreaStatus: individualAreaStatus || {},
+          muscleTenderness: (formData.fetchedData?.areasData as any)?.muscleTenderness || {},
+          muscleSpasm: (formData.fetchedData?.areasData as any)?.muscleSpasm || {}
         },
-        painRadiating: formData.painRadiating || '',
+
         
-        // ROM data
-        romWnlNoPain: formData.romWnlNoPain || false,
-        romWnlWithPain: formData.romWnlWithPain || false,
-        romImproved: formData.romImproved || false,
-        romDecreased: formData.romDecreased || false,
-        romSame: formData.romSame || false,
+        // ROM data - now handled through AROM modal for each body part
         
         // Orthos data
         orthos: {
@@ -1918,6 +1923,10 @@ Generate detailed, personalized home care instructions based on the provided pat
         
         // Individual Area Status Data
         individualAreaStatus: individualAreaStatus || {},
+        
+        // Muscle Tenderness and Spasm from Areas Modal
+        muscleTenderness: (formData.fetchedData?.areasData as any)?.muscleTenderness || {},
+        muscleSpasm: (formData.fetchedData?.areasData as any)?.muscleSpasm || {},
       };
       
       // Final validation
@@ -1959,6 +1968,14 @@ Generate detailed, personalized home care instructions based on the provided pat
         console.log('Orthopedic tests data being saved:', orthoTestsData);
       }
       
+      // Debug areas data specifically
+      if (formData.fetchedData?.areasData) {
+        console.log('Areas data being saved:', formData.fetchedData.areasData);
+        console.log('- Individual area status:', formData.fetchedData.areasData.individualAreaStatus);
+        console.log('- Muscle tenderness:', formData.fetchedData.areasData.muscleTenderness);
+        console.log('- Muscle spasm:', formData.fetchedData.areasData.muscleSpasm);
+      }
+      
       const response = await axios.post(`https://emr-h.onrender.com/api/visits`, visitData);
       
       const savedVisitId = response.data.visit._id;
@@ -1994,6 +2011,9 @@ Generate detailed, personalized home care instructions based on the provided pat
       
       // Show success message with data summary
       const dataSummary = [];
+      if (formData.fetchedData?.areasData?.individualAreaStatus && Object.keys(formData.fetchedData.areasData.individualAreaStatus).length > 0) dataSummary.push('Areas individual status data');
+      if (formData.fetchedData?.areasData?.muscleTenderness && Object.keys(formData.fetchedData.areasData.muscleTenderness).length > 0) dataSummary.push('Areas muscle tenderness data');
+      if (formData.fetchedData?.areasData?.muscleSpasm && Object.keys(formData.fetchedData.areasData.muscleSpasm).length > 0) dataSummary.push('Areas muscle spasm data');
       if (formData.areasImproving || formData.areasExacerbated || formData.areasSame || formData.areasResolved) dataSummary.push('Areas status data');
       if (musclePalpationData) dataSummary.push('Muscle palpation data');
       if (orthoTestsData) dataSummary.push('Ortho tests data');
@@ -2471,58 +2491,19 @@ Generate detailed, personalized home care instructions based on the provided pat
               type="button"
               onClick={() => fetchAreasData(formData.previousVisit)}
               className={`bg-white font-medium underline focus:outline-none mb-4 ${
+                (formData.fetchedData?.areasData?.individualAreaStatus && Object.keys(formData.fetchedData.areasData.individualAreaStatus).length > 0) ||
+                (formData.fetchedData?.areasData?.muscleTenderness && Object.keys(formData.fetchedData.areasData.muscleTenderness).length > 0) ||
+                (formData.fetchedData?.areasData?.muscleSpasm && Object.keys(formData.fetchedData.areasData.muscleSpasm).length > 0) ||
                 formData.areasImproving || formData.areasExacerbated || formData.areasSame || formData.areasResolved ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
               }`}
             >
-              Areas: Auto generated from Initial {(formData.areasImproving || formData.areasExacerbated || formData.areasSame || formData.areasResolved) && '✓'}
+              Areas: Auto generated from Initial {((formData.fetchedData?.areasData?.individualAreaStatus && Object.keys(formData.fetchedData.areasData.individualAreaStatus).length > 0) ||
+                (formData.fetchedData?.areasData?.muscleTenderness && Object.keys(formData.fetchedData.areasData.muscleTenderness).length > 0) ||
+                (formData.fetchedData?.areasData?.muscleSpasm && Object.keys(formData.fetchedData.areasData.muscleSpasm).length > 0) ||
+                formData.areasImproving || formData.areasExacerbated || formData.areasSame || formData.areasResolved) && '✓'}
             </button>
 
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <input
-                  id="areasImproving"
-                  name="areasImproving"
-                  type="checkbox"
-                  checked={formData.areasImproving}
-                  onChange={handleChange}
-                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                />
-                <label htmlFor="areasImproving" className="ml-2 block text-sm text-gray-900">Improving</label>
-              </div>
-              <div className="flex items-center">
-                <input
-                  id="areasExacerbated"
-                  name="areasExacerbated"
-                  type="checkbox"
-                  checked={formData.areasExacerbated}
-                  onChange={handleChange}
-                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                />
-                <label htmlFor="areasExacerbated" className="ml-2 block text-sm text-gray-900">Exacerbated</label>
-              </div>
-              <div className="flex items-center">
-                <input
-                  id="areasSame"
-                  name="areasSame"
-                  type="checkbox"
-                  checked={formData.areasSame}
-                  onChange={handleChange}
-                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                />
-                <label htmlFor="areasSame" className="ml-2 block text-sm text-gray-900">Same</label>
-              </div>
-              <div className="flex items-center">
-                <input
-                  id="areasResolved"
-                  name="areasResolved"
-                  type="checkbox"
-                  checked={formData.areasResolved}
-                  onChange={handleChange}
-                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                />
-                <label htmlFor="areasResolved" className="ml-2 block text-sm text-gray-900">Resolved</label>
-              </div>
-            </div>
+
           </div>
 
           {/* Muscle Palpation */}
@@ -3045,78 +3026,22 @@ Generate detailed, personalized home care instructions based on the provided pat
 
 
 
-          {/* Pain Radiating */}
-          <div>
-            <label htmlFor="painRadiating" className="block text-sm font-medium text-gray-700 mb-1">Pain Radiating: </label>
-            <input
-              type="text"
-              id="painRadiating"
-              name="painRadiating"
-              value={formData.painRadiating}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
 
-          {/* ROM */}
+
+          {/* ROM - For each body part */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">ROM:</label>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <input
-                  id="romWnlNoPain"
-                  name="romWnlNoPain"
-                  type="checkbox"
-                  checked={formData.romWnlNoPain}
-                  onChange={handleChange}
-                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                />
-                <label htmlFor="romWnlNoPain" className="ml-2 block text-sm text-gray-900">WNL (No Pain)</label>
-              </div>
-              <div className="flex items-center">
-                <input
-                  id="romWnlWithPain"
-                  name="romWnlWithPain"
-                  type="checkbox"
-                  checked={formData.romWnlWithPain}
-                  onChange={handleChange}
-                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                />
-                <label htmlFor="romWnlWithPain" className="ml-2 block text-sm text-gray-900">WNL (With Pain)</label>
-              </div>
-              <div className="flex items-center">
-                <input
-                  id="romImproved"
-                  name="romImproved"
-                  type="checkbox"
-                  checked={formData.romImproved}
-                  onChange={handleChange}
-                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                />
-                <label htmlFor="romImproved" className="ml-2 block text-sm text-gray-900">Improved</label>
-              </div>
-              <div className="flex items-center">
-                <input
-                  id="romDecreased"
-                  name="romDecreased"
-                  type="checkbox"
-                  checked={formData.romDecreased}
-                  onChange={handleChange}
-                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                />
-                <label htmlFor="romDecreased" className="ml-2 block text-sm text-gray-900">Decreased</label>
-              </div>
-               <div className="flex items-center">
-                <input
-                  id="romSame"
-                  name="romSame"
-                  type="checkbox"
-                  checked={formData.romSame}
-                  onChange={handleChange}
-                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                />
-                <label htmlFor="romSame" className="ml-2 block text-sm text-gray-900">Same</label>
-              </div>
+            <button
+              type="button"
+              onClick={() => fetchOrthoTestsData(formData.previousVisit)}
+              className={`bg-white font-medium underline focus:outline-none mt-2 ${
+                aromData && Object.keys(aromData).length > 0 ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+              }`}
+            >
+              ROM for each body part {aromData && Object.keys(aromData).length > 0 && '✓'}
+            </button>
+            <div className="mt-2 text-sm text-gray-600">
+              Click above to view and update ROM data for specific body parts
             </div>
           </div>
 
@@ -3158,7 +3083,7 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                 
                 {/* Column Headers */}
                 <div className="grid grid-cols-4 gap-4 mb-3">
-                  <div className="font-semibold text-sm text-gray-700">Test Name</div>
+                  <div className="font-semibold text-sm text-gray-700"></div>
                   <div className="font-semibold text-sm text-gray-700 text-center">Left</div>
                   <div className="font-semibold text-sm text-gray-700 text-center">Right</div>
                   <div className="font-semibold text-sm text-gray-700 text-center">Bilateral</div>
@@ -4576,7 +4501,7 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   </div>
                 )}
 
-                {/* Display Pain Location */}
+                {/* Display Pain Location - Only show specific body parts */}
                 {formData.fetchedData?.initialVisitData?.painLocation && formData.fetchedData.initialVisitData.painLocation.length > 0 && (
                   <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
                     <h5 className="font-semibold text-gray-800 mb-2">Pain Location:</h5>
@@ -4638,72 +4563,6 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                           </div>
                         );
                       })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Display Radiating Pain */}
-                {formData.fetchedData?.initialVisitData?.radiatingTo && (
-                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
-                    <h5 className="font-semibold text-gray-800 mb-2">Radiating Pain:</h5>
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-gray-700">{formData.fetchedData.initialVisitData.radiatingTo}</span>
-                      <div className="flex items-center space-x-4">
-                        {(() => {
-                          const areaId = 'radiating';
-                          const areaStatus = individualAreaStatus.radiating?.[areaId] || {
-                            improving: false,
-                            exacerbated: false,
-                            same: false,
-                            resolved: false
-                          };
-                          
-                          return (
-                            <>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id="improving-radiating"
-                                  checked={areaStatus.improving}
-                                  onChange={(e) => handleIndividualAreaStatusChange('radiating', areaId, 'improving', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor="improving-radiating" className="ml-2 text-xs text-gray-600">Improving</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id="exacerbated-radiating"
-                                  checked={areaStatus.exacerbated}
-                                  onChange={(e) => handleIndividualAreaStatusChange('radiating', areaId, 'exacerbated', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor="exacerbated-radiating" className="ml-2 text-xs text-gray-600">Exacerbated</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id="same-radiating"
-                                  checked={areaStatus.same}
-                                  onChange={(e) => handleIndividualAreaStatusChange('radiating', areaId, 'same', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor="same-radiating" className="ml-2 text-xs text-gray-600">Same</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id="resolved-radiating"
-                                  checked={areaStatus.resolved}
-                                  onChange={(e) => handleIndividualAreaStatusChange('radiating', areaId, 'resolved', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor="resolved-radiating" className="ml-2 text-xs text-gray-600">Resolved</label>
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
                     </div>
                   </div>
                 )}
@@ -4830,72 +4689,6 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   </div>
                 )}
 
-                {/* Display Walk Tests */}
-                {formData.fetchedData?.initialVisitData?.walkTests && formData.fetchedData.initialVisitData.walkTests.length > 0 && (
-                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
-                    <h5 className="font-semibold text-gray-800 mb-2">Walk Tests:</h5>
-                    <div className="space-y-2">
-                      {formData.fetchedData.initialVisitData.walkTests.map((test: string, index: number) => {
-                        const areaId = `walkTests-${index}`;
-                        const areaStatus = individualAreaStatus.walkTests?.[areaId] || {
-                          improving: false,
-                          exacerbated: false,
-                          same: false,
-                          resolved: false
-                        };
-                        
-                        return (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <span className="text-gray-700">{test}</span>
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`improving-${areaId}`}
-                                  checked={areaStatus.improving}
-                                  onChange={(e) => handleIndividualAreaStatusChange('walkTests', areaId, 'improving', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`exacerbated-${areaId}`}
-                                  checked={areaStatus.exacerbated}
-                                  onChange={(e) => handleIndividualAreaStatusChange('walkTests', areaId, 'exacerbated', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`same-${areaId}`}
-                                  checked={areaStatus.same}
-                                  onChange={(e) => handleIndividualAreaStatusChange('walkTests', areaId, 'same', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`resolved-${areaId}`}
-                                  checked={areaStatus.resolved}
-                                  onChange={(e) => handleIndividualAreaStatusChange('walkTests', areaId, 'resolved', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
                 {/* Display Diagnosis */}
                 {formData.fetchedData?.initialVisitData?.diagnosis && formData.fetchedData.initialVisitData.diagnosis.length > 0 && (
                   <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
@@ -4962,68 +4755,36 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   </div>
                 )}
 
-                {/* Display Tenderness */}
+                {/* Display Tenderness - Separated by muscle groups with severity levels */}
                 {formData.fetchedData?.initialVisitData?.tenderness && Object.keys(formData.fetchedData.initialVisitData.tenderness).length > 0 && (
                   <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
                     <h5 className="font-semibold text-gray-800 mb-2">Tenderness:</h5>
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       {Object.entries(formData.fetchedData.initialVisitData.tenderness).map(([region, labels], index: number) => {
                         const displayLabels = Array.isArray(labels) ? labels : [labels];
                         const areaId = `tenderness-${index}`;
-                        const areaStatus = individualAreaStatus.tenderness?.[areaId] || {
-                          improving: false,
-                          exacerbated: false,
-                          same: false,
-                          resolved: false
-                        };
                         
                         return (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <div>
+                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <div className="mb-3">
                               <span className="text-gray-700 font-medium">{region}:</span>
                               <span className="text-gray-600 ml-2">{Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}</span>
                             </div>
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`improving-${areaId}`}
-                                  checked={areaStatus.improving}
-                                  onChange={(e) => handleIndividualAreaStatusChange('tenderness', areaId, 'improving', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`exacerbated-${areaId}`}
-                                  checked={areaStatus.exacerbated}
-                                  onChange={(e) => handleIndividualAreaStatusChange('tenderness', areaId, 'exacerbated', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`same-${areaId}`}
-                                  checked={areaStatus.same}
-                                  onChange={(e) => handleIndividualAreaStatusChange('tenderness', areaId, 'same', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`resolved-${areaId}`}
-                                  checked={areaStatus.resolved}
-                                  onChange={(e) => handleIndividualAreaStatusChange('tenderness', areaId, 'resolved', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
-                              </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {['Mild', 'Mild-moderate', 'Moderate', 'Moderate-severe', 'Severe'].map((severity) => (
+                                <div key={severity} className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    id={`tenderness-${areaId}-${severity}`}
+                                    checked={muscleTendernessSelections[region]?.[areaId]?.includes(severity) || false}
+                                    onChange={(e) => handleMuscleTendernessChange(region, areaId, severity, e.target.checked)}
+                                    className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                  <label htmlFor={`tenderness-${areaId}-${severity}`} className="ml-2 text-xs text-gray-600">
+                                    {severity}
+                                  </label>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         );
@@ -5032,68 +4793,36 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   </div>
                 )}
 
-                {/* Display Spasm */}
+                {/* Display Spasm - Separated by muscle groups with severity levels */}
                 {formData.fetchedData?.initialVisitData?.spasm && Object.keys(formData.fetchedData.initialVisitData.spasm).length > 0 && (
                   <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
                     <h5 className="font-semibold text-gray-800 mb-2">Spasm:</h5>
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       {Object.entries(formData.fetchedData.initialVisitData.spasm).map(([region, labels], index: number) => {
                         const displayLabels = Array.isArray(labels) ? labels : [labels];
                         const areaId = `spasm-${index}`;
-                        const areaStatus = individualAreaStatus.spasm?.[areaId] || {
-                          improving: false,
-                          exacerbated: false,
-                          same: false,
-                          resolved: false
-                        };
                         
                         return (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <div>
+                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <div className="mb-3">
                               <span className="text-gray-700 font-medium">{region}:</span>
                               <span className="text-gray-600 ml-2">{Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}</span>
                             </div>
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`improving-${areaId}`}
-                                  checked={areaStatus.improving}
-                                  onChange={(e) => handleIndividualAreaStatusChange('spasm', areaId, 'improving', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`exacerbated-${areaId}`}
-                                  checked={areaStatus.exacerbated}
-                                  onChange={(e) => handleIndividualAreaStatusChange('spasm', areaId, 'exacerbated', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`same-${areaId}`}
-                                  checked={areaStatus.same}
-                                  onChange={(e) => handleIndividualAreaStatusChange('spasm', areaId, 'same', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`resolved-${areaId}`}
-                                  checked={areaStatus.resolved}
-                                  onChange={(e) => handleIndividualAreaStatusChange('spasm', areaId, 'resolved', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
-                              </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {['Mild', 'Mild-moderate', 'Moderate', 'Moderate-severe', 'Severe'].map((severity) => (
+                                <div key={severity} className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    id={`spasm-${areaId}-${severity}`}
+                                    checked={muscleSpasmSelections[region]?.[areaId]?.includes(severity) || false}
+                                    onChange={(e) => handleMuscleSpasmChange(region, areaId, severity, e.target.checked)}
+                                    className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                  <label htmlFor={`spasm-${areaId}-${severity}`} className="ml-2 text-xs text-gray-600">
+                                    {severity}
+                                  </label>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         );
@@ -5101,85 +4830,6 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                     </div>
                   </div>
                 )}
-
-                {/* Overall Areas Status */}
-                <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <h5 className="font-semibold text-blue-800 mb-3">Overall Areas Status:</h5>
-                  <div className="grid grid-cols-2 gap-4">
-                    {(() => {
-                      const areaId = 'overall';
-                      const areaStatus = individualAreaStatus.overall?.[areaId] || {
-                        improving: false,
-                        exacerbated: false,
-                        same: false,
-                        resolved: false
-                      };
-                      
-                      return (
-                        <>
-                          <div className="flex items-center">
-                            <input
-                              type="checkbox"
-                              id="modal-areasImproving"
-                              checked={areaStatus.improving}
-                              onChange={(e) => handleIndividualAreaStatusChange('overall', areaId, 'improving', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="modal-areasImproving" className="ml-2 text-sm text-gray-700">
-                              Improving
-                            </label>
-                          </div>
-
-                          <div className="flex items-center">
-                            <input
-                              type="checkbox"
-                              id="modal-areasExacerbated"
-                              checked={areaStatus.exacerbated}
-                              onChange={(e) => handleIndividualAreaStatusChange('overall', areaId, 'exacerbated', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="modal-areasExacerbated" className="ml-2 text-sm text-gray-700">
-                              Exacerbated
-                            </label>
-                          </div>
-
-                          <div className="flex items-center">
-                            <input
-                              type="checkbox"
-                              id="modal-areasSame"
-                              checked={areaStatus.same}
-                              onChange={(e) => handleIndividualAreaStatusChange('overall', areaId, 'same', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="modal-areasSame" className="ml-2 text-sm text-gray-700">
-                              Same
-                            </label>
-                          </div>
-
-                          <div className="flex items-center">
-                            <input
-                              type="checkbox"
-                              id="modal-areasResolved"
-                              checked={areaStatus.resolved}
-                              onChange={(e) => handleIndividualAreaStatusChange('overall', areaId, 'resolved', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="modal-areasResolved" className="ml-2 text-sm text-gray-700">
-                              Resolved
-                            </label>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Note:</strong> The checkboxes next to each area allow you to track the status of specific areas. 
-                    The overall status checkboxes represent the general progress across all areas.
-                  </p>
-                </div>
               </div>
             </div>
 
