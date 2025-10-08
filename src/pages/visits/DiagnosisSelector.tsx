@@ -1,6 +1,128 @@
 import React, { useState } from 'react';
 import Modal from 'react-modal';
 
+// Exportable ICD-10 mapping for use by InitialVisitForm as well
+// Codes are general/unspecified where laterality/severity isn't captured here.
+// Extend or override as your coding policies require.
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const icd10Map: Record<string, string> = {
+  // Cervical Spine
+  'Cervical strain/sprain': 'S16.1XXA',
+  'Cervical radiculopathy': 'M54.12',
+  'Cervical disc herniation': 'M50.20',
+  'Cervical facet syndrome': 'M53.82',
+  'Cervical myelopathy': 'G95.9',
+  'Whiplash injury': 'S13.4XXA',
+  'Cervical degenerative disc disease': 'M50.30',
+  'Cervical stenosis': 'M48.02',
+
+  // Thoracic Spine
+  'Thoracic strain/sprain': 'S29.012A',
+  'Thoracic radiculopathy': 'M54.14',
+  'Thoracic disc herniation': 'M51.24',
+  'Thoracic facet syndrome': 'M53.84',
+  'Thoracic degenerative disc disease': 'M51.34',
+  'Costovertebral dysfunction': 'M99.08',
+  'Intercostal neuralgia': 'G58.8',
+
+  // Lumbar Spine
+  'Lumbar strain/sprain': 'S39.012A',
+  'Lumbar radiculopathy': 'M54.16',
+  'Lumbar disc herniation': 'M51.26',
+  'Lumbar facet syndrome': 'M53.86',
+  'Lumbar degenerative disc disease': 'M51.36',
+  'Lumbar stenosis': 'M48.061',
+  'Spondylolisthesis': 'M43.10',
+  'Spondylosis': 'M47.819',
+  'Sciatica': 'M54.30',
+  'Lumbar disc bulge': 'M51.26',
+  'Lumbar disc protrusion': 'M51.26',
+  'Lumbar disc extrusion': 'M51.26',
+
+  // Sacral/Coccyx
+  'Sacral dysfunction': 'M53.3',
+  'Coccydynia': 'M53.3',
+  'Sacral radiculopathy': 'M54.17',
+
+  // Shoulder
+  'Shoulder impingement syndrome': 'M75.40',
+  'Rotator cuff tear': 'M75.100',
+  'Rotator cuff tendinitis': 'M75.80',
+  'Adhesive capsulitis (frozen shoulder)': 'M75.00',
+  'Shoulder instability': 'M25.319',
+  'Acromioclavicular joint sprain': 'S43.50XA',
+  'Bicipital tendinitis': 'M75.20',
+  'Labral tear': 'S43.439A',
+
+  // Elbow
+  'Lateral epicondylitis (tennis elbow)': 'M77.10',
+  'Medial epicondylitis (golfer\'s elbow)': 'M77.00',
+  'Cubital tunnel syndrome': 'G56.20',
+  'Elbow bursitis': 'M70.20',
+  'Elbow arthritis': 'M19.029',
+
+  // Wrist/Hand
+  'Carpal tunnel syndrome': 'G56.00',
+  'De Quervain\'s tenosynovitis': 'M65.4',
+  'Wrist sprain': 'S63.509A',
+  'Trigger finger': 'M65.30',
+  'Dupuytren\'s contracture': 'M72.0',
+  'Wrist arthritis': 'M19.039',
+
+  // Hip
+  'Hip bursitis': 'M70.70',
+  'Hip arthritis': 'M16.10',
+  'Hip labral tear': 'S73.192A',
+  'Hip impingement': 'M25.859',
+  'Piriformis syndrome': 'G57.00',
+  'Trochanteric bursitis': 'M70.60',
+  'Iliotibial band syndrome': 'M76.30',
+
+  // Knee
+  'Knee sprain': 'S83.90XA',
+  'Meniscal tear': 'S83.209A',
+  'Anterior cruciate ligament tear': 'S83.519A',
+  'Posterior cruciate ligament tear': 'S83.529A',
+  'Medial collateral ligament sprain': 'S83.419A',
+  'Lateral collateral ligament sprain': 'S83.429A',
+  'Patellofemoral pain syndrome': 'M22.2X9',
+  'Knee arthritis': 'M17.10',
+  'Knee bursitis': 'M70.50',
+  'Patellar tendinitis': 'M76.50',
+
+  // Ankle/Foot
+  'Ankle sprain': 'S93.409A',
+  'Plantar fasciitis': 'M72.2',
+  'Achilles tendinitis': 'M76.60',
+  'Achilles tendon rupture': 'S86.019A',
+  'Ankle arthritis': 'M19.079',
+  'Tarsal tunnel syndrome': 'G57.50',
+  'Metatarsalgia': 'M77.40',
+  'Bunion': 'M20.10',
+  'Hammertoe': 'M20.40',
+
+  // Neurological
+  'Peripheral neuropathy': 'G62.9',
+  'Complex regional pain syndrome': 'G90.50',
+  'Fibromyalgia': 'M79.7',
+  'Myofascial pain syndrome': 'M79.18',
+  'Chronic pain syndrome': 'G89.4',
+  'Post-traumatic stress disorder': 'F43.10',
+  'Depression': 'F32.A',
+  'Anxiety': 'F41.9',
+
+  // Other
+  'Post-concussion syndrome': 'F07.81',
+  'Traumatic brain injury': 'S06.9X9A',
+  'Post-traumatic headache': 'G44.309',
+  'Dizziness/vertigo': 'R42',
+  'Tinnitus': 'H93.19',
+  'Sleep disturbance': 'G47.9',
+  'Fatigue': 'R53.83',
+  'Memory problems': 'R41.3',
+  'Concentration difficulties': 'R41.840'
+};
+
 interface DiagnosisSelectorProps {
   isOpen: boolean;
   onClose: () => void;
@@ -15,6 +137,8 @@ const DiagnosisSelector: React.FC<DiagnosisSelectorProps> = ({
   onDiagnosesChange
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+
+  
 
   const diagnoses = [
     // Cervical Spine
@@ -205,7 +329,10 @@ const DiagnosisSelector: React.FC<DiagnosisSelectorProps> = ({
               onChange={() => handleDiagnosisToggle(diagnosis)}
               className="rounded"
             />
-            <span className="text-sm">{diagnosis}</span>
+            <span className="text-sm">
+              {diagnosis}
+              <span className="ml-2 text-xs text-gray-500">{icd10Map[diagnosis] || '—'}</span>
+            </span>
           </label>
         ))}
       </div>

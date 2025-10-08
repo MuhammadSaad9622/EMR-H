@@ -31,9 +31,6 @@ interface SubjectiveIntake {
   context: string;
   exacerbatedBy: string[];
   symptoms: string[];
-  radiatingTo: string;
-  radiatingRight: boolean;
-  radiatingLeft: boolean;
   sciaticaRight: boolean;
   sciaticaLeft: boolean;
   notes: string;
@@ -139,9 +136,6 @@ const PatientForm: React.FC = () => {
             context: '',
             exacerbatedBy: [],
             symptoms: [],
-            radiatingTo: '',
-            radiatingRight: false,
-            radiatingLeft: false,
             sciaticaRight: false,
             sciaticaLeft: false,
             notes: ''
@@ -280,7 +274,7 @@ const PatientForm: React.FC = () => {
           // Transform bodyPart array from database to intakes array for the form
           if (patientData.subjective && Array.isArray(patientData.subjective.bodyPart) && patientData.subjective.bodyPart.length > 0) {
             // Map each bodyPart to an intake object
-            patientData.subjective.intakes = patientData.subjective.bodyPart.map(bp => ({
+            patientData.subjective.intakes = patientData.subjective.bodyPart.map((bp: any) => ({
               bodyPart: bp.part,
               side: bp.side,
               severity: bp.severity || '',
@@ -290,9 +284,6 @@ const PatientForm: React.FC = () => {
               exacerbatedBy: Array.isArray(bp.exacerbatedBy) ? bp.exacerbatedBy : [],
               symptoms: Array.isArray(bp.symptoms) ? bp.symptoms : [],
               notes: bp.notes || '',
-              radiatingTo: bp.radiatingTo || '',
-              radiatingRight: bp.radiatingRight || false,
-              radiatingLeft: bp.radiatingLeft || false,
               sciaticaRight: bp.sciaticaRight || false,
               sciaticaLeft: bp.sciaticaLeft || false,
               headache: [] // This field is in the form but not in the database model
@@ -453,9 +444,6 @@ const PatientForm: React.FC = () => {
         exacerbatedBy: intake.exacerbatedBy,
         symptoms: intake.symptoms,
         notes: intake.notes,
-        radiatingTo: intake.radiatingTo,
-        radiatingRight: intake.radiatingRight,
-        radiatingLeft: intake.radiatingLeft,
         sciaticaRight: intake.sciaticaRight,
         sciaticaLeft: intake.sciaticaLeft
       }));
@@ -1452,20 +1440,7 @@ const PatientForm: React.FC = () => {
         </div>
       </div>
 
-      {/* Radiating To */}
-      <div className="mb-6">
-        <label htmlFor={`intake-${intakeIndex}-radiatingTo`} className="block text-sm font-medium text-gray-700 mb-1">
-          Radiating To
-        </label>
-        <input
-          type="text"
-          id={`intake-${intakeIndex}-radiatingTo`}
-          value={intake.radiatingTo}
-          onChange={(e) => updateSubjectiveIntake(intakeIndex, 'radiatingTo', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="e.g., Arm, Leg, etc."
-        />
-      </div>
+      
 
       {/* Exacerbated By */}
       <div className="mb-6">
@@ -1513,46 +1488,25 @@ const PatientForm: React.FC = () => {
         </div>
       </div>
 
-      {/* Radiating & Sciatica */}
-      <div className="mb-6 flex gap-12">
-        <div>
-          <h4 className="font-medium mb-1">Radiating</h4>
-          <label className="inline-flex items-center mr-4">
-            <input
-              type="checkbox"
-              checked={intake.radiatingRight}
-              onChange={(e) => updateSubjectiveIntake(intakeIndex, 'radiatingRight', e.target.checked)}
-            />
-            <span className="ml-2">R</span>
-          </label>
-          <label className="inline-flex items-center">
-            <input
-              type="checkbox"
-              checked={intake.radiatingLeft}
-              onChange={(e) => updateSubjectiveIntake(intakeIndex, 'radiatingLeft', e.target.checked)}
-            />
-            <span className="ml-2">L</span>
-          </label>
-        </div>
-        <div>
-          <h4 className="font-medium mb-1">Sciatica</h4>
-          <label className="inline-flex items-center mr-4">
-            <input
-              type="checkbox"
-              checked={intake.sciaticaRight}
-              onChange={(e) => updateSubjectiveIntake(intakeIndex, 'sciaticaRight', e.target.checked)}
-            />
-            <span className="ml-2">R</span>
-          </label>
-          <label className="inline-flex items-center">
-            <input
-              type="checkbox"
-              checked={intake.sciaticaLeft}
-              onChange={(e) => updateSubjectiveIntake(intakeIndex, 'sciaticaLeft', e.target.checked)}
-            />
-            <span className="ml-2">L</span>
-          </label>
-        </div>
+      {/* Sciatica */}
+      <div className="mb-6">
+        <h4 className="font-medium mb-1">Sciatica</h4>
+        <label className="inline-flex items-center mr-4">
+          <input
+            type="checkbox"
+            checked={intake.sciaticaRight}
+            onChange={(e) => updateSubjectiveIntake(intakeIndex, 'sciaticaRight', e.target.checked)}
+          />
+          <span className="ml-2">R</span>
+        </label>
+        <label className="inline-flex items-center">
+          <input
+            type="checkbox"
+            checked={intake.sciaticaLeft}
+            onChange={(e) => updateSubjectiveIntake(intakeIndex, 'sciaticaLeft', e.target.checked)}
+          />
+          <span className="ml-2">L</span>
+        </label>
       </div>
 
       {/* Notes */}

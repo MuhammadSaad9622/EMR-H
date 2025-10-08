@@ -25,7 +25,25 @@ type FormData = {
   areasResolved: boolean;
   musclePalpation: string;
   painRadiating: string;
+  painRadiatingAssessment?: Array<{
+    bodyPart: string;
+    side: string;
+    severity: string;
+    quality: string[];
+    timing: string;
+    context: string;
+    exacerbatedBy: string[];
+    symptoms: string[];
+    notes: string;
+  }>;
   romPercent: string;
+  romAssessment?: Array<{
+    bodyPart: string;
+    side: string;
+    percentage: string;
+    status: string;
+    notes: string;
+  }>;
   orthos: {
     tests: string;
     result: string;
@@ -33,6 +51,8 @@ type FormData = {
   activitiesCausePain: string;
   otherNotes: string;
   prognosis: string;
+  prognosisPlateau: boolean;
+  prognosisMaxBenefits: boolean;
   diagnosticStudy: {
     study: string;
     bodyPart: string;
@@ -40,7 +60,6 @@ type FormData = {
   };
   futureMedicalCare: string[];
   croftCriteria: string;
-  amaDisability: string;
   homeCare: string[];
   referralsNotes: string;
   // Additional fields from followup data that should be included
@@ -63,6 +82,10 @@ type FormData = {
       resolved: boolean;
     };
   };
+  subjective?: {
+    tempBodyPart?: string;
+    tempSide?: string;
+  };
 };
 
 const DischargeVisitForm: React.FC = () => {
@@ -82,7 +105,9 @@ const DischargeVisitForm: React.FC = () => {
     areasResolved: false,
     musclePalpation: '',
     painRadiating: '',
+    painRadiatingAssessment: [],
     romPercent: '',
+    romAssessment: [],
     orthos: {
       tests: '',
       result: ''
@@ -90,6 +115,8 @@ const DischargeVisitForm: React.FC = () => {
     activitiesCausePain: '',
     otherNotes: '',
     prognosis: '',
+    prognosisPlateau: false,
+    prognosisMaxBenefits: false,
     diagnosticStudy: {
       study: '',
       bodyPart: '',
@@ -97,7 +124,6 @@ const DischargeVisitForm: React.FC = () => {
     },
     futureMedicalCare: [],
     croftCriteria: '',
-    amaDisability: '',
     homeCare: [],
     referralsNotes: '',
     // Additional fields from followup data
@@ -111,7 +137,11 @@ const DischargeVisitForm: React.FC = () => {
     spasm: {},
     ortho: {},
     arom: {},
-    homeCareSuggestions: ''
+    homeCareSuggestions: '',
+    subjective: {
+      tempBodyPart: '',
+      tempSide: ''
+    }
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -120,6 +150,19 @@ const DischargeVisitForm: React.FC = () => {
   const [isOrthosModalOpen, setIsOrthosModalOpen] = useState(false);
   const [isActivitiesModalOpen, setIsActivitiesModalOpen] = useState(false);
   const [isCroftModalOpen, setIsCroftModalOpen] = useState(false);
+  const [croftGrade, setCroftGrade] = useState<string>('');
+  const [croftTemplate, setCroftTemplate] = useState<string>('');
+  const [isPainRadiatingModalOpen, setIsPainRadiatingModalOpen] = useState(false);
+  const [isROMModalOpen, setIsROMModalOpen] = useState(false);
+
+  // State for orthopedic tests data (similar to FollowupVisitForm)
+  const [orthoTestsData, setOrthoTestsData] = useState<any>({});
+  const [orthoTestSelections, setOrthoTestSelections] = useState<{[region: string]: {[testName: string]: {left: boolean; right: boolean; bilateral: boolean}}}>({});
+  const [hasOrthoTestsChanges, setHasOrthoTestsChanges] = useState(false);
+
+  // State for activities data (similar to FollowupVisitForm)
+  const [activitiesData, setActivitiesData] = useState<string>('');
+  const [initialVisitData, setInitialVisitData] = useState<any>(null);
 
   // State for individual area status checkboxes
   const [individualAreaStatus, setIndividualAreaStatus] = useState<{
@@ -150,6 +193,44 @@ const DischargeVisitForm: React.FC = () => {
     croftCriteria: {}
   });
 
+  // State for pain radiating data
+  const [painRadiatingData, setPainRadiatingData] = useState<{
+    tempBodyPart: string;
+    tempSide: string;
+    intakes: Array<{
+      bodyPart: string;
+      side: string;
+      severity: string;
+      quality: string[];
+      timing: string;
+      context: string;
+      exacerbatedBy: string[];
+      symptoms: string[];
+      notes: string;
+    }>;
+  }>({
+    tempBodyPart: '',
+    tempSide: '',
+    intakes: []
+  });
+
+  // State for ROM data
+  const [romData, setRomData] = useState<{
+    tempBodyPart: string;
+    tempSide: string;
+    intakes: Array<{
+      bodyPart: string;
+      side: string;
+      percentage: string;
+      status: string;
+      notes: string;
+    }>;
+  }>({
+    tempBodyPart: '',
+    tempSide: '',
+    intakes: []
+  });
+
   // Fetch patient data and visits on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -177,6 +258,12 @@ const DischargeVisitForm: React.FC = () => {
         if (lastFollowup) {
           setLastFollowupVisit(lastFollowup);
         }
+
+        // Load existing pain radiating data if available
+        await loadExistingPainRadiatingData();
+        
+        // Load existing ROM data if available
+        await loadExistingROMData();
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -186,6 +273,51 @@ const DischargeVisitForm: React.FC = () => {
     
     fetchData();
   }, [id]);
+
+  // Function to load existing pain radiating data
+  const loadExistingPainRadiatingData = async () => {
+    try {
+      const response = await axios.get(`https://emr-h.onrender.com/api/patients/${id}/pain-radiating`);
+      if (response.data && response.data.painRadiatingAssessment) {
+        setPainRadiatingData(prev => ({
+          ...prev,
+          intakes: response.data.painRadiatingAssessment
+        }));
+        
+        // Also update formData
+        setFormData(prev => ({
+          ...prev,
+          painRadiating: response.data.painRadiating || '',
+          painRadiatingAssessment: response.data.painRadiatingAssessment || []
+        }));
+      }
+    } catch (error) {
+      // No existing data or error - this is fine for new forms
+      console.log('No existing pain radiating data found or error loading:', error);
+    }
+  };
+
+  // Function to load existing ROM data
+  const loadExistingROMData = async () => {
+    try {
+      const response = await axios.get(`https://emr-h.onrender.com/api/patients/${id}/rom-assessment`);
+      if (response.data && response.data.romAssessment) {
+        setRomData(prev => ({
+          ...prev,
+          intakes: response.data.romAssessment
+        }));
+        
+        // Also update formData
+        setFormData(prev => ({
+          ...prev,
+          romAssessment: response.data.romAssessment || []
+        }));
+      }
+    } catch (error) {
+      // No existing data or error - this is fine for new forms
+      console.log('No existing ROM data found or error loading:', error);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
@@ -355,19 +487,6 @@ const DischargeVisitForm: React.FC = () => {
     }));
   };
 
-  const handleOrthoTestChange = (testKey: string, field: string, value: string) => {
-    setEditableAdditionalData(prev => ({
-      ...prev,
-      ortho: {
-        ...prev.ortho,
-        [testKey]: {
-          ...prev.ortho[testKey],
-          [field]: value
-        }
-      }
-    }));
-  };
-
   const handleRemoveOrthoTest = (testKey: string) => {
     setEditableAdditionalData(prev => {
       const newOrtho = { ...prev.ortho };
@@ -458,7 +577,341 @@ const DischargeVisitForm: React.FC = () => {
     });
   };
 
+  // Function to generate Croft template based on selected grade
+  const generateCroftTemplate = (grade: string) => {
+    const baseTemplate = `For our patient who experienced an auto collision as their mechanism of injury, we will follow the croft treatment guidelines, as indicated in the Croft Treatment Guidelines, ICA Best Practices and the California Whiplash Guidelines IV. Motor Vehicle Accidents (MVAs) ICA decided to use the long-established Croft Cervical 
+Acceleration/Deceleration (CAD) Guidelines for its basic Frequency and Duration Programs of Care for MVA victims. When developing her guidelines, Croft incorporated the stages of tissue repair. The stages of injury repair are defined in Table 14, Chapter 11 of the original guideline document. In MVAs, Croft originated 5 grades of injury during CAD and these Grades have been universally accepted in the literature.  
+This patient most closely falls into a Grade ${grade}: As they show: `;
+
+    let gradeSpecificText = '';
+    let durationAndSessions = '';
+
+    switch (grade) {
+      case '1':
+        gradeSpecificText = 'Minimal symptoms with no ligamentous injury.';
+        durationAndSessions = 'Grade 1: 10 weeks, 21 sessions';
+        break;
+      case '2':
+        gradeSpecificText = 'Limitation of range of motion and some ligamentous injury.';
+        durationAndSessions = 'Grade 2: 29 weeks, 33 sessions';
+        break;
+      case '3':
+        gradeSpecificText = 'Significant limitation of range of motion and ligamentous injury.';
+        durationAndSessions = 'Grade 3: 56 weeks, 76 sessions';
+        break;
+      default:
+        gradeSpecificText = 'Assessment pending grade selection.';
+        durationAndSessions = 'Please select a grade to see duration and sessions.';
+    }
+
+    return baseTemplate + gradeSpecificText + ` This allocates a treatment duration and sessions as follows: ${durationAndSessions}.`;
+  };
+
+  // Function to handle grade selection and update template
+  const handleCroftGradeChange = (grade: string) => {
+    setCroftGrade(grade);
+    const template = generateCroftTemplate(grade);
+    setCroftTemplate(template);
+  };
+
   // Handlers for severity checkboxes
+  // Functions for pain radiating data management
+  const addPainRadiatingIntake = (bodyPart: string, side: string) => {
+    setPainRadiatingData(prev => ({
+      ...prev,
+      intakes: [
+        ...prev.intakes,
+        {
+          bodyPart,
+          side,
+          severity: '',
+          quality: [],
+          timing: '',
+          context: '',
+          exacerbatedBy: [],
+          symptoms: [],
+          notes: ''
+        }
+      ]
+    }));
+  };
+
+  const updatePainRadiatingIntake = (index: number, field: string, value: any) => {
+    setPainRadiatingData(prev => {
+      const updatedIntakes = [...prev.intakes];
+      updatedIntakes[index] = {
+        ...updatedIntakes[index],
+        [field]: value
+      };
+      
+      return {
+        ...prev,
+        intakes: updatedIntakes
+      };
+    });
+  };
+
+  const removePainRadiatingIntake = (index: number) => {
+    setPainRadiatingData(prev => {
+      const updatedIntakes = [...prev.intakes];
+      updatedIntakes.splice(index, 1);
+      
+      return {
+        ...prev,
+        intakes: updatedIntakes
+      };
+    });
+  };
+
+  // Functions for ROM data management
+  const addROMIntake = (bodyPart: string, side: string) => {
+    setRomData(prev => ({
+      ...prev,
+      intakes: [
+        ...prev.intakes,
+        {
+          bodyPart,
+          side,
+          percentage: '',
+          status: '',
+          notes: ''
+        }
+      ]
+    }));
+  };
+
+  const updateROMIntake = (index: number, field: string, value: any) => {
+    setRomData(prev => {
+      const updatedIntakes = [...prev.intakes];
+      updatedIntakes[index] = {
+        ...updatedIntakes[index],
+        [field]: value
+      };
+      
+      return {
+        ...prev,
+        intakes: updatedIntakes
+      };
+    });
+  };
+
+  const removeROMIntake = (index: number) => {
+    setRomData(prev => {
+      const updatedIntakes = [...prev.intakes];
+      updatedIntakes.splice(index, 1);
+      
+      return {
+        ...prev,
+        intakes: updatedIntakes
+      };
+    });
+  };
+
+  // Function to save pain radiating data to database
+  const savePainRadiatingData = async () => {
+    try {
+      const payload = {
+        painRadiating: JSON.stringify(painRadiatingData.intakes),
+        painRadiatingAssessment: painRadiatingData.intakes
+      };
+
+      // Save to database immediately
+      await axios.post('https://emr-h.onrender.com/api/visits/pain-radiating', {
+        patientId: id,
+        ...payload
+      });
+
+      console.log('Pain radiating data saved to database:', payload);
+    } catch (error) {
+      console.error('Error saving pain radiating data:', error);
+      // Don't show error to user as this is a background save
+    }
+  };
+
+  // Function to save ROM data to database
+  const saveROMData = async () => {
+    try {
+      const payload = {
+        romAssessment: romData.intakes
+      };
+
+      // Save to database immediately
+      await axios.post('https://emr-h.onrender.com/api/visits/rom-assessment', {
+        patientId: id,
+        ...payload
+      });
+
+      console.log('ROM data saved to database:', payload);
+    } catch (error) {
+      console.error('Error saving ROM data:', error);
+      // Don't show error to user as this is a background save
+    }
+  };
+
+  // Function to fetch orthopedic tests data from followup visit
+  const fetchOrthoTestsData = async (visitId: string) => {
+    if (!visitId) {
+      alert("Please select a valid previous visit.");
+      return;
+    }
+
+    try {
+      const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
+      const visitData = response.data;
+
+      if (!visitData) {
+        console.error("Visit data is missing.");
+        alert("Failed to load visit data.");
+        return;
+      }
+
+      // Extract and structure ortho tests data
+      const orthoTestsData: {
+        [region: string]: {
+          [testName: string]: { left: string; right: string; bilateral: string };
+        };
+      } = visitData.ortho || {};
+      
+      console.log('Loaded orthopedic tests data from visit:', orthoTestsData);
+
+      // Update state for modal display
+      setOrthoTestsData(orthoTestsData);
+      setIsOrthosModalOpen(true);
+
+      // Initialize selections for interactive checkboxes based on existing data
+      const initialSelections: {[region: string]: {[testName: string]: {left: boolean; right: boolean; bilateral: boolean}}} = {};
+      
+      Object.keys(orthoTestsData).forEach(region => {
+        initialSelections[region] = {};
+        Object.keys(orthoTestsData[region]).forEach(testName => {
+          const testData = orthoTestsData[region][testName];
+          initialSelections[region][testName] = {
+            left: testData.left === 'true',
+            right: testData.right === 'true',
+            bilateral: testData.bilateral === 'true'
+          };
+        });
+      });
+      
+      setOrthoTestSelections(initialSelections);
+      setHasOrthoTestsChanges(false);
+
+    } catch (error) {
+      console.error("Error fetching orthopedic tests data:", error);
+      alert("Failed to load orthopedic tests data.");
+    }
+  };
+
+  // Function to handle orthopedic test checkbox changes
+  const handleOrthoTestChange = (region: string, testName: string, field: 'left' | 'right' | 'bilateral', checked: boolean) => {
+    setOrthoTestSelections(prev => ({
+      ...prev,
+      [region]: {
+        ...prev[region],
+        [testName]: {
+          ...prev[region]?.[testName],
+          [field]: checked
+        }
+      }
+    }));
+    setHasOrthoTestsChanges(true);
+  };
+
+  // Function to fetch initial visit data for activities
+  const fetchInitialVisitData = async (visitId: string) => {
+    try {
+      const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
+      const visitData = response.data;
+      
+      if (visitData) {
+        setInitialVisitData(visitData);
+        console.log('Initial visit data loaded:', visitData);
+      }
+    } catch (error) {
+      console.error('Error fetching initial visit data:', error);
+      alert('Failed to load initial visit data.');
+    }
+  };
+
+  // Function to handle activities modal opening
+  const handleActivitiesModalOpen = async () => {
+    if (!lastFollowupVisit) {
+      alert("No followup visit found. Please ensure there's a followup visit to load activities data.");
+      return;
+    }
+    
+    try {
+      // Fetch initial visit data if not already loaded
+      if (!initialVisitData) {
+        await fetchInitialVisitData(lastFollowupVisit._id);
+      }
+      
+      // Set the current activities data from form
+      setActivitiesData(formData.activitiesCausePain || '');
+      setIsActivitiesModalOpen(true);
+    } catch (error) {
+      console.error('Error opening activities modal:', error);
+      alert('Failed to load activities data.');
+    }
+  };
+
+  // Function to save activities data
+  const handleSaveActivitiesData = async () => {
+    if (!lastFollowupVisit) {
+      alert('No followup visit found. Please create a followup visit first.');
+      return;
+    }
+
+    try {
+      // Update form data with the activities data
+      setFormData(prev => ({
+        ...prev,
+        activitiesCausePain: activitiesData
+      }));
+      
+      // Save to database by updating the existing followup visit
+      const updateData = {
+        activitiesCausePain: activitiesData
+      };
+
+      await axios.put(`https://emr-h.onrender.com/api/visits/${lastFollowupVisit._id}`, updateData);
+      
+      // Update local followup data
+      setFollowupData((prev: any) => ({
+        ...prev,
+        ...updateData
+      }));
+      
+      alert('Activities data saved successfully!');
+      setIsActivitiesModalOpen(false);
+    } catch (error) {
+      console.error('Error saving activities data:', error);
+      alert('Failed to save activities data.');
+    }
+  };
+
+  // Function to save orthopedic tests data to database
+  const saveOrthoTestsData = async () => {
+    try {
+      const payload = {
+        orthoTestSelections: orthoTestSelections
+      };
+
+      // Save to database immediately
+      await axios.post('https://emr-h.onrender.com/api/visits/ortho-tests', {
+        patientId: id,
+        ...payload
+      });
+
+      console.log('Orthopedic tests data saved to database:', payload);
+      alert('Orthopedic tests data saved successfully to database!');
+      setHasOrthoTestsChanges(false);
+    } catch (error) {
+      console.error('Error saving orthopedic tests data:', error);
+      alert('Failed to save orthopedic tests data.');
+    }
+  };
+
   const handleSeverityChange = (section: 'tenderness' | 'spasm', region: string, severity: string, checked: boolean) => {
     setEditableAdditionalData(prev => {
       const sectionData = prev[section];
@@ -571,8 +1024,8 @@ const DischargeVisitForm: React.FC = () => {
         croftCriteria: data?.croftCriteria || {}
       });
       
-      // Toggle side by side view instead of modal
-      setShowSideBySide(true);
+      // Open modal to show followup data
+      setIsModalOpen(true);
     } catch (error) {
       console.error('Error fetching followup visit data:', error);
       alert('Failed to load followup visit data.');
@@ -1000,7 +1453,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       // Assessment fields
       musclePalpation: formData.musclePalpation || '',
       painRadiating: formData.painRadiating || '',
+      painRadiatingAssessment: formData.painRadiatingAssessment || [],
       romPercent: formData.romPercent ? Number(formData.romPercent) : undefined,
+      romAssessment: formData.romAssessment || [],
       
       // ROM fields
       romWnlNoPain: formData.romWnlNoPain || false,
@@ -1023,6 +1478,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       
       // Assessment and plan
       prognosis: formData.prognosis || '',
+      prognosisPlateau: formData.prognosisPlateau || false,
+      prognosisMaxBenefits: formData.prognosisMaxBenefits || false,
       diagnosticStudy: {
         study: formData.diagnosticStudy?.study || '',
         bodyPart: formData.diagnosticStudy?.bodyPart || '',
@@ -1030,7 +1487,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       },
       futureMedicalCare: formData.futureMedicalCare || [],
       croftCriteria: formData.croftCriteria || '',
-      amaDisability: formData.amaDisability || '',
       homeCare: formData.homeCare || [],
       referralsNotes: formData.referralsNotes || '',
       
@@ -1213,62 +1669,35 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
           </div>
 
-          {/* Muscle Palpation */}
-          <div>
-            <label htmlFor="musclePalpation" className="block text-sm font-medium text-gray-700 mb-1">Muscle Palpation:</label>
-                    <button
-          type="button"
-          onClick={() => {
-            if (followupData) {
-              setIsMuscleModalOpen(true);
-            } else {
-              fetchLastFollowupData();
-            }
-          }}
-          className="bg-white text-purple-600 font-medium underline hover:text-purple-800 focus:outline-none mb-4"
-        >
-          List of muscles specific to that body part
-        </button>
-            <textarea 
-              id="musclePalpation"
-              name="musclePalpation" 
-              value={formData.musclePalpation} 
-              onChange={handleChange} 
-              placeholder="Muscle Palpation Results" 
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              rows={3}
-            />
-          </div>
 
           {/* Pain Radiating */}
           <div>
-            <label htmlFor="painRadiating" className="block text-sm font-medium text-gray-700 mb-1">Pain Radiating:</label>
-            <textarea 
-              id="painRadiating"
-              name="painRadiating" 
-              value={formData.painRadiating} 
-              onChange={handleChange} 
-              placeholder="Pain Radiating" 
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              rows={3}
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pain Radiating:</label>
+                    <button
+          type="button"
+              onClick={() => setIsPainRadiatingModalOpen(true)}
+          className="bg-white text-purple-600 font-medium underline hover:text-purple-800 focus:outline-none mb-4"
+        >
+              Add Body Parts for Pain Radiating Assessment
+        </button>
           </div>
 
           {/* ROM */}
           <div>
-            <label htmlFor="romPercent" className="block text-sm font-medium text-gray-700 mb-1">ROM:</label>
-            <div className="flex items-center space-x-2">
-              <input 
-                type="number" 
-                id="romPercent"
-                name="romPercent" 
-                value={formData.romPercent} 
-                onChange={handleChange} 
-                placeholder="ROM % Pre-injury" 
-                className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-              <span className="text-gray-600">% Pre-injury status</span>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ROM:</label>
+            <button
+              type="button"
+              onClick={() => setIsROMModalOpen(true)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center"
+            >
+              <span className="mr-2">ROM Assessment</span>
+              <span className="text-green-600">✓</span>
+            </button>
+            {formData.romAssessment && formData.romAssessment.length > 0 && (
+              <div className="mt-2 text-sm text-gray-600">
+                {formData.romAssessment.length} body part(s) assessed
             </div>
+            )}
           </div>
 
           {/* Orthos */}
@@ -1277,15 +1706,18 @@ const handleSubmit = async (e: React.FormEvent) => {
             <button
               type="button"
               onClick={() => {
-                if (followupData) {
-                  setIsOrthosModalOpen(true);
+                if (lastFollowupVisit) {
+                  fetchOrthoTestsData(lastFollowupVisit._id);
                 } else {
-                  fetchLastFollowupData();
+                  alert("No followup visit found. Please ensure there's a followup visit to load orthopedic tests data.");
                 }
               }}
-              className="bg-white text-green-600 font-medium underline hover:text-green-800 focus:outline-none mb-4"
+              className={`bg-white font-medium underline focus:outline-none ${
+                hasOrthoTestsChanges ? 'text-orange-600 hover:text-orange-800' :
+                orthoTestsData && Object.keys(orthoTestsData).length > 0 ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+              }`}
             >
-              List of tests specific for body part
+              List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsData).length > 0 && (hasOrthoTestsChanges ? '⚠️' : '✓')}
             </button>
           </div>
 
@@ -1294,16 +1726,12 @@ const handleSubmit = async (e: React.FormEvent) => {
             <label htmlFor="activitiesCausePain" className="block text-sm font-medium text-gray-700 mb-1">Activities that still cause pain:</label>
             <button
               type="button"
-              onClick={() => {
-                if (followupData) {
-                  setIsActivitiesModalOpen(true);
-                } else {
-                  fetchLastFollowupData();
-                }
-              }}
-              className="bg-white text-orange-600 font-medium underline hover:text-orange-800 focus:outline-none mb-4"
+              onClick={handleActivitiesModalOpen}
+              className={`bg-white font-medium underline focus:outline-none ${
+                activitiesData ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+              }`}
             >
-              List of things specific to selected body part
+              List of things specific to selected body part {activitiesData && '✓'}
             </button>
           </div>
 
@@ -1334,9 +1762,43 @@ const handleSubmit = async (e: React.FormEvent) => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">Select Prognosis</option>
-              <option value="plateau">The patient has reached a plateau in their recovery. He/she remains symptomatic due to the extensive injuries sustained.</option>
-              <option value="maximum_benefits">The patient has received maximum benefits from the given treatment and therefore, will be discharged from care.</option>
+              <option value="excellent">Excellent - Full recovery expected</option>
+              <option value="good">Good - Significant improvement expected</option>
+              <option value="fair">Fair - Moderate improvement expected</option>
+              <option value="guarded">Guarded - Limited improvement expected</option>
+              <option value="poor">Poor - Minimal improvement expected</option>
             </select>
+            
+            {/* Prognosis Checkboxes */}
+            <div className="mt-4 space-y-3">
+              <div className="flex items-start">
+                <input
+                  type="checkbox"
+                  id="prognosisPlateau"
+                  name="prognosisPlateau"
+                  checked={formData.prognosisPlateau}
+                  onChange={handleChange}
+                  className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="prognosisPlateau" className="ml-3 text-sm text-gray-700">
+                  The patient has reached a plateau in her recovery. She remains symptomatic due to the extensive injuries sustained.
+                </label>
+              </div>
+              
+              <div className="flex items-start">
+                <input
+                  type="checkbox"
+                  id="prognosisMaxBenefits"
+                  name="prognosisMaxBenefits"
+                  checked={formData.prognosisMaxBenefits}
+                  onChange={handleChange}
+                  className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="prognosisMaxBenefits" className="ml-3 text-sm text-gray-700">
+                  The patient has received maximum benefits from the given treatment and therefore, will be discharged from care.
+                </label>
+              </div>
+            </div>
           </div>
 
           {/* Review of diagnostic study */}
@@ -1345,25 +1807,67 @@ const handleSubmit = async (e: React.FormEvent) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="diagnosticStudy.study" className="block text-xs text-gray-500 mb-1">Study</label>
-                <input
-                  type="text"
+                <select
                   id="diagnosticStudy.study"
+                  name="diagnosticStudy.study"
                   value={formData.diagnosticStudy.study}
                   onChange={(e) => handleNestedChange('diagnosticStudy', 'study', e.target.value)}
-                  placeholder="Study Type"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
+                >
+                  <option value="">Select study...</option>
+                  <option value="X-ray">X-ray</option>
+                  <option value="MRI">MRI</option>
+                  <option value="CT Scan">CT Scan</option>
+                  <option value="Ultrasound">Ultrasound</option>
+                  <option value="EMG/NCV">EMG/NCV</option>
+                  <option value="Bone Scan">Bone Scan</option>
+                  <option value="PET Scan">PET Scan</option>
+                  <option value="Nuclear Medicine">Nuclear Medicine</option>
+                  <option value="Arthrogram">Arthrogram</option>
+                  <option value="Myelogram">Myelogram</option>
+                  <option value="Discogram">Discogram</option>
+                  <option value="Fluoroscopy">Fluoroscopy</option>
+                  <option value="DEXA Scan">DEXA Scan</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div>
                 <label htmlFor="diagnosticStudy.bodyPart" className="block text-xs text-gray-500 mb-1">Body Part</label>
-                <input
-                  type="text"
+                <select
                   id="diagnosticStudy.bodyPart"
+                  name="diagnosticStudy.bodyPart"
                   value={formData.diagnosticStudy.bodyPart}
                   onChange={(e) => handleNestedChange('diagnosticStudy', 'bodyPart', e.target.value)}
-                  placeholder="Body Part"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
+                >
+                  <option value="">Select body part...</option>
+                  <option value="Cervical Spine (C/S)">Cervical Spine (C/S)</option>
+                  <option value="Thoracic Spine (T/S)">Thoracic Spine (T/S)</option>
+                  <option value="Lumbar Spine (L/S)">Lumbar Spine (L/S)</option>
+                  <option value="Sacroiliac Joint Right">Sacroiliac Joint Right</option>
+                  <option value="Sacroiliac Joint Left">Sacroiliac Joint Left</option>
+                  <option value="Hip Right">Hip Right</option>
+                  <option value="Hip Left">Hip Left</option>
+                  <option value="Knee Right">Knee Right</option>
+                  <option value="Knee Left">Knee Left</option>
+                  <option value="Ankle Right">Ankle Right</option>
+                  <option value="Ankle Left">Ankle Left</option>
+                  <option value="Shoulder Right">Shoulder Right</option>
+                  <option value="Shoulder Left">Shoulder Left</option>
+                  <option value="Elbow Right">Elbow Right</option>
+                  <option value="Elbow Left">Elbow Left</option>
+                  <option value="Wrist Right">Wrist Right</option>
+                  <option value="Wrist Left">Wrist Left</option>
+                  <option value="Hand Right">Hand Right</option>
+                  <option value="Hand Left">Hand Left</option>
+                  <option value="Foot Right">Foot Right</option>
+                  <option value="Foot Left">Foot Left</option>
+                  <option value="Pelvis">Pelvis</option>
+                  <option value="Skull">Skull</option>
+                  <option value="Chest">Chest</option>
+                  <option value="Abdomen">Abdomen</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div>
                 <label htmlFor="diagnosticStudy.result" className="block text-xs text-gray-500 mb-1">Result</label>
@@ -1384,36 +1888,13 @@ const handleSubmit = async (e: React.FormEvent) => {
             <label htmlFor="croftCriteria" className="block text-sm font-medium text-gray-700 mb-1">Croft Criteria: Grade (1,2,3) Frequency of Treatment Guideline Placement</label>
             <button
               type="button"
-              onClick={() => {
-                if (followupData) {
-                  setIsCroftModalOpen(true);
-                } else {
-                  fetchLastFollowupData();
-                }
-              }}
+              onClick={() => setIsCroftModalOpen(true)}
               className="bg-white text-teal-600 font-medium underline hover:text-teal-800 focus:outline-none mb-4"
             >
               Grade
             </button>
           </div>
 
-          {/* AMA Disability */}
-          <div>
-            <label htmlFor="amaDisability" className="block text-sm font-medium text-gray-700 mb-1">AMA Disability:</label>
-            <select 
-              id="amaDisability"
-              name="amaDisability" 
-              value={formData.amaDisability} 
-              onChange={handleChange} 
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select AMA Disability Grade</option>
-              <option value="Grade I">Grade I</option>
-              <option value="Grade II">Grade II</option>
-              <option value="Grade III">Grade III</option>
-              <option value="Grade IV">Grade IV</option>
-            </select>
-          </div>
 
           {/* Referrals / Recommendations / Notes */}
           <div>
@@ -3033,128 +3514,135 @@ const handleSubmit = async (e: React.FormEvent) => {
         )}
 
         {/* Orthos Modal */}
-        {isOrthosModalOpen && followupData && (
+        {isOrthosModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-4 rounded-t-xl">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-xl font-bold">Orthopedic Tests Data</h3>
-                    <p className="text-green-100 text-sm mt-1">Review and edit orthopedic tests from followup visit</p>
-                  </div>
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-800">Orthopedic Tests Data</h3>
                   <button
                     onClick={() => setIsOrthosModalOpen(false)}
-                    className="text-white hover:text-green-200 transition-colors p-2 rounded-full hover:bg-green-600"
+                  className="text-gray-500 hover:text-gray-700"
+                  aria-label="Close modal"
                   >
-                    <X className="h-6 w-6" />
+                  <X size={24} />
                   </button>
                 </div>
-              </div>
 
-              {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
-                <div className="space-y-6">
-                  {/* Orthos Tests - Editable */}
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm font-bold">O</span>
+              {/* Displaying Orthopedic Test Data */}
+              <div className="bg-gray-50 p-4 rounded-md space-y-6">
+                {/* Orthopedic Tests */}
+                  <div>
+                  <h4 className="font-bold text-lg text-gray-800 mb-2">Orthopedic Tests:</h4>
+                  {Object.entries(orthoTestsData as Record<string, any>).length > 0 ? (
+                    Object.entries(orthoTestsData as Record<string, any>).map(([region, tests]) => (
+                      <div key={region} className="mb-6">
+                        <h5 className="font-semibold text-lg text-gray-800 mb-4">{region}</h5>
+                        
+                        {/* Column Headers */}
+                        <div className="grid grid-cols-4 gap-4 mb-3">
+                          <div className="font-semibold text-sm text-gray-700"></div>
+                          <div className="font-semibold text-sm text-gray-700 text-center">Left</div>
+                          <div className="font-semibold text-sm text-gray-700 text-center">Right</div>
+                          <div className="font-semibold text-sm text-gray-700 text-center">Bilateral</div>
+                  </div>
+
+                        {/* Test Results */}
+                        {Object.entries(tests as Record<string, any>).map(([testName, testResult]) => (
+                          <div key={testName} className="grid grid-cols-4 gap-4 items-center py-2 border-b border-gray-200">
+                              {/* Test Name */}
+                            <div className="font-medium text-gray-600">{testName}</div>
+                              
+                            {/* Left Result */}
+                            <div className="flex items-center justify-center space-x-2">
+                                <input
+                                  type="text"
+                                value={(testResult as any).left === 'N/A' || (testResult as any).left === null || (testResult as any).left === undefined ? '' : (testResult as any).left || ''}
+                                  readOnly
+                                className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none text-center bg-gray-100"
+                                placeholder=""
+                              />
+                              <input
+                                type="checkbox"
+                                checked={orthoTestSelections[region]?.[testName]?.left || false}
+                                onChange={(e) => handleOrthoTestChange(region, testName, 'left', e.target.checked)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
                         </div>
-                        <h4 className="text-lg font-bold text-green-800">Orthopedic Tests</h4>
-                      </div>
-                      <button
-                        onClick={handleAddOrthoTest}
-                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                      >
-                        Add Test
-                      </button>
-                            </div>
-                    <div className="space-y-3">
-                      {Object.entries(editableAdditionalData.ortho).map(([testKey, testData]: [string, any]) => (
-                        <div key={testKey} className="bg-white rounded-lg p-4 border border-green-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <h5 className="font-semibold text-green-700 capitalize">{testKey}</h5>
-                            <button
-                              onClick={() => handleRemoveOrthoTest(testKey)}
-                              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Test Name:</label>
+                            
+                            {/* Right Result */}
+                            <div className="flex items-center justify-center space-x-2">
                               <input
                                 type="text"
-                                value={testData.name || ''}
-                                onChange={(e) => handleOrthoTestChange(testKey, 'name', e.target.value)}
-                                placeholder="Enter test name..."
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                                value={(testResult as any).right === 'N/A' || (testResult as any).right === null || (testResult as any).right === undefined ? '' : (testResult as any).right || ''}
+                                  readOnly
+                                className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none text-center bg-gray-100"
+                                placeholder=""
+                              />
+                              <input
+                                type="checkbox"
+                                checked={orthoTestSelections[region]?.[testName]?.right || false}
+                                onChange={(e) => handleOrthoTestChange(region, testName, 'right', e.target.checked)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                               />
                             </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Result:</label>
-                              <select
-                                value={testData.result || ''}
-                                onChange={(e) => handleOrthoTestChange(testKey, 'result', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
-                              >
-                                <option value="">Select Result</option>
-                                <option value="Positive">Positive</option>
-                                <option value="Negative">Negative</option>
-                                <option value="Equivocal">Equivocal</option>
-                                <option value="Not Tested">Not Tested</option>
-                              </select>
-                          </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Details:</label>
-                              <textarea
-                                value={testData.details || ''}
-                                onChange={(e) => handleOrthoTestChange(testKey, 'details', e.target.value)}
-                                placeholder="Enter test details..."
-                                rows={2}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                            
+                            {/* Bilateral Result */}
+                            <div className="flex items-center justify-center space-x-2">
+                                <input
+                                  type="text"
+                                value={(testResult as any).bilateral === 'N/A' || (testResult as any).bilateral === null || (testResult as any).bilateral === undefined ? '' : (testResult as any).bilateral || ''}
+                                  readOnly
+                                className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none text-center bg-gray-100"
+                                placeholder=""
                               />
-                      </div>
+                              <input
+                                type="checkbox"
+                                checked={orthoTestSelections[region]?.[testName]?.bilateral || false}
+                                onChange={(e) => handleOrthoTestChange(region, testName, 'bilateral', e.target.checked)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
                     </div>
                                     </div>
                                   ))}
-                      {Object.keys(editableAdditionalData.ortho).length === 0 && (
-                        <p className="text-gray-500 italic text-sm text-center py-4">No orthopedic tests. Click "Add Test" to add one.</p>
-                              )}
-                            </div>
-                          </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-600">No orthopedic test data available.</p>
+                  )}
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="bg-gray-50 px-6 py-4 rounded-b-xl border-t border-gray-200">
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium">Ready to apply orthopedic test data to your form?</span>
-                  </div>
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => setIsOrthosModalOpen(false)}
-                      className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={saveOrthosData}
-                      className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-medium hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-md hover:shadow-lg"
-                    >
-                      Save Changes
-                    </button>
-                    <button
-                      onClick={applyOrthosData}
-                      className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md hover:shadow-lg"
-                    >
-                      Apply to Form
-                    </button>
-                  </div>
+              {/* Footer with Save Button */}
+              <div className="mt-4 flex justify-between items-center">
+                <div className="text-sm text-gray-600">
+                  {hasOrthoTestsChanges && (
+                    <span className="text-orange-600 font-medium">⚠️ You have unsaved changes</span>
+                  )}
+                  {!hasOrthoTestsChanges && (
+                    <span className="text-green-600">✓ All changes saved</span>
+                  )}
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setIsOrthosModalOpen(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await saveOrthoTestsData();
+                      setIsOrthosModalOpen(false);
+                    }}
+                    disabled={!hasOrthoTestsChanges}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all shadow-md hover:shadow-lg ${
+                      hasOrthoTestsChanges
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 focus:ring-blue-500'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Save Changes
+                  </button>
                 </div>
               </div>
             </div>
@@ -3162,148 +3650,204 @@ const handleSubmit = async (e: React.FormEvent) => {
         )}
 
         {/* Activities Modal */}
-        {isActivitiesModalOpen && followupData && (
+        {isActivitiesModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white px-6 py-4 rounded-t-xl">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-xl font-bold">Activities Data</h3>
-                    <p className="text-orange-100 text-sm mt-1">Review and edit activities that cause pain from followup visit</p>
-                  </div>
-                  <button
-                    onClick={() => setIsActivitiesModalOpen(false)}
-                    className="text-white hover:text-orange-200 transition-colors p-2 rounded-full hover:bg-orange-600"
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
-                <div className="space-y-6">
-                  {/* Activities - Editable */}
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm font-bold">A</span>
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-800">Activities That Still Cause Pain</h3>
+                <button
+                  onClick={() => setIsActivitiesModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                  aria-label="Close modal"
+                >
+                  <X size={24} />
+                </button>
                         </div>
-                        <h4 className="text-lg font-bold text-orange-800">Activities Causing Pain</h4>
+
+              <div className="bg-gray-50 p-4 rounded-md space-y-6">
+                {/* Chief Complaint Reference */}
+                {initialVisitData?.chiefComplaint && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <h4 className="font-semibold text-blue-800 mb-2">Original Chief Complaint:</h4>
+                    <p className="text-blue-700 text-sm">{initialVisitData.chiefComplaint}</p>
                       </div>
+                )}
+
+                {/* Add Body Part Section */}
+                <div className="mb-6 p-4 bg-white border border-gray-200 rounded-md">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Add Body Part for Activities</h4>
+                  
+                  {/* Dropdown Row */}
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    {/* Body Part Dropdown */}
+                    <select
+                      value={formData.subjective?.tempBodyPart || ''}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          subjective: {
+                            ...prev.subjective,
+                            tempBodyPart: e.target.value,
+                          },
+                        }))
+                      }
+                      className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select Body Part</option>
+                      {[
+                        'C/S', 'T/S', 'L/S', 'SH', 'ELB', 'WR', 'Hand', 'Finger(s)',
+                        'Hip', 'KN', 'AN', 'Foot', 'Toe(s)',
+                        'L Ant/Post/Lat/Med', 'R Ant/Post/Lat/Med',
+                      ].map((part) => (
+                        <option key={part} value={part}>{part}</option>
+                      ))}
+                    </select>
+
+                    {/* Side Dropdown */}
+                    <select
+                      value={formData.subjective?.tempSide || ''}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          subjective: {
+                            ...prev.subjective,
+                            tempSide: e.target.value,
+                          },
+                        }))
+                      }
+                      className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select Side</option>
+                      <option value="Left">Left</option>
+                      <option value="Right">Right</option>
+                      <option value="Bilateral">Bilateral</option>
+                    </select>
+
+                    {/* Add Button */}
                       <button
-                        onClick={handleAddActivity}
-                        className="px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700"
-                      >
-                        Add Activity
+                      type="button"
+                      onClick={() => {
+                        const { tempBodyPart, tempSide } = formData.subjective || {};
+                        if (tempBodyPart && tempSide) {
+                          // Add to activities data
+                          const newActivity = `${tempBodyPart} - ${tempSide}`;
+                          const currentActivities = activitiesData ? activitiesData + '\n• ' : '• ';
+                          setActivitiesData(currentActivities + newActivity);
+                          
+                          // Clear temp values
+                          setFormData((prev) => ({
+                            ...prev,
+                            subjective: {
+                              ...prev.subjective,
+                              tempBodyPart: '',
+                              tempSide: '',
+                            },
+                          }));
+                        }
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    >
+                      Add Body Part
                       </button>
-                      </div>
-                    <div className="space-y-3">
-                      {Object.entries(editableAdditionalData.activities).map(([activityKey, activityData]: [string, any]) => (
-                        <div key={activityKey} className="bg-white rounded-lg p-4 border border-orange-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <h5 className="font-semibold text-orange-700 capitalize">{activityKey}</h5>
-                            <button
-                              onClick={() => handleRemoveActivity(activityKey)}
-                              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                            >
-                              Remove
-                            </button>
-                      </div>
-                      <div className="space-y-3">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Activity Name:</label>
-                              <input
-                                type="text"
-                                value={activityData.name || ''}
-                                onChange={(e) => handleActivityChange(activityKey, 'name', e.target.value)}
-                                placeholder="Enter activity name..."
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500"
-                              />
-                                    </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Severity:</label>
-                              <select
-                                value={activityData.severity || ''}
-                                onChange={(e) => handleActivityChange(activityKey, 'severity', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500"
-                              >
-                                <option value="">Select Severity</option>
-                                <option value="Mild">Mild</option>
-                                <option value="Moderate">Moderate</option>
-                                <option value="Severe">Severe</option>
-                              </select>
-                                </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Frequency:</label>
-                              <select
-                                value={activityData.frequency || ''}
-                                onChange={(e) => handleActivityChange(activityKey, 'frequency', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500"
-                              >
-                                <option value="">Select Frequency</option>
-                                <option value="Rarely">Rarely</option>
-                                <option value="Occasionally">Occasionally</option>
-                                <option value="Frequently">Frequently</option>
-                                <option value="Always">Always</option>
-                              </select>
-                                </div>
                             </div>
-                          </div>
-                        ))}
-                      {Object.keys(editableAdditionalData.activities).length === 0 && (
-                        <p className="text-gray-500 italic text-sm text-center py-4">No activities. Click "Add Activity" to add one.</p>
-                      )}
-                      </div>
+                </div>
+
+                {/* Activities Data Table */}
+                <div className="bg-white border border-gray-200 rounded-md">
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <h4 className="font-semibold text-gray-800">Activities That Still Cause Pain</h4>
+                    <p className="text-sm text-gray-600 mt-1">Edit the activities based on the chief complaint</p>
+                  </div>
+                  
+                  <div className="p-4">
+                    <div className="mb-4">
+                      <label htmlFor="activitiesTextarea" className="block text-sm font-medium text-gray-700 mb-2">
+                        Activities Description:
+                      </label>
+                      <textarea
+                        id="activitiesTextarea"
+                        value={activitiesData}
+                        onChange={(e) => setActivitiesData(e.target.value)}
+                        rows={6}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter activities that still cause pain based on the chief complaint..."
+                      />
                     </div>
+
+                    {/* Suggested Activities Table */}
+                    {initialVisitData?.chiefComplaint && (
+                      <div className="mt-4">
+                        <h5 className="font-medium text-gray-700 mb-3">Suggested Activities (from Chief Complaint):</h5>
+                        <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {initialVisitData.chiefComplaint.split(/[.,;]/).map((activity: string, index: number) => {
+                              const trimmedActivity = activity.trim();
+                              if (trimmedActivity) {
+                                return (
+                                  <div key={index} className="flex items-center p-2 bg-white border border-gray-200 rounded">
+                                    <span className="text-sm text-gray-700 flex-1">{trimmedActivity}</span>
+                            <button
+                                      type="button"
+                                      onClick={() => {
+                                        const currentActivities = activitiesData ? activitiesData + '\n• ' : '• ';
+                                        setActivitiesData(currentActivities + trimmedActivity);
+                                      }}
+                                      className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200"
+                                    >
+                                      Add
+                            </button>
+                          </div>
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Current Activities Display */}
+                    {activitiesData && (
+                      <div className="mt-4">
+                        <h5 className="font-medium text-gray-700 mb-2">Current Activities:</h5>
+                        <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                          <pre className="text-sm text-green-800 whitespace-pre-wrap">{activitiesData}</pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="bg-gray-50 px-6 py-4 rounded-b-xl border-t border-gray-200">
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium">Ready to apply activities data to your form?</span>
-                  </div>
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => setIsActivitiesModalOpen(false)}
-                      className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={saveActivitiesData}
-                      className="px-6 py-2 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-lg text-sm font-medium hover:from-orange-700 hover:to-orange-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all shadow-md hover:shadow-lg"
-                    >
-                      Save Changes
-                    </button>
-                    <button
-                      onClick={applyActivitiesData}
-                      className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md hover:shadow-lg"
-                    >
-                      Apply to Form
-                    </button>
-                  </div>
-                </div>
+              <div className="mt-4 flex justify-end space-x-2">
+                <button
+                  onClick={handleSaveActivitiesData}
+                  className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+                >
+                  Save Activities
+                </button>
+                <button
+                  onClick={() => setIsActivitiesModalOpen(false)}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
+                >
+                  Close
+                </button>
               </div>
-                       </div>
-         </div>
-       )}
+            </div>
+          </div>
+        )}
 
         {/* Croft Criteria Modal */}
-        {isCroftModalOpen && followupData && (
+        {isCroftModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden">
               {/* Header */}
               <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white px-6 py-4 rounded-t-xl">
                 <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-xl font-bold">Croft Criteria Data</h3>
-                    <p className="text-teal-100 text-sm mt-1">Review and edit Croft Criteria grades from followup visit</p>
-                  </div>
+                            <div>
+                    <h3 className="text-xl font-bold">Croft Criteria - Frequency of Treatment Guideline Placement</h3>
+                    <p className="text-teal-100 text-sm mt-1">Select grade and review the generated treatment guideline</p>
+                            </div>
                   <button
                     onClick={() => setIsCroftModalOpen(false)}
                     className="text-white hover:text-teal-200 transition-colors p-2 rounded-full hover:bg-teal-600"
@@ -3316,88 +3860,63 @@ const handleSubmit = async (e: React.FormEvent) => {
               {/* Content */}
               <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
                 <div className="space-y-6">
-                  {/* Croft Criteria - Editable */}
+                  {/* Grade Selection */}
                   <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm font-bold">C</span>
-                        </div>
-                        <h4 className="text-lg font-bold text-teal-800">Croft Criteria Assessment</h4>
+                    <div className="flex items-center mb-4">
+                      <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-white text-sm font-bold">C</span>
                       </div>
-                      <button
-                        onClick={handleAddCroftCriteria}
-                        className="px-3 py-1 bg-teal-600 text-white text-sm rounded hover:bg-teal-700"
-                      >
-                        Add Criteria
-                      </button>
-                        </div>
-                    <div className="space-y-3">
-                      {Object.entries(editableAdditionalData.croftCriteria).map(([criteriaKey, criteriaData]: [string, any]) => (
-                        <div key={criteriaKey} className="bg-white rounded-lg p-4 border border-teal-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <h5 className="font-semibold text-teal-700 capitalize">{criteriaKey}</h5>
-                            <button
-                              onClick={() => handleRemoveCroftCriteria(criteriaKey)}
-                              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                            >
-                              Remove
-                            </button>
-                      </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Grade:</label>
-                              <select
-                                value={criteriaData.grade || ''}
-                                onChange={(e) => handleCroftCriteriaChange(criteriaKey, 'grade', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              >
-                                <option value="">Select Grade</option>
-                                <option value="1">Grade 1</option>
-                                <option value="2">Grade 2</option>
-                                <option value="3">Grade 3</option>
-                              </select>
+                      <h4 className="text-lg font-bold text-teal-800">Croft Grade Selection</h4>
                     </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Frequency:</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Select Grade:</label>
                               <select
-                                value={criteriaData.frequency || ''}
-                                onChange={(e) => handleCroftCriteriaChange(criteriaKey, 'frequency', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              >
-                                <option value="">Select Frequency</option>
-                                <option value="Rarely">Rarely</option>
-                                <option value="Occasionally">Occasionally</option>
-                                <option value="Frequently">Frequently</option>
-                                <option value="Always">Always</option>
+                          value={croftGrade}
+                          onChange={(e) => handleCroftGradeChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        >
+                          <option value="">Select Grade</option>
+                          <option value="1">Grade 1</option>
+                          <option value="2">Grade 2</option>
+                          <option value="3">Grade 3</option>
                               </select>
+                          </div>
+                      
+                      {croftGrade && (
+                        <div className="md:col-span-2">
+                          <div className="bg-white rounded-lg p-3 border border-teal-200">
+                            <h5 className="font-semibold text-teal-700 mb-2">Treatment Duration & Sessions:</h5>
+                            <p className="text-sm text-gray-700">
+                              {croftGrade === '1' && 'Grade 1: 10 weeks, 21 sessions'}
+                              {croftGrade === '2' && 'Grade 2: 29 weeks, 33 sessions'}
+                              {croftGrade === '3' && 'Grade 3: 56 weeks, 76 sessions'}
+                            </p>
                       </div>
-                            <div className="md:col-span-2">
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Guideline:</label>
-                              <input
-                                type="text"
-                                value={criteriaData.treatmentGuideline || ''}
-                                onChange={(e) => handleCroftCriteriaChange(criteriaKey, 'treatmentGuideline', e.target.value)}
-                                placeholder="Enter treatment guideline..."
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              />
                     </div>
-                            <div className="md:col-span-2">
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Notes:</label>
-                              <textarea
-                                value={criteriaData.notes || ''}
-                                onChange={(e) => handleCroftCriteriaChange(criteriaKey, 'notes', e.target.value)}
-                                placeholder="Enter additional notes..."
-                                rows={2}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
-                              />
+                              )}
                             </div>
                           </div>
-                        </div>
-                      ))}
-                      {Object.keys(editableAdditionalData.croftCriteria).length === 0 && (
-                        <p className="text-gray-500 italic text-sm text-center py-4">No Croft Criteria. Click "Add Criteria" to add one.</p>
-                      )}
+
+                  {/* Template Text */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center mb-4">
+                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-white text-sm font-bold">T</span>
+                      </div>
+                      <h4 className="text-lg font-bold text-blue-800">Frequency of Treatment Guideline Placement</h4>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Treatment Guideline Template:</label>
+                      <textarea
+                        value={croftTemplate}
+                        onChange={(e) => setCroftTemplate(e.target.value)}
+                        rows={12}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
+                        placeholder="Select a grade above to generate the treatment guideline template..."
+                      />
                     </div>
                   </div>
                 </div>
@@ -3407,7 +3926,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="bg-gray-50 px-6 py-4 rounded-b-xl border-t border-gray-200">
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-gray-600">
-                    <span className="font-medium">Ready to apply Croft Criteria data to your form?</span>
+                    <span className="font-medium">Ready to save Croft Criteria to your form?</span>
                   </div>
                   <div className="flex space-x-3">
                     <button
@@ -3417,18 +3936,498 @@ const handleSubmit = async (e: React.FormEvent) => {
                       Cancel
                     </button>
                     <button
-                      onClick={saveCroftCriteriaData}
+                      onClick={() => {
+                        // Save the template to formData
+                        setFormData(prev => ({
+                          ...prev,
+                          croftCriteria: croftTemplate
+                        }));
+                        setIsCroftModalOpen(false);
+                        alert('Croft Criteria saved successfully!');
+                      }}
                       className="px-6 py-2 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg text-sm font-medium hover:from-teal-700 hover:to-teal-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all shadow-md hover:shadow-lg"
                     >
                       Save Changes
                     </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pain Radiating Modal */}
+        {isPainRadiatingModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 rounded-t-xl">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xl font-bold">Pain Radiating Assessment</h3>
+                    <p className="text-purple-100 text-sm mt-1">Add body parts and assess pain radiating patterns</p>
+                  </div>
+                  <button
+                    onClick={() => setIsPainRadiatingModalOpen(false)}
+                    className="text-white hover:text-purple-200 transition-colors p-2 rounded-full hover:bg-purple-600"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
+                <div className="space-y-6">
+                  {/* Add Body Part Section */}
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h4 className="text-lg font-semibold text-purple-800 mb-4">Add Body Part for Pain Radiating Assessment</h4>
+                    
+                    {/* Dropdown Row */}
+                    <div className="flex flex-wrap items-center gap-3 mb-4">
+                      {/* Body Part Dropdown */}
+                      <select
+                        value={painRadiatingData.tempBodyPart}
+                        onChange={(e) =>
+                          setPainRadiatingData(prev => ({
+                            ...prev,
+                            tempBodyPart: e.target.value,
+                          }))
+                        }
+                        className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        <option value="">Select Body Part</option>
+                        {[
+                          'C/S', 'T/S', 'L/S', 'SH', 'ELB', 'WR', 'Hand', 'Finger(s)',
+                          'Hip', 'KN', 'AN', 'Foot', 'Toe(s)',
+                          'L Ant/Post/Lat/Med', 'R Ant/Post/Lat/Med',
+                        ].map((part) => (
+                          <option key={part} value={part}>{part}</option>
+                        ))}
+                      </select>
+
+                      {/* Side Dropdown */}
+                      <select
+                        value={painRadiatingData.tempSide}
+                        onChange={(e) =>
+                          setPainRadiatingData(prev => ({
+                            ...prev,
+                            tempSide: e.target.value,
+                          }))
+                        }
+                        className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        <option value="">Select Side</option>
+                        <option value="Left">Left</option>
+                        <option value="Right">Right</option>
+                        <option value="Bilateral">Bilateral</option>
+                      </select>
+
+                      {/* Add Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const { tempBodyPart, tempSide } = painRadiatingData;
+                          if (tempBodyPart && tempSide) {
+                            addPainRadiatingIntake(tempBodyPart, tempSide);
+                            setPainRadiatingData(prev => ({
+                              ...prev,
+                              tempBodyPart: '',
+                              tempSide: '',
+                            }));
+                          }
+                        }}
+                        className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700"
+                      >
+                        Add Body Part
+                      </button>
+                      </div>
+                  </div>
+
+                  {/* Display pain radiating intakes for each body part */}
+                  {painRadiatingData.intakes.map((intake, intakeIndex) => (
+                    <div key={`pain-intake-${intakeIndex}`} className="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold text-purple-700">
+                          {intake.bodyPart} - {intake.side}
+                        </h3>
+                            <button
+                          type="button"
+                          onClick={() => removePainRadiatingIntake(intakeIndex)}
+                          className="text-red-600 hover:text-red-800 font-medium"
+                            >
+                              Remove
+                            </button>
+                      </div>
+
+                      {/* Severity */}
+                      <div className="mb-6">
+                        <h4 className="text-lg font-semibold text-gray-800 mb-2">Severity</h4>
+                        <div className="flex flex-wrap gap-2 text-sm">
+                          {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Mild", "Moderate", "Severe"].map(val => (
+                            <label key={`severity-${intakeIndex}-${val}`} className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                name={`pain-intake-${intakeIndex}-severity`}
+                                value={val}
+                                checked={intake.severity === val}
+                                onChange={() => updatePainRadiatingIntake(intakeIndex, 'severity', val)}
+                              />
+                              <span>{val}</span>
+                            </label>
+                          ))}
+                                    </div>
+                                </div>
+
+                      {/* Quality */}
+                      <div className="mb-6">
+                        <h4 className="text-lg font-semibold text-gray-800 mb-2">Quality</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                          {["Achy", "Dull", "Sharp", "Stabbing", "Throbbing", "Burning", "Crushing"].map(val => (
+                            <label key={`quality-${intakeIndex}-${val}`} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                value={val}
+                                checked={intake.quality.includes(val)}
+                                onChange={(e) => {
+                                  const updated = e.target.checked
+                                    ? [...intake.quality, val]
+                                    : intake.quality.filter(q => q !== val);
+                                  updatePainRadiatingIntake(intakeIndex, 'quality', updated);
+                                }}
+                              />
+                              <span>{val}</span>
+                            </label>
+                          ))}
+                                </div>
+                            </div>
+
+                      {/* Timing */}
+                      <div className="mb-6">
+                        <h4 className="text-lg font-semibold text-gray-800 mb-2">Timing</h4>
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          {["Constant", "Frequent", "Intermittent", "Occasional", "Activity Dependent"].map(val => (
+                            <label key={`timing-${intakeIndex}-${val}`} className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                name={`pain-intake-${intakeIndex}-timing`}
+                                value={val}
+                                checked={intake.timing === val}
+                                onChange={() => updatePainRadiatingIntake(intakeIndex, 'timing', val)}
+                              />
+                              <span>{val}</span>
+                            </label>
+                          ))}
+                          </div>
+                      </div>
+
+                      {/* Context */}
+                      <div className="mb-6">
+                        <h4 className="text-lg font-semibold text-gray-800 mb-2">Context</h4>
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          {["New", "Improving", "Worsening", "Recurrent"].map(val => (
+                            <label key={`context-${intakeIndex}-${val}`} className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                name={`pain-intake-${intakeIndex}-context`}
+                                value={val}
+                                checked={intake.context === val}
+                                onChange={() => updatePainRadiatingIntake(intakeIndex, 'context', val)}
+                              />
+                              <span>{val}</span>
+                            </label>
+                          ))}
+                      </div>
+                    </div>
+
+                      {/* Exacerbated By */}
+                      <div className="mb-6">
+                        <h4 className="text-lg font-semibold text-gray-800 mb-2">Exacerbated By</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                          {["Rest", "Increased Activity", "Prolonged Work", "School", "Stress", "Looking Up/Down", "Overhead Reach", "Sitting", "Standing", "Walking", "Twisting", "Stooping", "Bend", "Squat", "Kneel", "Lifting", "Carrying", "Serving", "Pulling/Pushing", "Grip/Grasp", "Chiro", "Physio", "Exercise", "Ice", "Heat", "Changes in the Weather"].map(val => (
+                            <label key={`exacerbated-${intakeIndex}-${val}`} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                value={val}
+                                checked={intake.exacerbatedBy.includes(val)}
+                                onChange={(e) => {
+                                  const updated = e.target.checked
+                                    ? [...intake.exacerbatedBy, val]
+                                    : intake.exacerbatedBy.filter(v => v !== val);
+                                  updatePainRadiatingIntake(intakeIndex, 'exacerbatedBy', updated);
+                                }}
+                              />
+                              <span>{val}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Signs/Symptoms */}
+                      <div className="mb-6">
+                        <h4 className="text-lg font-semibold text-gray-800 mb-2">Signs / Symptoms</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                          {["Tenderness", "Soreness", "Stiffness", "Tightness", "Loss of Motion", "Locking", "Grinding", "Popping", "Clicking", "Joint Instability", "Joint Redness", "Tingling", "Numbness", "Swelling", "Weakness", "Pulling", "Dropping Objects", "Dizziness", "Nausea", "Hearing Loss", "TMJ", "Double Vision", "Blurry Vision", "Photosensitivity", "Throat Pain", "Fever", "Rash", "Loss of Bowel or Bladder", "Feeling Mentally Foggy", "Feeling Slowed Down", "Difficulty Remembering", "Difficulty Concentrating"].map(val => (
+                            <label key={`symptoms-${intakeIndex}-${val}`} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                value={val}
+                                checked={intake.symptoms.includes(val)}
+                                onChange={(e) => {
+                                  const updated = e.target.checked
+                                    ? [...intake.symptoms, val]
+                                    : intake.symptoms.filter(s => s !== val);
+                                  updatePainRadiatingIntake(intakeIndex, 'symptoms', updated);
+                                }}
+                              />
+                              <span>{val}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Notes */}
+                      <div className="mb-6">
+                        <label htmlFor={`pain-intake-${intakeIndex}-notes`} className="block text-sm font-medium text-gray-700 mb-1">
+                          Notes
+                        </label>
+                        <textarea
+                          id={`pain-intake-${intakeIndex}-notes`}
+                          rows={3}
+                          value={intake.notes}
+                          onChange={(e) => updatePainRadiatingIntake(intakeIndex, 'notes', e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        ></textarea>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Show message if no body parts added */}
+                  {painRadiatingData.intakes.length === 0 && (
+                    <div className="text-center p-6 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-gray-500">No body parts added yet. Use the form above to add body parts for pain radiating assessment.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-gray-50 px-6 py-4 rounded-b-xl border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">Ready to save pain radiating assessment data?</span>
+                  </div>
+                  <div className="flex space-x-3">
                     <button
-                      onClick={applyCroftCriteriaData}
-                      className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md hover:shadow-lg"
+                      onClick={() => setIsPainRadiatingModalOpen(false)}
+                      className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
                     >
-                      Apply to Form
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        // Save pain radiating data to formData
+                        setFormData(prev => ({
+                          ...prev,
+                          painRadiating: JSON.stringify(painRadiatingData.intakes),
+                          painRadiatingAssessment: painRadiatingData.intakes
+                        }));
+                        
+                        // Save to database immediately
+                        await savePainRadiatingData();
+                        
+                        setIsPainRadiatingModalOpen(false);
+                        alert('Pain radiating assessment data saved successfully to database!');
+                      }}
+                      className="px-6 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all shadow-md hover:shadow-lg"
+                    >
+                      Save Changes
                     </button>
                   </div>
+                </div>
+              </div>
+                       </div>
+         </div>
+       )}
+
+          {/* ROM Assessment Modal */}
+          {isROMModalOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-gray-900">ROM Assessment - Pre-injury Status</h2>
+                  <button
+                      onClick={() => setIsROMModalOpen(false)}
+                      className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                  >
+                      ×
+                  </button>
+                </div>
+              </div>
+
+                <div className="p-6">
+                  {/* Add Body Part Section */}
+                  <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                    <h3 className="text-lg font-medium text-gray-900 mb-3">Add Body Part for ROM Assessment</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Select Body Part</label>
+                        <select
+                          value={romData.tempBodyPart}
+                          onChange={(e) => setRomData(prev => ({ ...prev, tempBodyPart: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Body Part</option>
+                          <option value="C/S">Cervical Spine (C/S)</option>
+                          <option value="T/S">Thoracic Spine (T/S)</option>
+                          <option value="L/S">Lumbar Spine (L/S)</option>
+                          <option value="SH">Shoulder (SH)</option>
+                          <option value="ELB">Elbow (ELB)</option>
+                          <option value="WR">Wrist (WR)</option>
+                          <option value="Hand">Hand</option>
+                          <option value="Finger(s)">Finger(s)</option>
+                          <option value="Hip">Hip</option>
+                          <option value="KN">Knee (KN)</option>
+                          <option value="AN">Ankle (AN)</option>
+                          <option value="Foot">Foot</option>
+                          <option value="Toe(s)">Toe(s)</option>
+                          <option value="L Ant/Post/Lat/Med">L Ant/Post/Lat/Med</option>
+                          <option value="R Ant/Post/Lat/Med">R Ant/Post/Lat/Med</option>
+                        </select>
+                        </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Select Side</label>
+                        <select
+                          value={romData.tempSide}
+                          onChange={(e) => setRomData(prev => ({ ...prev, tempSide: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select Side</option>
+                          <option value="Left">Left</option>
+                          <option value="Right">Right</option>
+                          <option value="Bilateral">Bilateral</option>
+                        </select>
+                      </div>
+                      <div className="flex items-end">
+                      <button
+                          onClick={() => {
+                            if (romData.tempBodyPart && romData.tempSide) {
+                              addROMIntake(romData.tempBodyPart, romData.tempSide);
+                              setRomData(prev => ({ ...prev, tempBodyPart: '', tempSide: '' }));
+                            } else {
+                              alert('Please select both body part and side');
+                            }
+                          }}
+                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          Add Body Part
+                      </button>
+                        </div>
+                    </div>
+                  </div>
+
+                  {/* Display ROM Assessments */}
+                  {romData.intakes.map((intake, intakeIndex) => (
+                    <div key={intakeIndex} className="mb-6 p-4 border border-gray-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-medium text-gray-900">
+                          {intake.bodyPart} - {intake.side}
+                        </h4>
+                            <button
+                          onClick={() => removeROMIntake(intakeIndex)}
+                          className="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm"
+                            >
+                              Remove
+                            </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Percentage */}
+                            <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Percentage of Pre-injury ROM</label>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={intake.percentage}
+                              onChange={(e) => updateROMIntake(intakeIndex, 'percentage', e.target.value)}
+                              className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="0-100"
+                            />
+                            <span className="text-gray-600">%</span>
+                    </div>
+                        </div>
+
+                        {/* Status */}
+                            <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                              <select
+                            value={intake.status}
+                            onChange={(e) => updateROMIntake(intakeIndex, 'status', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="">Select Status</option>
+                            <option value="WNL No Pain">WNL No Pain</option>
+                            <option value="WNL With Pain">WNL With Pain</option>
+                            <option value="Improved">Improved</option>
+                            <option value="Decreased">Decreased</option>
+                            <option value="Same">Same</option>
+                            <option value="Resolved">Resolved</option>
+                              </select>
+                      </div>
+                    </div>
+
+                      {/* Notes */}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                              <textarea
+                          value={intake.notes}
+                          onChange={(e) => updateROMIntake(intakeIndex, 'notes', e.target.value)}
+                                rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Additional notes about ROM assessment..."
+                              />
+                          </div>
+                        </div>
+                      ))}
+
+                  {/* Empty State */}
+                  {romData.intakes.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No body parts added yet. Use the form above to add body parts for ROM assessment.</p>
+                    </div>
+                  )}
+              </div>
+
+                {/* Modal Footer */}
+                <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200 rounded-b-lg">
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => setIsROMModalOpen(false)}
+                      className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        // Save ROM data to formData
+                        setFormData(prev => ({
+                          ...prev,
+                          romAssessment: romData.intakes
+                        }));
+                        
+                        // Save to database immediately
+                        await saveROMData();
+                        
+                        setIsROMModalOpen(false);
+                        alert('ROM assessment data saved successfully to database!');
+                      }}
+                      className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md hover:shadow-lg"
+                    >
+                      Save Changes
+                    </button>
                 </div>
               </div>
             </div>

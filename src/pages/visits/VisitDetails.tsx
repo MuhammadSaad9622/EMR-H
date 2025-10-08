@@ -902,7 +902,7 @@ const VisitDetails: React.FC = () => {
             if (Array.isArray(parts) && parts.length > 0) {
           return (
                 <p key={modality} className="text-gray-700">
-                  {modality.charAt(0).toUpperCase() + modality.slice(1)} was performed for: {parts.join(', ')}.
+                  {modality.charAt(0).toUpperCase() + modality.slice(1)} was referred for: {parts.join(', ')}.
             </p>
           );
             }
@@ -924,7 +924,7 @@ const VisitDetails: React.FC = () => {
         <div className="mb-3">
           <h4 className="font-medium text-gray-800">Nerve Study</h4>
           <p className="text-gray-700">
-            Nerve studies revealed: {visit.nerveStudy.join(', ')}.
+            referred for Nerve studies : {visit.nerveStudy.join(', ')}.
         </p>
       </div>
     )}
@@ -944,7 +944,7 @@ const VisitDetails: React.FC = () => {
     {visit.disabilityDuration && (
         <div className="mb-3">
           <h4 className="font-medium text-gray-800">Disability Duration</h4>
-          <p className="text-gray-700">{visit.disabilityDuration}</p>
+          <p className="text-gray-700">{visit.disabilityDuration} weeks</p>
       </div>
     )}
 
@@ -1152,7 +1152,7 @@ const VisitDetails: React.FC = () => {
           )}
           {visit.disabilityDuration && (
             <p className="text-gray-700">
-              <span className="font-medium">Disability Duration:</span> {visit.disabilityDuration}
+              <span className="font-medium">Disability Duration:</span> {visit.disabilityDuration} weeks
             </p>
           )}
         </div>
@@ -1520,7 +1520,7 @@ const VisitDetails: React.FC = () => {
               )}
               {visit.fetchedData.activitiesPainData.disabilityDuration && (
                 <p className="text-gray-700">
-                  <span className="font-medium">Disability Duration:</span> {visit.fetchedData.activitiesPainData.disabilityDuration}
+                  <span className="font-medium">Disability Duration:</span> {visit.fetchedData.activitiesPainData.disabilityDuration} weeks
                 </p>
               )}
             </div>
@@ -1604,7 +1604,7 @@ const VisitDetails: React.FC = () => {
               )}
               {visit.fetchedData.treatmentListData.disabilityDuration && (
                 <p className="text-gray-700">
-                  <span className="font-medium">Disability Duration:</span> {visit.fetchedData.treatmentListData.disabilityDuration}
+                  <span className="font-medium">Disability Duration:</span> {visit.fetchedData.treatmentListData.disabilityDuration} weeks
                 </p>
               )}
               {visit.fetchedData.treatmentListData.otherNotes && (
@@ -1850,7 +1850,7 @@ const VisitDetails: React.FC = () => {
               )}
               {visit.disabilityDuration && (
                 <p className="text-gray-700">
-                  <span className="font-medium">Disability Duration:</span> {visit.disabilityDuration}
+                  <span className="font-medium">Disability Duration:</span> {visit.disabilityDuration} weeks
                 </p>
               )}
             </div>
@@ -2254,7 +2254,7 @@ const VisitDetails: React.FC = () => {
                     )}
                     {visit.fetchedData.activitiesPainData.disabilityDuration && (
                       <p className="text-gray-600">
-                        <span className="font-medium">Disability Duration:</span> {visit.fetchedData.activitiesPainData.disabilityDuration}
+                        <span className="font-medium">Disability Duration:</span> {visit.fetchedData.activitiesPainData.disabilityDuration} weeks
                       </p>
                     )}
                   </div>
@@ -2338,7 +2338,7 @@ const VisitDetails: React.FC = () => {
                     )}
                     {visit.fetchedData.treatmentListData.disabilityDuration && (
                       <p className="text-gray-600">
-                        <span className="font-medium">Disability Duration:</span> {visit.fetchedData.treatmentListData.disabilityDuration}
+                        <span className="font-medium">Disability Duration:</span> {visit.fetchedData.treatmentListData.disabilityDuration} weeks
                       </p>
                     )}
                     {visit.fetchedData.treatmentListData.otherNotes && (

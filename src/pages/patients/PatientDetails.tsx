@@ -537,36 +537,7 @@ const PatientDetails: React.FC<{}> = () => {
 
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [aiNarrativePreview, setAiNarrativePreview] = useState<any>(null);
-  const [showAiPreview, setShowAiPreview] = useState(false);
 
-  // Icon mapping for better display
-  const getIconForSection = (iconText: string, heading: string) => {
-    const iconMap: { [key: string]: string } = {
-      '🩺': '🩺',
-      '📋': '📋', 
-      '📖': '📖',
-      '🔍': '🔍',
-      '⚕️': '⚕️',
-      '💊': '💊',
-      '📈': '📈',
-      '✅': '✅'
-    };
-    
-    // Fallback based on heading if icon is not recognized
-    if (iconMap[iconText]) return iconMap[iconText];
-    
-    if (heading.includes('CHIEF')) return '🩺';
-    if (heading.includes('HISTORY')) return '📋';
-    if (heading.includes('MEDICAL')) return '📖';
-    if (heading.includes('EXAMINATION')) return '🔍';
-    if (heading.includes('ASSESSMENT')) return '⚕️';
-    if (heading.includes('TREATMENT')) return '💊';
-    if (heading.includes('PROGNOSIS')) return '📈';
-    if (heading.includes('RECOMMENDATIONS')) return '✅';
-    
-    return '•'; // Default bullet
-  };
 
   Modal.setAppElement('#root');
 
@@ -621,29 +592,6 @@ const PatientDetails: React.FC<{}> = () => {
     return age;
   };
 
-  const generateAiPreview = async () => {
-    if (!patient) return;
-    setIsGeneratingReport(true);
-    
-    try {
-      console.log('Generating AI narrative preview:', { patient: patient._id, visitsCount: visits.length });
-      const response = await axios.post('https://emr-h.onrender.com/api/ai/generate-narrative', {
-        patient,
-        visits,
-      });
-      
-      const aiNarrative = response.data.narrative;
-      console.log('AI narrative preview generated:', aiNarrative ? 'Success' : 'Failed');
-      
-      setAiNarrativePreview(aiNarrative);
-      setShowAiPreview(true);
-    } catch (error) {
-      console.error('Error generating AI preview:', error);
-      toast.error('Failed to generate AI narrative preview');
-    } finally {
-      setIsGeneratingReport(false);
-    }
-  };
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
@@ -655,6 +603,237 @@ const PatientDetails: React.FC<{}> = () => {
   const generateFullReport = async () => {
     if (!patient) return;
     setIsGeneratingReport(true);
+    
+    try {
+      // Helper function to get Croft Grade information
+      const getCroftGradeInfo = (grade: string) => {
+        const gradeInfo = {
+          '1': {
+            description: 'Minimal symptoms with no ligamentous injury.',
+            duration: '10 weeks',
+            sessions: '21 sessions',
+            visitsPerYear: '12-18',
+            costPerVisit: '$100-$120',
+            totalCostRange: '$1,200-$2,160'
+          },
+          '2': {
+            description: 'Limitation of range of motion and some ligamentous injury.',
+            duration: '29 weeks',
+            sessions: '33 sessions',
+            visitsPerYear: '18-24',
+            costPerVisit: '$100-$120',
+            totalCostRange: '$1,800-$2,880'
+          },
+          '3': {
+            description: 'Significant limitation of range of motion and ligamentous injury.',
+            duration: '56 weeks',
+            sessions: '76 sessions',
+            visitsPerYear: '24-36',
+            costPerVisit: '$100-$120',
+            totalCostRange: '$2,400-$4,320'
+          }
+        };
+        return gradeInfo[grade as keyof typeof gradeInfo] || gradeInfo['2']; // Default to Grade 2
+      };
+
+      // Find discharge visit to get Croft Grade
+      const dischargeVisit = visits.find(visit => visit.visitType === 'discharge' || visit.__t === 'DischargeVisit');
+      const croftGrade = dischargeVisit?.croftCriteria || '2'; // Default to Grade 2 if not found
+      const croftInfo = getCroftGradeInfo(croftGrade);
+
+      // Generate AI narrative using actual patient and visit data
+      const response = await axios.post('http://localhost:5000/api/ai/generate-full-report', {
+        patient,
+        visits,
+        croftInfo,
+        template: `
+***SUBJECTIVE*** 
+***Chief Complaint*** 
+
+${patient.subjective?.bodyPart && patient.subjective.bodyPart.length > 0 ? 
+  patient.subjective.bodyPart.map(bp => 
+    `• The patient complained of pain in the ${bp.part} (${bp.side}).`
+  ).join('\n') : 
+  '• Chief complaint information not available.'
+}
+ 
+***History of Present Illness*** 
+
+${patient.subjective?.bodyPart && patient.subjective.bodyPart.length > 0 ? 
+  patient.subjective.bodyPart.map(bp => 
+    `• Pain. Location - the ${bp.part} (${bp.side}). Quality – ${bp.quality?.join(', ') || 'Not specified'}, and estimated intensity level ${bp.severity || 'Not specified'}. Reports ${bp.symptoms?.join(', ') || 'general discomfort'}. Severity – ${bp.timing || 'Not specified'}. Associated symptoms - Patient's statement of functional capacity indicates pain when: ${bp.exacerbatedBy?.join(', ') || 'various activities'}.`
+  ).join('\n') : 
+  '• History of present illness not available.'
+}
+
+***Past, Family, and Social History*** 
+**Social History** 
+• Family status: ${patient.firstName} ${patient.lastName} is a ${calculateAge(patient.dateOfBirth)}-year-old, ${patient.gender}.
+• Substance usage: None reported
+
+***Family History***
+${patient.medicalHistory.familyHistory?.length > 0 && patient.medicalHistory.familyHistory[0] ? 
+  patient.medicalHistory.familyHistory.map(history => `• ${history}`).join('\n') : 
+  '• None Reported'
+}
+
+**Past History**
+${patient.accidentDate ? `• Injuries. ${patient.accidentType || 'Accident'} on ${new Date(patient.accidentDate).toLocaleDateString()}.` : '• Injuries. None reported.'}
+• Illnesses. ${patient.medicalHistory.conditions?.length > 0 && patient.medicalHistory.conditions[0] ? patient.medicalHistory.conditions.join(', ') : 'None reported.'}
+• Surgeries. ${patient.medicalHistory.surgeries?.length > 0 && patient.medicalHistory.surgeries[0] ? patient.medicalHistory.surgeries.join(', ') : 'None reported.'}
+• Medicines. ${patient.medicalHistory.medications?.length > 0 && patient.medicalHistory.medications[0] ? patient.medicalHistory.medications.join(', ') : 'None reported.'}
+• Allergies. ${patient.medicalHistory.allergies?.length > 0 && patient.medicalHistory.allergies[0] ? patient.medicalHistory.allergies.join(', ') : 'None reported.'}
+
+**Smoking Status**
+• Smoking status: None reported.
+
+***Accident***
+• Patient was injured during ${patient.accidentType || 'an accident'} ${patient.accidentDate ? `on ${new Date(patient.accidentDate).toLocaleDateString()}` : ''}.
+
+***OBJECTIVE*** 
+***Examination***
+
+**Neurological**
+• Testing, palpation, and inspection of the neurological system, unless otherwise noted, revealed the following: Sensation is normal in all areas tested. Deep tendon reflexes are brisk and symmetrical. Oriented to time, place and person. Coordination and fine motor skills are within normal range.
+
+**Constitutional**
+${visits.find(v => v.visitType === 'initial')?.vitals ? 
+  `• Height. Height ${visits.find(v => v.visitType === 'initial')?.vitals?.heightFeet || 'N/A'} feet ${visits.find(v => v.visitType === 'initial')?.vitals?.heightInches || 'N/A'} inches.
+• Weight. Weight ${visits.find(v => v.visitType === 'initial')?.vitals?.weight || 'N/A'} pounds.
+• First Reading. BP ${visits.find(v => v.visitType === 'initial')?.vitals?.bpSystolic || 'N/A'}/${visits.find(v => v.visitType === 'initial')?.vitals?.bpDiastolic || 'N/A'} mmHg was taken sitting and using the left arm.
+• Temperature. Temperature ${visits.find(v => v.visitType === 'initial')?.vitals?.temp || 'N/A'} degrees.
+• Regular Pulse. Pulse (regular) ${visits.find(v => v.visitType === 'initial')?.vitals?.pulse || 'N/A'} beats per minute.
+• General Appearance. The patient's general appearance is well developed and is well nourished.` : 
+  '• Vital signs not available.'
+}
+
+**Musculoskeletal**
+• Gait / Station. ${visits.find(v => v.visitType === 'initial')?.gait?.join(', ') || 'Normal gait observed.'}
+• Muscle Strength Test. ${visits.find(v => v.visitType === 'initial')?.muscleStrength?.join(', ') || 'Muscle strength testing not documented.'}
+• Orthopedic Tests. ${visits.find(v => v.visitType === 'initial')?.ortho ? Object.entries(visits.find(v => v.visitType === 'initial')?.ortho || {}).map(([test, result]) => `${test} – ${typeof result === 'object' ? JSON.stringify(result) : result}`).join(', ') : 'Orthopedic tests not documented.'}
+• Palpations. ${visits.find(v => v.visitType === 'initial')?.tenderness ? Object.entries(visits.find(v => v.visitType === 'initial')?.tenderness || {}).map(([region, findings]) => `${region}: ${Array.isArray(findings) ? findings.join(', ') : findings}`).join(', ') : 'Palpation findings not documented.'}
+• Range of Motions. ${visits.find(v => v.visitType === 'initial')?.arom ? Object.entries(visits.find(v => v.visitType === 'initial')?.arom || {}).map(([region, movements]) => `${region}: ${typeof movements === 'object' ? JSON.stringify(movements) : movements}`).join(', ') : 'Range of motion testing not documented.'}
+
+***Dx Codes***
+${(() => {
+  const initialVisit = visits.find(v => v.visitType === 'initial');
+  return initialVisit?.diagnosis && initialVisit.diagnosis.length > 0 ? 
+    initialVisit.diagnosis.map(diagnosis => `• ${diagnosis}`).join('\n') : 
+    '• Diagnosis codes not available.';
+})()}
+
+***ASSESSMENT AND PLAN***
+***Treatment Plans/Rationale*** 
+• See diagnosis for assessment.
+• The patient's overall condition: ${dischargeVisit?.prognosis || 'remains status post injury.'}
+• Rationale for exam: Rule out contraindications for manipulation and physical modalities.
+• Rationale for treatment and treatment objectives: The short-term goals are to decrease level of acute pain, decrease the inflammation, decrease the swelling, and improve the patient P.R.O.M. The long-term goals are to decrease the likelihood of further joint damage, decrease the level of chronic pain, and educate the patient in techniques to prevent further re-injury, improve overall function of the affected areas, and improve the joint mobilization of the affected areas.
+• Schedule of care: ${visits.find(v => v.visitType === 'initial')?.scheduleOfCare || 'Treatment schedule not specified.'}
+• Reevaluation: ${visits.find(v => v.visitType === 'initial')?.reevaluation || 'A re-evaluation will be performed in approximately 4 weeks.'}
+• Return frequency: ${visits.find(v => v.visitType === 'initial')?.returnFrequency || 'As needed.'}
+• Referral: ${visits.find(v => v.visitType === 'initial')?.referral || 'No referrals at this time.'}
+• Restrictions: ${visits.find(v => v.visitType === 'initial')?.restrictions ? 
+  `The patient is restricted from heavy physical activity; heavy lifting with a limit of ${visits.find(v => v.visitType === 'initial')?.restrictions?.liftingLimitLbs || 'N/A'} pounds.` : 
+  'No specific restrictions noted.'}
+
+**Narrative Encounter – Exam – Progress**                                                                                                                                                   ${patient.lastName}, ${patient.firstName}
+
+${visits.filter(v => v.visitType === 'followup').map(visit => 
+  `${new Date(visit.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+
+***Chief Complaint*** 
+${visit.areas ? `• Areas: ${visit.areas}` : ''}
+${visit.areasImproving ? '• Areas showing improvement' : ''}
+${visit.areasExacerbated ? '• Areas showing exacerbation' : ''}
+${visit.areasSame ? '• Areas remaining the same' : ''}
+${visit.areasResolved ? '• Areas resolved' : ''}
+
+***Examination***
+**Musculoskeletal** 
+• Orthopedic Tests. ${visit.orthos?.tests || 'Not documented'}
+• Palpations. ${visit.musclePalpation || 'Not documented'}
+• Range of Motions. ${visit.romWnlNoPain ? 'WNL with no pain' : visit.romWnlWithPain ? 'WNL with pain' : visit.romImproved ? 'Improved ROM' : visit.romDecreased ? 'Decreased ROM' : visit.romSame ? 'Same ROM' : 'Not documented'}
+
+***ASSESSMENT AND PLAN***
+***Treatment***
+**Chiropractic and Acupuncture** 
+• Specific adjustive procedures and acupuncture administered as indicated.
+
+**Physical Modalities**
+The following modalities were utilized in the treatment of this patient:
+${visit.treatmentPlan?.chiropractic ? '• Chiropractic adjustment' : ''}
+${visit.treatmentPlan?.acupuncture ? '• Acupuncture' : ''}
+${visit.treatmentPlan?.mechanicalTraction ? '• Mechanical traction' : ''}
+${visit.treatmentPlan?.myofascialRelease ? '• Myofascial release' : ''}
+${visit.treatmentPlan?.ultrasound ? '• Ultrasound' : ''}
+${visit.treatmentPlan?.infraredElectricMuscleStimulation ? '• Infrared electric muscle stimulation' : ''}
+${visit.treatmentPlan?.therapeuticExercise ? '• Therapeutic exercise' : ''}
+${visit.treatmentPlan?.neuromuscularReeducation ? '• Neuromuscular reeducation' : ''}
+
+***Treatment Plans/Rationale*** 
+• See diagnosis for assessment.
+• Schedule of care: ${visit.treatmentPlan?.frequency?.timesPerWeek ? Object.entries(visit.treatmentPlan.frequency.timesPerWeek).filter(([_, checked]) => checked).map(([freq, _]) => freq).join(', ') : 'Not specified'}
+• Reevaluation: ${visit.treatmentPlan?.frequency?.reEval ? Object.entries(visit.treatmentPlan.frequency.reEval).filter(([_, checked]) => checked).map(([period, _]) => period).join(', ') : 'Not specified'}
+• Home care recommendation: ${visit.homeCareSuggestions || 'As needed.'}
+`).join('\n\n')}
+
+**Narrative Encounter – Final Exam**                                                                                                                                               ${patient.lastName}, ${patient.firstName}
+
+${dischargeVisit ? `${new Date(dischargeVisit.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+
+***SUBJECTIVE***
+***Chief Complaint*** 
+
+${dischargeVisit.areasImproving ? '• Areas showing improvement' : ''}
+${dischargeVisit.areasExacerbated ? '• Areas showing exacerbation' : ''}
+${dischargeVisit.areasSame ? '• Areas remaining the same' : ''}
+${dischargeVisit.areasResolved ? '• Areas resolved' : ''}
+
+***OBJECTIVE***
+***Examination***
+**Musculoskeletal** 
+• Orthopedic Tests. ${dischargeVisit.orthos?.tests || 'Not documented'}
+• Palpations. ${dischargeVisit.musclePalpation || 'Not documented'}
+• Range of Motions. ${dischargeVisit.romPercent || 'Not documented'}
+
+***ASSESSMENT AND PLAN***
+***Treatment Plans/Rationale*** 
+• See diagnosis for assessment.
+• Prognosis: ${dischargeVisit?.prognosis || 'Guarded.'}
+• ${(dischargeVisit as any)?.prognosisPlateau ? 'The patient has reached a plateau in recovery.' : ''}
+• ${(dischargeVisit as any)?.prognosisMaxBenefits ? 'The patient has reached maximum medical improvement.' : ''}
+• ${dischargeVisit?.futureMedicalCare && dischargeVisit.futureMedicalCare.length > 0 ? `Future medical care: ${dischargeVisit.futureMedicalCare.join(', ')}` : ''}
+• ${dischargeVisit?.croftCriteria ? `Croft criteria: ${dischargeVisit.croftCriteria}` : ''}
+• Patient will be discharged from our care.` : 'Discharge visit not available.'}
+
+***Frequency of Treatment Guideline Placement*** 
+For our patient who experienced an auto collision as their mechanism of injury, we will follow the croft treatment guidelines, as indicated in the Croft Treatment Guidelines, ICA Best Practices and the California Whiplash Guidelines IV. Motor Vehicle Accidents (MVAs) ICA decided to use the long-established Croft Cervical 
+Acceleration/Deceleration (CAD) Guidelines for its basic Frequency and Duration Programs of Care for MVA victims. When developing her guidelines, Croft incorporated the stages of tissue repair. The stages of injury repair are defined in Table 14, Chapter 11 of the original guideline document. In MVAs, Croft originated 5 grades of injury during CAD and these Grades have been universally accepted in the literature.  
+This patient most closely falls into a Grade ${croftGrade}: As they show: ${croftInfo.description}. This allocates a treatment duration of up to ${croftInfo.duration} and a treatment total number up to ${croftInfo.sessions}.
+
+***AMA Guidelines 5th Edition for Impairment*** 
+             **Lumbar**
+Table 15-5 Criteria for Rating Impairment Due to Cervical Spine Injury: (Page 392) 
+With disc pathology and ligament instability findings this injury is rated at a Category II yielding an impairment estimate based on physical examination findings and film forensics at  8% whole person impairment 
+
+***Miscellaneous Notes***
+**Future Medical Care** 
+• In view of ${patient.firstName} ${patient.lastName}'s history of injury and mechanism of injury as well as present complaints and clinical findings, it is my opinion that the patient's symptoms are the result of the ${patient.accidentType || 'accident'} that occurred ${patient.accidentDate ? `on ${new Date(patient.accidentDate).toLocaleDateString()}` : ''}. Following a thorough examination, she was placed on a conservative treatment program as mentioned above. In light of her level of initial subjective complaints, her complaints were consistent with her objective findings and this remained consistent with each office visit thereafter. Over the course of treatment, there was a gradual reduction of subjective complaints and improved objective factors. ${patient.firstName} states the treatments were helpful. 
+
+It is my opinion that the patient may need future medical care on a PRN basis for control of the pain syndrome. Such medical care may include, but is not limited to, the following: Chiropractic manipulative therapy, acupuncture, physiotherapy modalities and analgesics for relief of the pain syndrome. It is estimated that ${croftInfo.visitsPerYear} visits per year may be necessary at a cost of ${croftInfo.costPerVisit} per visit.
+
+The following requested cost estimates are based upon those published in the 2003 Medical Fees in the United States, using the GAF for Anaheim/Santa Ana, published by PMIC, ISBN 1-57066-264-9. 
+
+• The above report is for assessment of the possible injuries the patient might have incurred and is not to be construed as a complete physical examination for general health purposes. 
+
+                           **Harold Iseke, D.C.** 
+                        Treating Provider
+        `
+      });
+
+      const fullReport = response.data.report;
+      
+      // Create PDF with the AI-generated report
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let y = 30;
@@ -692,165 +871,6 @@ const PatientDetails: React.FC<{}> = () => {
       doc.setTextColor(colors.darkGray[0], colors.darkGray[1], colors.darkGray[2]);
       doc.text(footerText, pageWidth / 2, 290, { align: 'center' });
     };
-  
-        const addDetailedSection = (title: string, color: number[], fields: Array<[string, any]>, isMainVisitType: boolean = false) => {
-      const sentences: Array<{ label: string; text: string[] }> = [];
-      let height = 0;
-
-      fields.forEach(([label, value]) => {
-        if (!value) return;
-        const line = `• ${label}: ${typeof value === 'string' ? value : Array.isArray(value) ? value.join(', ') : JSON.stringify(value)}`;
-        const wrapped = doc.splitTextToSize(line, pageWidth - margin * 2);
-        sentences.push({ label, text: wrapped });
-        height += wrapped.length * 6 + 4;
-      });
-
-      if (y + height > 260) {
-        doc.addPage();
-        y = 30;
-      }
-      y += 10;
-
-      if (isMainVisitType) {
-        // Colored background for main visit types
-        doc.setFillColor(color[0], color[1], color[2]);
-        doc.roundedRect(margin - 2, y - 6, pageWidth - margin * 2 + 4, 10, 3, 3, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(255, 255, 255);
-        doc.text(title, margin, y + 2);
-      } else {
-        // Bold and underlined for subheadings (no colors)
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(50);
-        doc.text(title, margin, y + 2);
-        // Add underline
-        const textWidth = doc.getTextWidth(title);
-        doc.line(margin, y + 4, margin + textWidth, y + 4);
-      }
-      
-      y += 12;
-
-      doc.setFillColor(255, 255, 255);
-      doc.setDrawColor(200);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(50);
-      sentences.forEach(({ text }) => {
-        doc.text(text, margin, y);
-        y += text.length * 6 + 2;
-      });
-
-      y += 10;
-    };
-  
-    const formatVitals = (vitals: any) => {
-      if (!vitals) return '';
-      const parts = [];
-      if (vitals.heightFeet && vitals.heightInches) parts.push(`Height: ${vitals.heightFeet}'${vitals.heightInches}"`);
-      if (vitals.weight) parts.push(`Weight: ${vitals.weight} lbs`);
-      if (vitals.temp) parts.push(`Temperature: ${vitals.temp}°F`);
-      if (vitals.bpSystolic && vitals.bpDiastolic) parts.push(`BP: ${vitals.bpSystolic}/${vitals.bpDiastolic}`);
-      if (vitals.pulse) parts.push(`Pulse: ${vitals.pulse}`);
-      return parts.join(', ');
-    };
-  
-    const formatGrip = (grip: any) => {
-      if (!grip) return '';
-      const parts = [];
-      if (grip.right1) parts.push(`Right 1: ${grip.right1}`);
-      if (grip.right2) parts.push(`Right 2: ${grip.right2}`);
-      if (grip.right3) parts.push(`Right 3: ${grip.right3}`);
-      if (grip.left1) parts.push(`Left 1: ${grip.left1}`);
-      if (grip.left2) parts.push(`Left 2: ${grip.left2}`);
-      if (grip.left3) parts.push(`Left 3: ${grip.left3}`);
-      return parts.join(', ');
-    };
-  
-        const formatDermatomes = (dermatomes: any) => {
-      if (!dermatomes) return '';
-      const parts: string[] = [];
-      Object.entries(dermatomes).forEach(([key, value]: [string, any]) => {
-        if (value.left?.hypo) parts.push(`${key} Left: Hypo`);
-        if (value.left?.hyper) parts.push(`${key} Left: Hyper`);
-        if (value.right?.hypo) parts.push(`${key} Right: Hypo`);
-        if (value.right?.hyper) parts.push(`${key} Right: Hyper`);
-      });
-      return parts.join(', ');
-    };
-
-    const formatStrength = (strength: any) => {
-      if (!strength) return '';
-      const parts: string[] = [];
-      Object.entries(strength).forEach(([key, value]: [string, any]) => {
-        if (value.right) parts.push(`${key} Right: ${value.right}`);
-        if (value.left) parts.push(`${key} Left: ${value.left}`);
-      });
-      return parts.join(', ');
-    };
-
-    const formatAROM = (arom: any) => {
-      if (!arom) return '';
-      const parts: string[] = [];
-      Object.entries(arom).forEach(([key, value]: [string, any]) => {
-        if (value.pain) parts.push(`${key}: Pain`);
-        if (value.left) parts.push(`${key}: Left`);
-        if (value.right) parts.push(`${key}: Right`);
-        if (value.bilateral) parts.push(`${key}: Bilateral`);
-      });
-      return parts.join(', ');
-    };
-
-    const formatOrtho = (ortho: any) => {
-      if (!ortho) return '';
-      const parts: string[] = [];
-      Object.entries(ortho).forEach(([key, value]: [string, any]) => {
-        if (value.left) parts.push(`${key}: Left`);
-        if (value.right) parts.push(`${key}: Right`);
-        if (value.bilateral) parts.push(`${key}: Bilateral`);
-        if (value.ligLaxity) parts.push(`${key} Ligament Laxity: ${value.ligLaxity}`);
-      });
-      return parts.join(', ');
-    };
-
-    const formatTenderness = (tenderness: any) => {
-      if (!tenderness) return '';
-      const parts: string[] = [];
-      Object.entries(tenderness).forEach(([key, value]: [string, any]) => {
-        if (Array.isArray(value)) {
-          parts.push(`${key}: ${value.join(', ')}`);
-        } else if (value) {
-          parts.push(`${key}: ${value}`);
-        }
-      });
-      return parts.join(', ');
-    };
-
-    const formatSpasm = (spasm: any) => {
-      if (!spasm) return '';
-      const parts: string[] = [];
-      Object.entries(spasm).forEach(([key, value]: [string, any]) => {
-        if (Array.isArray(value)) {
-          parts.push(`${key}: ${value.join(', ')}`);
-        } else if (value) {
-          parts.push(`${key}: ${value}`);
-        }
-      });
-      return parts.join(', ');
-    };
-  
-    try {
-      console.log('Generating AI narrative with data:', { patient: patient._id, visitsCount: visits.length });
-      const response = await axios.post('https://emr-h.onrender.com/api/ai/generate-narrative', {
-        patient,
-        visits,
-      });
-  
-      const aiNarrative = response.data.narrative;
-      console.log('AI narrative generated:', aiNarrative ? 'Success' : 'Failed');
-      console.log('AI narrative type:', typeof aiNarrative);
   
       // ATTORNEY INFORMATION
       if (patient.attorney) {
@@ -925,400 +945,83 @@ const PatientDetails: React.FC<{}> = () => {
   
       y = (doc as any).lastAutoTable.finalY + 15;
   
-      // GROUPED VISITS
-      const grouped = {
-        initial: visits.find(v => v.visitType === 'initial'),
-        followup: visits.find(v => v.visitType === 'followup'),
-        discharge: visits.find(v => v.visitType === 'discharge')
-      };
-  
-      if (grouped.initial) {
-        const v = grouped.initial;
-        
-        // Initial Visit - Main Heading
-        addDetailedSection('INITIAL VISIT', colors.accent, [
-          ['Visit Date', new Date(v.date).toLocaleDateString()],
-          ['Provider', `Dr. ${v.doctor.firstName} ${v.doctor.lastName}`]
-        ], true);
-
-        // Chief Complaint & Assessment
-        addDetailedSection('CHIEF COMPLAINT & ASSESSMENT', colors.accent, [
-          ['Chief Complaint', v.chiefComplaint],
-          ['Assessment', v.assessment],
-          ['Diagnosis', v.diagnosis?.join(', ')],
-          ['Other Notes', v.otherNotes]
-        ]);
-
-        // Vitals
-        if (v.vitals) {
-          addDetailedSection('VITAL SIGNS', colors.accent, [
-            ['Vital Signs', formatVitals(v.vitals)],
-            ['Grip Strength', formatGrip(v.grip)]
-          ]);
-        }
-
-        // Appearance and Orientation
-        if (v.appearance || v.orientation) {
-          addDetailedSection('APPEARANCE & ORIENTATION', colors.accent, [
-            ['Appearance', v.appearance?.join(', ')],
-            ['Appearance Other', v.appearanceOther],
-            ['Orientation', v.orientation?.timePlacePerson],
-            ['Orientation Other', v.orientation?.other],
-            ['Oriented', v.oriented ? 'Yes' : 'No'],
-            ['Coordination', v.coordination ? 'Yes' : 'No']
-          ]);
-        }
-
-        // Posture and Gait
-        if (v.posture || v.gait) {
-          addDetailedSection('POSTURE & GAIT', colors.accent, [
-            ['Posture', v.posture?.join(', ')],
-            ['Gait', v.gait?.join(', ')],
-            ['Gait Device', v.gaitDevice]
-          ]);
-        }
-
-        // DTR and Neurological
-        if (v.dtr || v.neuroTests) {
-          addDetailedSection('DTR & NEUROLOGICAL', colors.accent, [
-            ['Deep Tendon Reflexes', v.dtr?.join(', ')],
-            ['DTR Other', v.dtrOther],
-            ['Neurological Tests', v.neuroTests?.join(', ')],
-            ['Walk Tests', v.walkTests?.join(', ')],
-            ['Romberg', v.romberg?.join(', ')],
-            ['Romberg Notes', v.rombergNotes],
-            ['Pronator Drift', v.pronatorDrift]
-          ]);
-        }
-
-        // Dermatomes
-        if (v.dermatomes) {
-          addDetailedSection('DERMATOMES', colors.accent, [
-            ['Dermatomes', formatDermatomes(v.dermatomes)]
-          ]);
-        }
-
-        // Muscle Strength
-        if (v.muscleStrength || v.strength) {
-          addDetailedSection('MUSCLE STRENGTH', colors.accent, [
-            ['Muscle Strength', v.muscleStrength?.join(', ')],
-            ['Strength Testing', formatStrength(v.strength)]
-          ]);
-        }
-
-        // Pain and Joint
-        if (v.painLocation || v.jointDysfunction) {
-          addDetailedSection('PAIN & JOINT ASSESSMENT', colors.accent, [
-            ['Pain Location', v.painLocation?.join(', ')],
-            ['Radiating To', v.radiatingTo],
-            ['Joint Dysfunction', v.jointDysfunction?.join(', ')],
-            ['Joint Other', v.jointOther]
-          ]);
-        }
-
-        // AROM Testing
-        if (v.arom) {
-          addDetailedSection('AROM TESTING', colors.accent, [
-            ['AROM Testing', formatAROM(v.arom)]
-          ]);
-        }
-
-        // Orthopedic Tests
-        if (v.ortho) {
-          addDetailedSection('ORTHOPEDIC TESTS', colors.accent, [
-            ['Orthopedic Tests', formatOrtho(v.ortho)]
-          ]);
-        }
-
-        // Tenderness and Spasm
-        if (v.tenderness || v.spasm) {
-          addDetailedSection('TENDERNESS & SPASM', colors.accent, [
-            ['Tenderness', formatTenderness(v.tenderness)],
-            ['Spasm', formatSpasm(v.spasm)]
-          ]);
-        }
-
-        // Lumbar Movement
-        if (v.lumbarTouchingToesMovement) {
-          addDetailedSection('LUMBAR MOVEMENT', colors.accent, [
-            ['Pain', v.lumbarTouchingToesMovement.pain ? 'Yes' : 'No'],
-            ['Pain TS', v.lumbarTouchingToesMovement.painTS ? 'Yes' : 'No'],
-            ['Pain LS', v.lumbarTouchingToesMovement.painLS ? 'Yes' : 'No'],
-            ['Acceleration', v.lumbarTouchingToesMovement.acceleration ? 'Yes' : 'No'],
-            ['Deceleration', v.lumbarTouchingToesMovement.deceleration ? 'Yes' : 'No'],
-            ['Gowers Sign', v.lumbarTouchingToesMovement.gowersSign ? 'Yes' : 'No'],
-            ['Deviating Lumbopelvic Rhythm', v.lumbarTouchingToesMovement.deviatingLumbopelvicRhythm ? 'Yes' : 'No']
-          ]);
-        }
-
-        // Cervical AROM
-        if (v.cervicalAROMCheckmarks) {
-          addDetailedSection('CERVICAL AROM', colors.accent, [
-            ['Pain', v.cervicalAROMCheckmarks.pain ? 'Yes' : 'No'],
-            ['Poor Coordination', v.cervicalAROMCheckmarks.poorCoordination ? 'Yes' : 'No'],
-            ['Abnormal Joint Play', v.cervicalAROMCheckmarks.abnormalJointPlay ? 'Yes' : 'No'],
-            ['Motion Not Smooth', v.cervicalAROMCheckmarks.motionNotSmooth ? 'Yes' : 'No'],
-            ['Hypomobility Thoracic', v.cervicalAROMCheckmarks.hypomobilityThoracic ? 'Yes' : 'No'],
-            ['Fatigue Holding Head', v.cervicalAROMCheckmarks.fatigueHoldingHead ? 'Yes' : 'No']
-          ]);
-        }
-
-        // Treatment Plan
-        addDetailedSection('TREATMENT PLAN', colors.accent, [
-          ['Chiropractic Adjustment', v.chiropracticAdjustment?.join(', ')],
-          ['Chiropractic Other Notes', v.chiropracticOther],
-          ['Acupuncture', v.acupuncture?.join(', ')],
-          ['Acupuncture Other Notes', v.acupunctureOther],
-          ['Physiotherapy', v.physiotherapy?.join(', ')],
-          ['Rehabilitation Exercises', v.rehabilitationExercises?.join(', ')],
-          ['Treatment Frequency', v.durationFrequency ? `${v.durationFrequency.timesPerWeek} times/week, re-eval in ${v.durationFrequency.reEvalInWeeks} weeks` : ''],
-          ['Referrals', v.referrals?.join(', ')],
-          ['Imaging', v.imaging ? Object.entries(v.imaging).map(([modality, parts]) => `${modality.toUpperCase()}: ${parts.join(', ')}`).join('; ') : ''],
-          ['Diagnostic Ultrasound', v.diagnosticUltrasound],
-          ['Nerve Study', v.nerveStudy?.join(', ')],
-          ['Restrictions', v.restrictions ? `Avoid activity for ${v.restrictions.avoidActivityWeeks} weeks, lifting limit ${v.restrictions.liftingLimitLbs} lbs${v.restrictions.avoidProlongedSitting ? ', avoid prolonged sitting' : ''}` : ''],
-          ['Disability Duration', v.disabilityDuration]
-        ]);
-      }
-  
-      if (grouped.followup) {
-        const v = grouped.followup;
-        
-        // Follow-up Visit - Main Heading
-        addDetailedSection('FOLLOW-UP VISIT', colors.success, [
-          ['Visit Date', new Date(v.date).toLocaleDateString()],
-          ['Provider', `Dr. ${v.doctor.firstName} ${v.doctor.lastName}`]
-        ], true);
-
-        // Progress Assessment
-        addDetailedSection('PROGRESS ASSESSMENT', colors.success, [
-          ['Progress Notes', v.progressNotes],
-          ['Assessment Update', v.assessmentUpdate],
-          ['Areas Status', [v.areasImproving && '✓ Improving', v.areasExacerbated && '✗ Exacerbated', v.areasSame && '➔ Same', v.areasResolved && '✓ Resolved'].filter(Boolean).join(' ')],
-          ['Areas', v.areas]
-        ]);
-
-        // Muscle Palpation and Pain
-        addDetailedSection('MUSCLE & PAIN ASSESSMENT', colors.success, [
-          ['Muscle Palpation', v.musclePalpation],
-          ['Pain Radiating', v.painRadiating],
-          ['Activities Causing Pain', [v.activitiesCausePain, v.activitiesCausePainOther].filter(Boolean).join(' ')]
-        ]);
-
-        // Range of Motion
-        addDetailedSection('RANGE OF MOTION', colors.success, [
-          ['Range of Motion', [v.romWnlNoPain && '✓ WNL (No Pain)', v.romWnlWithPain && '⚠ WNL (With Pain)', v.romImproved && '↑ Improved', v.romDecreased && '↓ Decreased', v.romSame && '→ Same'].filter(Boolean).join(' ')]
-        ]);
-
-        // Orthopedic Tests
-        if (v.orthos) {
-          addDetailedSection('ORTHOPEDIC TESTS', colors.success, [
-            ['Orthopedic Tests', `${v.orthos.tests} - ${v.orthos.result}`]
-          ]);
-        }
-
-        // Treatment Plan
-        if (v.treatmentPlan) {
-          addDetailedSection('TREATMENT PLAN', colors.success, [
-            ['Treatments', v.treatmentPlan.treatments],
-            ['Times Per Week', v.treatmentPlan.timesPerWeek],
-            ['Chiropractic', v.treatmentPlan.chiropractic ? 'Yes' : 'No'],
-            ['Acupuncture', v.treatmentPlan.acupuncture ? 'Yes' : 'No'],
-            ['Mechanical Traction', v.treatmentPlan.mechanicalTraction ? 'Yes' : 'No'],
-            ['Myofascial Release', v.treatmentPlan.myofascialRelease ? 'Yes' : 'No'],
-            ['Ultrasound', v.treatmentPlan.ultrasound ? 'Yes' : 'No'],
-            ['Infrared Electric Muscle Stimulation', v.treatmentPlan.infraredElectricMuscleStimulation ? 'Yes' : 'No'],
-            ['Therapeutic Exercise', v.treatmentPlan.therapeuticExercise ? 'Yes' : 'No'],
-            ['Neuromuscular Reeducation', v.treatmentPlan.neuromuscularReeducation ? 'Yes' : 'No'],
-            ['Other', v.treatmentPlan.other]
-          ]);
-        }
-
-        // Overall Response
-        addDetailedSection('RESPONSE & OUTCOME', colors.success, [
-          ['Overall Response', [v.overallResponse?.improving && '↑ Improving', v.overallResponse?.worse && '↓ Worse', v.overallResponse?.same && '→ Same'].filter(Boolean).join(' ')],
-          ['Diagnostic Study', v.diagnosticStudy ? `${v.diagnosticStudy.study} of ${v.diagnosticStudy.bodyPart}: ${v.diagnosticStudy.result}` : ''],
-          ['Home Care', Array.isArray(v.homeCare) ? v.homeCare.join(', ') : (typeof v.homeCare === 'object' ? Object.entries(v.homeCare).filter(([_, value]) => value).map(([key, _]) => key).join(', ') : 'N/A')],
-          ['Home Care Suggestions', v.homeCareSuggestions],
-          ['Referral', v.referral],
-          ['Notes', v.otherNotes]
-        ]);
-
-        // Fetched Data (if available)
-        if (v.fetchedData) {
-          addDetailedSection('ADDITIONAL DATA', colors.success, [
-            ['Initial Visit Data', v.fetchedData.initialVisitData ? 'Available' : 'N/A'],
-            ['Muscle Palpation Data', v.fetchedData.musclePalpationData ? 'Available' : 'N/A'],
-            ['Ortho Tests Data', v.fetchedData.orthoTestsData ? 'Available' : 'N/A'],
-            ['AROM Data', v.fetchedData.aromData ? 'Available' : 'N/A'],
-            ['Activities Pain Data', v.fetchedData.activitiesPainData ? 'Available' : 'N/A'],
-            ['Treatment List Data', v.fetchedData.treatmentListData ? 'Available' : 'N/A'],
-            ['Imaging Data', v.fetchedData.imagingData ? 'Available' : 'N/A']
-          ]);
-        }
-      }
-  
-      if (grouped.discharge) {
-        const v = grouped.discharge;
-        
-        // Discharge Visit - Main Heading
-        addDetailedSection('DISCHARGE VISIT', colors.secondary, [
-          ['Visit Date', new Date(v.date).toLocaleDateString()],
-          ['Provider', `Dr. ${v.doctor.firstName} ${v.doctor.lastName}`]
-        ], true);
-
-        // Treatment Summary
-        addDetailedSection('TREATMENT SUMMARY', colors.secondary, [
-          ['Treatment Summary', v.treatmentSummary],
-          ['Discharge Status', v.dischargeStatus],
-          ['Prognosis', v.prognosis],
-          ['Range of Motion', v.romPercent ? `${v.romPercent}% of pre-injury ROM` : '']
-        ]);
-
-        // Diagnosis and Medications
-        addDetailedSection('DIAGNOSIS & MEDICATIONS', colors.secondary, [
-          ['Discharge Diagnosis', v.dischargeDiagnosis?.join(', ')],
-          ['Medications at Discharge', v.medicationsAtDischarge?.map(med => `${med.name} (${med.dosage}, ${med.frequency}, ${med.duration})`).join('; ')],
-          ['Diagnostic Study', v.diagnosticStudy ? `${v.diagnosticStudy.study} of ${v.diagnosticStudy.bodyPart}: ${v.diagnosticStudy.result}` : '']
-        ]);
-
-        // Future Care and Instructions
-        addDetailedSection('FUTURE CARE & INSTRUCTIONS', colors.secondary, [
-          ['Recommended Future Medical Care', Array.isArray(v.futureMedicalCare) ? v.futureMedicalCare.join(', ') : (v.futureMedicalCare || 'N/A')],
-          ['Follow-up Instructions', v.followUpInstructions],
-          ['Return Precautions', v.returnPrecautions?.join(', ')],
-          ['Home Care Instructions', Array.isArray(v.homeCare) ? v.homeCare.join(', ') : (typeof v.homeCare === 'object' ? Object.entries(v.homeCare).filter(([_, value]) => value).map(([key, _]) => key).join(', ') : 'N/A')]
-        ]);
-
-        // Disability and Criteria
-        addDetailedSection('DISABILITY & CRITERIA', colors.secondary, [
-          ['Croft Criteria', v.croftCriteria],
-          ['AMA Disability', v.amaDisability],
-          ['Referrals / Notes', v.referralsNotes]
-        ]);
-      }
-  
-      // AI NARRATIVE (Enhanced formatting) - Always include as comprehensive summary
-      if (aiNarrative) {
-        // Add a separator before AI narrative
-        if (y > 250) {
-          doc.addPage();
-          y = 30;
-        }
-        
-        // Handle structured JSON response
-        if (typeof aiNarrative === 'object' && aiNarrative.sections) {
-          // Add main AI narrative heading with enhanced styling
-          doc.setFontSize(16);
-          doc.setTextColor(colors.purple[0], colors.purple[1], colors.purple[2]);
-          doc.setFont('helvetica', 'bold');
-          doc.text(aiNarrative.title || 'COMPREHENSIVE MEDICAL NARRATIVE', pageWidth / 2, y, { align: 'center' });
-          y += 20;
-          
-          // Add summary if available
-          if (aiNarrative.summary) {
-            doc.setFontSize(11);
-            doc.setTextColor(60, 60, 60);
-            doc.setFont('helvetica', 'italic');
-            const summaryText = doc.splitTextToSize(aiNarrative.summary, pageWidth - margin * 2);
-            doc.text(summaryText, margin, y);
-            y += summaryText.length * 6 + 15;
-          }
-          
-          // Process each section with enhanced formatting
-          aiNarrative.sections.forEach((section: any) => {
-            if (y > 240) {
-              doc.addPage();
-              y = 30;
-            }
-            
-            // Section header with icon and enhanced styling
-            doc.setFontSize(13);
-            doc.setTextColor(colors.purple[0], colors.purple[1], colors.purple[2]);
-            doc.setFont('helvetica', 'bold');
-            
-            // Add colored background for section headers
-            doc.setFillColor(250, 248, 255); // Light purple background
-            doc.rect(margin - 5, y - 8, pageWidth - margin * 2 + 10, 16, 'F');
-            
-            // Use simple bullet instead of emoji for PDF compatibility
-            const headerText = `• ${section.heading}`;
-            doc.text(headerText, margin, y);
-            y += 18;
-            
-            // Section content with improved paragraph formatting
-            if (section.content && Array.isArray(section.content)) {
-              section.content.forEach((item: string) => {
-                if (y > 250) {
-                  doc.addPage();
-                  y = 30;
-                }
-                
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(10);
-                doc.setTextColor(50, 50, 50);
-                
-                // Add bullet point with paragraph formatting
-                const bulletText = `• ${item}`;
-                const wrappedText = doc.splitTextToSize(bulletText, pageWidth - margin * 2 - 15);
-                doc.text(wrappedText, margin + 8, y);
-                y += wrappedText.length * 5.5 + 8; // Extra spacing between paragraphs
-              });
-            }
-            
-            // Add spacing between sections
-            y += 10;
-          });
-          
-          // Add generation timestamp
-          if (aiNarrative.generatedAt) {
-            if (y > 260) {
-              doc.addPage();
-              y = 30;
-            }
-            doc.setFontSize(8);
-            doc.setTextColor(120, 120, 120);
-            doc.setFont('helvetica', 'italic');
-            doc.text(`Generated: ${new Date(aiNarrative.generatedAt).toLocaleString()}`, margin, y);
-            y += 15;
-          }
-        } 
-        // Handle plain text response (fallback)
-        else if (typeof aiNarrative === 'string' && aiNarrative.trim()) {
-        // Add main AI narrative heading
-        doc.setFontSize(14);
+      // AI GENERATED REPORT CONTENT
+      if (fullReport) {
+        // Add main report heading
+        doc.setFontSize(16);
         doc.setTextColor(colors.purple[0], colors.purple[1], colors.purple[2]);
         doc.setFont('helvetica', 'bold');
-        doc.text('COMPREHENSIVE MEDICAL NARRATIVE', pageWidth / 2, y, { align: 'center' });
-        y += 15;
+        doc.text('COMPREHENSIVE MEDICAL REPORT', pageWidth / 2, y, { align: 'center' });
+        y += 20;
+
+        // Parse and format the AI-generated report line by line
+        const lines = fullReport.split('\n').filter((line: string) => line.trim());
         
-        // Parse and format the AI narrative
-        const matches = [...aiNarrative.matchAll(/\*\*(.+?):\*\*\s*([\s\S]*?)(?=\*\*|$)/g)];
-        
-        if (matches.length > 0) {
-          // If AI returned structured sections, format them
-          matches.forEach(([_, section, content]) => {
-            addDetailedSection(section.toUpperCase(), colors.purple, [[section, content.trim()]]);
-          });
-        } else {
-          // If AI returned unstructured text, format it as paragraphs
-          const paragraphs = aiNarrative.split('\n\n').filter((p: string) => p.trim());
-            paragraphs.forEach((paragraph: string) => {
-            if (y > 260) {
-              doc.addPage();
-              y = 30;
-            }
+        lines.forEach((line: string) => {
+          if (y > 260) {
+            doc.addPage();
+            y = 30;
+          }
+
+          const trimmedLine = line.trim();
+          if (!trimmedLine) {
+            y += 4; // Empty line spacing
+            return;
+          }
+
+          // Check for different heading types based on the template structure
+          if (trimmedLine.startsWith('***') && trimmedLine.endsWith('***')) {
+            // Main section headings (Bold and Italic): ***SUBJECTIVE***, ***OBJECTIVE***, ***ASSESSMENT AND PLAN***
+            const headingText = trimmedLine.replace(/\*\*\*/g, '').trim();
+            const isMainSectionHeading = ['SUBJECTIVE', 'OBJECTIVE', 'ASSESSMENT AND PLAN'].includes(headingText);
             
+            if (isMainSectionHeading) {
+              doc.setFontSize(16);
+              doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+              doc.setFont('helvetica', 'bolditalic');
+              doc.text(headingText, margin, y);
+              y += 18;
+            } else {
+              // Bold and underlined headings: ***Chief Complaint***, ***History of Present Illness***, etc.
+              doc.setFontSize(12);
+              doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+              doc.setFont('helvetica', 'bold');
+              doc.text(headingText, margin, y);
+              
+              // Add underline
+              const textWidth = doc.getTextWidth(headingText);
+              doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+              doc.line(margin, y + 2, margin + textWidth, y + 2);
+              y += 12;
+            }
+          } else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
+            // Bold only headings: **Social History**, **Family History**, **Past History**, etc.
+            const headingText = trimmedLine.replace(/\*\*/g, '').trim();
+            doc.setFontSize(12);
+            doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+            doc.setFont('helvetica', 'bold');
+            doc.text(headingText, margin, y);
+            y += 12;
+          } else if (trimmedLine.startsWith('•')) {
+            // Bullet points
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(10);
             doc.setTextColor(50);
             
-            const wrappedText = doc.splitTextToSize(paragraph.trim(), pageWidth - margin * 2);
+            const wrappedText = doc.splitTextToSize(trimmedLine, pageWidth - margin * 2);
             doc.text(wrappedText, margin, y);
-            y += wrappedText.length * 6 + 8;
-          });
+            y += wrappedText.length * 5.5 + 4;
+          } else {
+            // Regular content lines
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(50);
+            
+            const wrappedText = doc.splitTextToSize(trimmedLine, pageWidth - margin * 2);
+            doc.text(wrappedText, margin, y);
+            y += wrappedText.length * 5.5 + 4;
           }
-        }
+        });
       }
   
       // SIGNATURE
@@ -1347,17 +1050,7 @@ const PatientDetails: React.FC<{}> = () => {
       }
   
       const fileName = `${patient.lastName}_${patient.firstName}_Medical_Report.pdf`;
-      const blob = doc.output('blob');
-      const formData = new FormData();
-      formData.append('file', blob, fileName);
-      await axios.post('https://emr-h.onrender.com/api/reports/upload', formData);
-  
-      const downloadLink = document.createElement('a');
-      downloadLink.href = URL.createObjectURL(blob);
-      downloadLink.download = fileName;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
+      doc.save(fileName);
   
       toast.success('Report generated and downloaded successfully');
     } catch (err) {
@@ -1367,7 +1060,6 @@ const PatientDetails: React.FC<{}> = () => {
       setIsGeneratingReport(false);
     }
   };
-  
 
   if (isLoading) {
     return (
@@ -2226,7 +1918,7 @@ const PatientDetails: React.FC<{}> = () => {
               {selectedVisit && (
   <div className="p-6 mt-6 bg-gray-50 border border-gray-200 rounded-lg shadow">
     <h2 className="text-lg font-semibold mb-2">Assessment and Plan</h2>
-    <h3 className="text-base font-bold mb-2 underline">Treatment Plans/Rationale</h3>
+    <h3 className="text-base font-bold mb-2 underline">***Treatment Plans/Rationale***</h3>
     <ul className="list-disc pl-5 space-y-2 text-sm text-gray-800">
     {selectedVisit.plan?.diagnosis && (
   <li>
@@ -2591,106 +2283,6 @@ const PatientDetails: React.FC<{}> = () => {
         </div>
       </Modal>
 
-      {/* AI Narrative Preview Modal */}
-      <Modal
-        isOpen={showAiPreview}
-        onRequestClose={() => setShowAiPreview(false)}
-        className="fixed inset-0 flex items-center justify-center p-4 z-50"
-        overlayClassName="fixed inset-0 bg-black bg-opacity-50"
-        contentLabel="AI Narrative Preview"
-      >
-        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              <svg className="mr-2 h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-              AI Medical Narrative Preview
-            </h2>
-            <button
-              onClick={() => setShowAiPreview(false)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-            {aiNarrativePreview && typeof aiNarrativePreview === 'object' && aiNarrativePreview.sections ? (
-              <div className="space-y-6">
-                {/* Title and Summary */}
-                <div className="text-center border-b pb-4">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                    {aiNarrativePreview.title}
-                  </h1>
-                  {aiNarrativePreview.summary && (
-                    <p className="text-gray-600 italic max-w-3xl mx-auto">
-                      {aiNarrativePreview.summary}
-                    </p>
-                  )}
-                  {aiNarrativePreview.generatedAt && (
-                    <p className="text-xs text-gray-400 mt-2">
-                      Generated: {new Date(aiNarrativePreview.generatedAt).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-
-                {/* Sections */}
-                {aiNarrativePreview.sections.map((section: any, index: number) => (
-                  <div key={index} className="bg-gray-50 rounded-lg p-4">
-                    <h2 className="text-lg font-semibold text-purple-700 mb-3 flex items-center">
-                      <span className="mr-2 text-xl">{getIconForSection(section.icon, section.heading)}</span>
-                      {section.heading}
-                    </h2>
-                    <div className="space-y-2">
-                      {section.content && Array.isArray(section.content) && section.content.map((item: string, itemIndex: number) => (
-                        <div key={itemIndex} className="mb-4">
-                          <div className="flex items-start">
-                            <span className="text-purple-500 mr-3 mt-1 flex-shrink-0 text-lg">•</span>
-                            <p className="text-gray-700 text-sm leading-relaxed text-justify">{item}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="text-gray-500">
-                  {aiNarrativePreview ? (
-                    <div className="whitespace-pre-wrap text-left bg-gray-50 p-4 rounded-lg">
-                      {typeof aiNarrativePreview === 'string' ? aiNarrativePreview : JSON.stringify(aiNarrativePreview, null, 2)}
-                    </div>
-                  ) : (
-                    <p>No AI narrative generated yet. Click "AI Preview" to generate one.</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
-            <button
-              onClick={() => setShowAiPreview(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-            >
-              Close
-            </button>
-            <button
-              onClick={() => {
-                setShowAiPreview(false);
-                generateFullReport();
-              }}
-              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-            >
-              Generate Full PDF Report
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

@@ -83,6 +83,13 @@ interface FollowupVisitFormData {
   };
   homeCareSuggestions?: string;
   notes: string;
+  additionalDiagnosisAreas?: string;
+  palpationSeveritySelections?: {[region: string]: {[areaId: string]: string[]}};
+  palpationType?: string;
+  subjective?: {
+    tempBodyPart?: string;
+    tempSide?: string;
+  };
 
   // ✅ ADD THIS to store modal-fetched auto data
   fetchedData?: {
@@ -171,6 +178,15 @@ interface FollowupVisitFormData {
         mri: string[];
         ct: string[];
       };
+      diagnosticUltrasound: string;
+      nerveStudy: string[];
+      restrictions: {
+        avoidActivityWeeks: string;
+        liftingLimitLbs: string;
+        avoidProlongedSitting: boolean;
+      };
+      disabilityDuration: string;
+      otherNotes: string;
     };
 
     homeCareSuggestions?: string;
@@ -179,6 +195,19 @@ interface FollowupVisitFormData {
       areasExacerbated: boolean;
       areasSame: boolean;
       areasResolved: boolean;
+      subjectiveIntakeData?: Array<{
+        bodyPart: string;
+        side: string;
+        severity: string;
+        quality: string[];
+        timing: string;
+        context: string;
+        exacerbatedBy: string[];
+        symptoms: string[];
+        notes: string;
+        sciaticaRight: boolean;
+        sciaticaLeft: boolean;
+      }>;
       individualAreaStatus?: {
         [areaType: string]: {
           [areaId: string]: {
@@ -214,8 +243,59 @@ const [isOrthoModalOpen, setIsOrthoModalOpen] = useState(false);
   const [orthoTestsData, setOrthoTestsData] = useState<any>({});
   const [aromData, setAromData] = useState<any>({});
   const [activitiesPainData, setActivitiesPainData] = useState<any>({});
-const [isActivitiesModalOpen, setIsActivitiesModalOpen] = useState(false);
-const [treatmentListData, setTreatmentListData] = useState<any>(null);
+  const [treatmentListData, setTreatmentListData] = useState<{
+    chiropracticAdjustment: string[];
+    chiropracticOther: string;
+    acupuncture: string[];
+    acupunctureOther: string;
+    physiotherapy: string[];
+    rehabilitationExercises: string[];
+    durationFrequency: {
+      timesPerWeek: string;
+      reEvalInWeeks: string;
+    };
+    referrals: string[];
+    imaging: {
+      xray: string[];
+      mri: string[];
+      ct: string[];
+    };
+    diagnosticUltrasound: string;
+    nerveStudy: string[];
+    restrictions: {
+      avoidActivityWeeks: string;
+      liftingLimitLbs: string;
+      avoidProlongedSitting: boolean;
+    };
+    disabilityDuration: string;
+    otherNotes: string;
+  }>({
+    chiropracticAdjustment: [],
+    chiropracticOther: '',
+    acupuncture: [],
+    acupunctureOther: '',
+    physiotherapy: [],
+    rehabilitationExercises: [],
+    durationFrequency: {
+      timesPerWeek: '',
+      reEvalInWeeks: ''
+    },
+    referrals: [],
+    imaging: {
+      xray: [],
+      mri: [],
+      ct: []
+    },
+    diagnosticUltrasound: '',
+    nerveStudy: [],
+    restrictions: {
+      avoidActivityWeeks: '',
+      liftingLimitLbs: '',
+      avoidProlongedSitting: false
+    },
+    disabilityDuration: '',
+    otherNotes: ''
+  });
 const [isTreatmentModalOpen, setIsTreatmentModalOpen] = useState(false);
 const [imagingData, setImagingData] = useState<any>(null);
 const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
@@ -284,6 +364,15 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
       mri: string[];
       ct: string[];
     };
+    diagnosticUltrasound: string;
+    nerveStudy: string[];
+    restrictions: {
+      avoidActivityWeeks: string;
+      liftingLimitLbs: string;
+      avoidProlongedSitting: boolean;
+    };
+    disabilityDuration: string;
+    otherNotes: string;
   }>({
     referrals: [],
     physiotherapy: [],
@@ -296,7 +385,16 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
       xray: [],
       mri: [],
       ct: []
-    }
+    },
+    diagnosticUltrasound: '',
+    nerveStudy: [],
+    restrictions: {
+      avoidActivityWeeks: '',
+      liftingLimitLbs: '',
+      avoidProlongedSitting: false
+    },
+    disabilityDuration: '',
+    otherNotes: ''
   });
   
   // State for individual area status tracking
@@ -322,6 +420,12 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
   const [homeCareSuggestions, setHomeCareSuggestions] = useState('');
   const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
   const [isAreasModalOpen, setIsAreasModalOpen] = useState(false);
+  const [isPalpationsModalOpen, setIsPalpationsModalOpen] = useState(false);
+  const [selectedPalpationType, setSelectedPalpationType] = useState<string>('');
+  const [selectedPalpationData, setSelectedPalpationData] = useState<any>(null);
+  const [palpationSeveritySelections, setPalpationSeveritySelections] = useState<{[region: string]: {[areaId: string]: string[]}}>({});
+  const [isActivitiesModalOpen, setIsActivitiesModalOpen] = useState(false);
+  const [activitiesData, setActivitiesData] = useState<string>('');
 
   // Use the defined interface for the state type
   const [formData, setFormData] = useState<FollowupVisitFormData>({
@@ -385,7 +489,11 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
       ligamentStabilityProgram: false,
       other: ''
     },
-    notes: ''
+    notes: '',
+    subjective: {
+      tempBodyPart: '',
+      tempSide: ''
+    }
   });
   
   // Auto-save timer
@@ -501,7 +609,7 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
         return {
           ...prev,
           [field]: {
-            ...prev[field as keyof typeof prev],
+            ...(prev[field as keyof typeof prev] as object || {}),
             [subField]: value
           }
         };
@@ -589,6 +697,60 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
             ...currentArea,
             [status]: checked
           }
+        }
+      };
+    });
+  };
+
+  const handlePalpationSelection = (type: 'tenderness' | 'spasm') => {
+    const data = formData.fetchedData?.initialVisitData?.[type];
+    if (data && Object.keys(data).length > 0) {
+      setSelectedPalpationType(type);
+      setSelectedPalpationData(data);
+      setIsPalpationsModalOpen(true);
+    } else {
+      alert(`No ${type} data found in the initial visit.`);
+    }
+  };
+
+  const handleActivitiesModalOpen = async () => {
+    if (!formData.previousVisit) {
+      alert("Please select a previous visit first.");
+      return;
+    }
+    
+    try {
+      // Fetch initial visit data if not already loaded
+      if (!formData.fetchedData?.initialVisitData) {
+        await fetchInitialVisitData(formData.previousVisit);
+      }
+      
+      // Set the current activities data from form
+      setActivitiesData(formData.activitiesCausePain || '');
+      setIsActivitiesModalOpen(true);
+    } catch (error) {
+      console.error('Error opening activities modal:', error);
+      alert('Failed to load initial visit data.');
+    }
+  };
+
+  const handlePalpationSeverityChange = (region: string, areaId: string, severity: string, checked: boolean) => {
+    setPalpationSeveritySelections(prev => {
+      const currentRegion = prev[region] || {};
+      const currentArea = currentRegion[areaId] || [];
+      let newSelections: string[];
+      
+      if (checked) {
+        newSelections = [...currentArea, severity];
+      } else {
+        newSelections = currentArea.filter(s => s !== severity);
+      }
+      
+      return {
+        ...prev,
+        [region]: {
+          ...currentRegion,
+          [areaId]: newSelections
         }
       };
     });
@@ -811,6 +973,11 @@ const [isImagingModalOpen, setIsImagingModalOpen] = useState(false);
       rehabilitationExercises: imagingInputData.rehabilitationExercises,
       durationFrequency: imagingInputData.durationFrequency,
       imaging: imagingInputData.imaging,
+      diagnosticUltrasound: imagingInputData.diagnosticUltrasound,
+      nerveStudy: imagingInputData.nerveStudy,
+      restrictions: imagingInputData.restrictions,
+      disabilityDuration: imagingInputData.disabilityDuration,
+      otherNotes: imagingInputData.otherNotes,
     };
 
     // Update the form data (local state only - no backend save)
@@ -1064,6 +1231,88 @@ setPreviousVisits(sortedVisits);
       console.log("✅ Imaging and specialist data saved");
     } catch (error) {
       console.error("❌ Failed to save imaging and specialist data", error);
+    }
+  };
+
+  const savePalpationData = async (visitId: string, data: any) => {
+    if (!visitId) return;
+    try {
+      await axios.put(`https://emr-h.onrender.com/api/visits/${visitId}`, {
+        palpationSeveritySelections: data.palpationSeveritySelections,
+        palpationType: data.palpationType
+      });
+      console.log("✅ Palpation data saved");
+    } catch (error) {
+      console.error("❌ Failed to save palpation data", error);
+    }
+  };
+
+  const handleSavePalpationData = async () => {
+    try {
+      const palpationData = {
+        palpationSeveritySelections: palpationSeveritySelections,
+        palpationType: selectedPalpationType
+      };
+      
+      await savePalpationData(formData.previousVisit, palpationData);
+      
+      // Update the form data with the palpation data
+      setFormData(prev => ({
+        ...prev,
+        fetchedData: {
+          ...prev.fetchedData,
+          palpationData: palpationData
+        }
+      }));
+      
+      alert('Palpation data saved successfully!');
+      setIsPalpationsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving palpation data:', error);
+      alert('Failed to save palpation data.');
+    }
+  };
+
+  const handleSaveActivitiesData = async () => {
+    try {
+      // Update form data with the activities data
+      setFormData(prev => ({
+        ...prev,
+        activitiesCausePain: activitiesData
+      }));
+      
+      // Save to database
+      await axios.put(`https://emr-h.onrender.com/api/visits/${formData.previousVisit}`, {
+        activitiesCausePain: activitiesData
+      });
+      
+      alert('Activities data saved successfully!');
+      setIsActivitiesModalOpen(false);
+    } catch (error) {
+      console.error('Error saving activities data:', error);
+      alert('Failed to save activities data.');
+    }
+  };
+
+  const handleSaveTreatmentListData = async () => {
+    try {
+      // Save treatment list data to database
+      await saveTreatmentListData(formData.previousVisit, treatmentListData);
+      
+      // Update form data with the treatment list data
+      setFormData(prev => ({
+        ...prev,
+        fetchedData: {
+          ...prev.fetchedData,
+          treatmentListData: treatmentListData
+        }
+      }));
+      
+      alert('Treatment plan data saved successfully!');
+      setIsTreatmentModalOpen(false);
+    } catch (error) {
+      console.error('Error saving treatment plan data:', error);
+      alert('Failed to save treatment plan data.');
     }
   };
 
@@ -1338,18 +1587,31 @@ setPreviousVisits(sortedVisits);
       const response = await axios.get(`https://emr-h.onrender.com/api/visits/${visitId}`);
       const visitData = response.data;
 
+      console.log('Loading treatment list data from selected visit:', visitData);
+
+      const parseData = (data: any) => {
+        if (typeof data === 'string') {
+          try {
+            return JSON.parse(data);
+          } catch {
+            return data.split(',').map(item => item.trim()).filter(item => item);
+          }
+        }
+        return data;
+      };
+
       const treatmentList = {
-        chiropracticAdjustment: visitData.chiropracticAdjustment || [],
+        chiropracticAdjustment: parseData(visitData.chiropracticAdjustment) || [],
         chiropracticOther: visitData.chiropracticOther || '',
-        acupuncture: visitData.acupuncture || [],
+        acupuncture: parseData(visitData.acupuncture) || [],
         acupunctureOther: visitData.acupunctureOther || '',
-        physiotherapy: visitData.physiotherapy || [],
-        rehabilitationExercises: visitData.rehabilitationExercises || [],
+        physiotherapy: parseData(visitData.physiotherapy) || [],
+        rehabilitationExercises: parseData(visitData.rehabilitationExercises) || [],
         durationFrequency: visitData.durationFrequency || { timesPerWeek: '', reEvalInWeeks: '' },
-        referrals: visitData.referrals || [],
+        referrals: parseData(visitData.referrals) || [],
         imaging: visitData.imaging || { xray: [], mri: [], ct: [] },
         diagnosticUltrasound: visitData.diagnosticUltrasound || '',
-        nerveStudy: visitData.nerveStudy || [],
+        nerveStudy: parseData(visitData.nerveStudy) || [],
         restrictions: visitData.restrictions || {
           avoidActivityWeeks: '',
           liftingLimitLbs: '',
@@ -1358,6 +1620,8 @@ setPreviousVisits(sortedVisits);
         disabilityDuration: visitData.disabilityDuration || '',
         otherNotes: visitData.otherNotes || '',
       };
+
+      console.log('Processed treatment list data:', treatmentList);
   
       // Set for modal display
       setTreatmentListData(treatmentList);
@@ -1371,9 +1635,6 @@ setPreviousVisits(sortedVisits);
           treatmentListData: treatmentList,
         },
       }));
-
-      // Also update the state for immediate use
-      setTreatmentListData(treatmentList);
     } catch (error) {
       console.error("Error fetching treatment list:", error);
       alert("Failed to load treatment plan.");
@@ -1404,6 +1665,7 @@ setPreviousVisits(sortedVisits);
         
         // Check for data in various possible locations
         const hasImagingData = visit.referrals || visit.physiotherapy || visit.rehabilitationExercises || visit.imaging ||
+                              visit.diagnosticUltrasound || visit.nerveStudy || visit.restrictions || visit.disabilityDuration || visit.otherNotes ||
                               visit.fetchedData?.imagingData || visit.fetchedData?.referrals || visit.fetchedData?.physiotherapy;
         
         if (hasImagingData) {
@@ -1446,6 +1708,15 @@ setPreviousVisits(sortedVisits);
           mri: [],
           ct: [],
         },
+        diagnosticUltrasound: dataSource.diagnosticUltrasound || dataSource.fetchedData?.imagingData?.diagnosticUltrasound || '',
+        nerveStudy: parseData(dataSource.nerveStudy) || parseData(dataSource.fetchedData?.imagingData?.nerveStudy) || [],
+        restrictions: dataSource.restrictions || dataSource.fetchedData?.imagingData?.restrictions || {
+          avoidActivityWeeks: '',
+          liftingLimitLbs: '',
+          avoidProlongedSitting: false,
+        },
+        disabilityDuration: dataSource.disabilityDuration || dataSource.fetchedData?.imagingData?.disabilityDuration || '',
+        otherNotes: dataSource.otherNotes || dataSource.fetchedData?.imagingData?.otherNotes || '',
       };
 
       console.log('Processed imaging data:', imagingAndSpecialistData);
@@ -1462,7 +1733,14 @@ setPreviousVisits(sortedVisits);
                         imagingAndSpecialistData.imaging.mri.length > 0 ||
                         imagingAndSpecialistData.imaging.ct.length > 0 ||
                         imagingAndSpecialistData.durationFrequency.timesPerWeek ||
-                        imagingAndSpecialistData.durationFrequency.reEvalInWeeks;
+                        imagingAndSpecialistData.durationFrequency.reEvalInWeeks ||
+                        imagingAndSpecialistData.diagnosticUltrasound ||
+                        imagingAndSpecialistData.nerveStudy.length > 0 ||
+                        imagingAndSpecialistData.restrictions?.avoidActivityWeeks ||
+                        imagingAndSpecialistData.restrictions?.liftingLimitLbs ||
+                        imagingAndSpecialistData.restrictions?.avoidProlongedSitting ||
+                        imagingAndSpecialistData.disabilityDuration ||
+                        imagingAndSpecialistData.otherNotes;
 
       if (!hasAnyData) {
         console.log('No previous imaging data found - starting with empty form');
@@ -1487,7 +1765,16 @@ setPreviousVisits(sortedVisits);
           xray: Array.isArray(imagingAndSpecialistData.imaging?.xray) ? imagingAndSpecialistData.imaging.xray : [],
           mri: Array.isArray(imagingAndSpecialistData.imaging?.mri) ? imagingAndSpecialistData.imaging.mri : [],
           ct: Array.isArray(imagingAndSpecialistData.imaging?.ct) ? imagingAndSpecialistData.imaging.ct : []
-        }
+        },
+        diagnosticUltrasound: imagingAndSpecialistData.diagnosticUltrasound || '',
+        nerveStudy: Array.isArray(imagingAndSpecialistData.nerveStudy) ? imagingAndSpecialistData.nerveStudy : [],
+        restrictions: {
+          avoidActivityWeeks: imagingAndSpecialistData.restrictions?.avoidActivityWeeks || '',
+          liftingLimitLbs: imagingAndSpecialistData.restrictions?.liftingLimitLbs || '',
+          avoidProlongedSitting: imagingAndSpecialistData.restrictions?.avoidProlongedSitting || false
+        },
+        disabilityDuration: imagingAndSpecialistData.disabilityDuration || '',
+        otherNotes: imagingAndSpecialistData.otherNotes || ''
       };
 
       console.log('Setting initial input data:', initialInputData);
@@ -1675,12 +1962,47 @@ Generate detailed, personalized home care instructions based on the provided pat
 
       console.log('Loading areas data from selected visit:', visitData);
 
+      // Check if the selected visit is an initial visit
+      const isInitialVisit = visitData.__t === 'InitialVisit' || visitData.visitType === 'initial';
+      
+      if (!isInitialVisit) {
+        alert("Please select an initial visit to load areas data.");
+        return;
+      }
+
+      // Get patient data to access subjective intake information
+      const patientResponse = await axios.get(`https://emr-h.onrender.com/api/patients/${id}`);
+      const patientData = patientResponse.data;
+
+      console.log('Patient data for subjective intake:', patientData);
+
+      // Extract subjective intake data (chief complaint data)
+      let subjectiveIntakeData = [];
+      if (patientData.subjective && patientData.subjective.bodyPart && Array.isArray(patientData.subjective.bodyPart)) {
+        subjectiveIntakeData = patientData.subjective.bodyPart.map((intake: any) => ({
+          bodyPart: intake.part || '',
+          side: intake.side || '',
+          severity: intake.severity || '',
+          quality: Array.isArray(intake.quality) ? intake.quality : [],
+          timing: intake.timing || '',
+          context: intake.context || '',
+          exacerbatedBy: Array.isArray(intake.exacerbatedBy) ? intake.exacerbatedBy : [],
+          symptoms: Array.isArray(intake.symptoms) ? intake.symptoms : [],
+          notes: intake.notes || '',
+          sciaticaRight: intake.sciaticaRight || false,
+          sciaticaLeft: intake.sciaticaLeft || false
+        }));
+      }
+
+      console.log('Extracted subjective intake data:', subjectiveIntakeData);
+
       // Check if the selected visit has areas data
       let areasData = {
         areasImproving: visitData.areasImproving || false,
         areasExacerbated: visitData.areasExacerbated || false,
         areasSame: visitData.areasSame || false,
         areasResolved: visitData.areasResolved || false,
+        subjectiveIntakeData: subjectiveIntakeData // Add subjective intake data
       };
 
       // If the selected visit doesn't have areas data, look for it in previous visits
@@ -1703,6 +2025,7 @@ Generate detailed, personalized home care instructions based on the provided pat
               areasExacerbated: visit.areasExacerbated || false,
               areasSame: visit.areasSame || false,
               areasResolved: visit.areasResolved || false,
+              subjectiveIntakeData: subjectiveIntakeData // Keep subjective intake data
             };
             break;
           }
@@ -1710,6 +2033,13 @@ Generate detailed, personalized home care instructions based on the provided pat
       }
 
       console.log('Processed areas data:', areasData);
+      console.log('Initial visit data for areas:', {
+        painLocation: visitData.painLocation,
+        diagnosis: visitData.diagnosis,
+        jointDysfunction: visitData.jointDysfunction,
+        tenderness: visitData.tenderness,
+        spasm: visitData.spasm
+      });
   
       // Update form data with the found areas data
       setFormData((prev) => ({
@@ -1721,7 +2051,7 @@ Generate detailed, personalized home care instructions based on the provided pat
         fetchedData: {
           ...prev.fetchedData,
           areasData: areasData,
-          initialVisitData: visitData, // Store the visit data to display areas information
+          initialVisitData: visitData, // Store the initial visit data to display areas information
         },
       }));
 
@@ -2506,20 +2836,6 @@ Generate detailed, personalized home care instructions based on the provided pat
 
           </div>
 
-          {/* Muscle Palpation */}
-          <div>
-  <label htmlFor="musclePalpation" className="block text-sm font-medium text-gray-700 mb-1">Muscle Palpation: </label>
-  <button
-  type="button"
-  onClick={() => fetchMusclePalpationData(formData.previousVisit)}
-  className={`bg-white font-medium underline focus:outline-none ${
-    musclePalpationData ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
-  }`}
->
-  List of muscles specific to that body part {musclePalpationData && '✓'}
-</button>
-
-</div>
 
 {isMuscleModalOpen && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -3028,22 +3344,6 @@ Generate detailed, personalized home care instructions based on the provided pat
 
 
 
-          {/* ROM - For each body part */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ROM:</label>
-            <button
-              type="button"
-              onClick={() => fetchOrthoTestsData(formData.previousVisit)}
-              className={`bg-white font-medium underline focus:outline-none mt-2 ${
-                aromData && Object.keys(aromData).length > 0 ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
-              }`}
-            >
-              ROM for each body part {aromData && Object.keys(aromData).length > 0 && '✓'}
-            </button>
-            <div className="mt-2 text-sm text-gray-600">
-              Click above to view and update ROM data for specific body parts
-            </div>
-          </div>
 
           {/* Orthos */}
           <div>
@@ -3194,27 +3494,15 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
           <div>
           <button
   type="button"
-  onClick={() => fetchTreatmentPlanData(formData.previousVisit)}
+              onClick={handleActivitiesModalOpen}
   className={`bg-white font-medium underline focus:outline-none mt-2 ${
-    activitiesPainData ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
-  }`}
->
-  List of activities that still cause pain {activitiesPainData && '✓'}
-</button>
-
-{isActivitiesModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-semibold text-gray-800">Treatment Plan Details</h3>
-        <button
-          onClick={() => setIsActivitiesModalOpen(false)}
-          className="text-gray-500 hover:text-gray-700"
-          aria-label="Close modal"
-        >
-          <X size={24} />
+                formData.activitiesCausePain ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
+              }`}
+            >
+              List of activities that still cause pain: {formData.activitiesCausePain && '✓'}
         </button>
       </div>
+
 
       {/* Data Summary */}
       {activitiesPainData && (
@@ -3259,332 +3547,6 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
         </div>
       )}
 
-      <div className="bg-gray-50 p-4 rounded-md space-y-6 text-sm text-gray-700">
-        {/* Chiropractic Adjustment */}
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="font-semibold text-gray-700">Chiropractic Adjustment:</h4>
-          </div>
-          <div className="space-y-2">
-            {editableActivitiesPainData.chiropracticAdjustment.map((item: string, index: number) => (
-              <div key={index} className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={item}
-                  onChange={(e) => {
-                    const newArray = [...editableActivitiesPainData.chiropracticAdjustment];
-                    newArray[index] = e.target.value;
-                    handleActivitiesPainChange('chiropracticAdjustment', newArray);
-                  }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter chiropractic adjustment..."
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveActivitiesPainItem('chiropracticAdjustment', index)}
-                  className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                id="chiropracticAdjustmentInput"
-                placeholder="Add new chiropractic adjustment..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddActivitiesPainItem('chiropracticAdjustment', e.currentTarget.value);
-                    e.currentTarget.value = '';
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const input = document.getElementById('chiropracticAdjustmentInput') as HTMLInputElement;
-                  if (input && input.value.trim()) {
-                    handleAddActivitiesPainItem('chiropracticAdjustment', input.value);
-                    input.value = '';
-                  }
-                }}
-                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              >
-                Add Item
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Chiropractic Other */}
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-2">Chiropractic Other:</h4>
-          <input
-            type="text"
-            value={editableActivitiesPainData.chiropracticOther}
-            onChange={(e) => handleActivitiesPainChange('chiropracticOther', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter chiropractic other details..."
-          />
-        </div>
-
-        {/* Acupuncture */}
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="font-semibold text-gray-700">Acupuncture:</h4>
-          </div>
-          <div className="space-y-2">
-            {editableActivitiesPainData.acupuncture.map((item: string, index: number) => (
-              <div key={index} className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={item}
-                  onChange={(e) => {
-                    const newArray = [...editableActivitiesPainData.acupuncture];
-                    newArray[index] = e.target.value;
-                    handleActivitiesPainChange('acupuncture', newArray);
-                  }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter acupuncture item..."
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveActivitiesPainItem('acupuncture', index)}
-                  className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                id="acupunctureInput"
-                placeholder="Add new acupuncture item..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddActivitiesPainItem('acupuncture', e.currentTarget.value);
-                    e.currentTarget.value = '';
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const input = document.getElementById('acupunctureInput') as HTMLInputElement;
-                  if (input && input.value.trim()) {
-                    handleAddActivitiesPainItem('acupuncture', input.value);
-                    input.value = '';
-                  }
-                }}
-                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              >
-                Add Item
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Acupuncture Other */}
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-2">Acupuncture Other:</h4>
-          <input
-            type="text"
-            value={editableActivitiesPainData.acupunctureOther}
-            onChange={(e) => handleActivitiesPainChange('acupunctureOther', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter acupuncture other details..."
-          />
-        </div>
-
-        {/* Physiotherapy */}
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="font-semibold text-gray-700">Physiotherapy:</h4>
-          </div>
-          <div className="space-y-2">
-            {editableActivitiesPainData.physiotherapy.map((item: string, index: number) => (
-              <div key={index} className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={item}
-                  onChange={(e) => {
-                    const newArray = [...editableActivitiesPainData.physiotherapy];
-                    newArray[index] = e.target.value;
-                    handleActivitiesPainChange('physiotherapy', newArray);
-                  }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter physiotherapy item..."
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveActivitiesPainItem('physiotherapy', index)}
-                  className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                id="physiotherapyInput"
-                placeholder="Add new physiotherapy item..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddActivitiesPainItem('physiotherapy', e.currentTarget.value);
-                    e.currentTarget.value = '';
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const input = document.getElementById('physiotherapyInput') as HTMLInputElement;
-                  if (input && input.value.trim()) {
-                    handleAddActivitiesPainItem('physiotherapy', input.value);
-                    input.value = '';
-                  }
-                }}
-                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              >
-                Add Item
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Rehabilitation Exercises */}
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="font-semibold text-gray-700">Rehabilitation Exercises:</h4>
-          </div>
-          <div className="space-y-2">
-            {editableActivitiesPainData.rehabilitationExercises.map((item: string, index: number) => (
-              <div key={index} className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={item}
-                  onChange={(e) => {
-                    const newArray = [...editableActivitiesPainData.rehabilitationExercises];
-                    newArray[index] = e.target.value;
-                    handleActivitiesPainChange('rehabilitationExercises', newArray);
-                  }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter rehabilitation exercise..."
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveActivitiesPainItem('rehabilitationExercises', index)}
-                  className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                id="rehabilitationExercisesInput"
-                placeholder="Add new rehabilitation exercise..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddActivitiesPainItem('rehabilitationExercises', e.currentTarget.value);
-                    e.currentTarget.value = '';
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const input = document.getElementById('rehabilitationExercisesInput') as HTMLInputElement;
-                  if (input && input.value.trim()) {
-                    handleAddActivitiesPainItem('rehabilitationExercises', input.value);
-                    input.value = '';
-                  }
-                }}
-                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              >
-                Add Item
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Duration & Frequency */}
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-3">Duration & Frequency:</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Times/Week:</label>
-              <input
-                type="text"
-                value={editableActivitiesPainData.durationFrequency.timesPerWeek}
-                onChange={(e) => handleActivitiesPainChange('durationFrequency', e.target.value, 'timesPerWeek')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="e.g., 3x"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Re-eval in Weeks:</label>
-              <input
-                type="text"
-                value={editableActivitiesPainData.durationFrequency.reEvalInWeeks}
-                onChange={(e) => handleActivitiesPainChange('durationFrequency', e.target.value, 'reEvalInWeeks')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="e.g., 4"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Diagnostic Ultrasound */}
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-2">Diagnostic Ultrasound:</h4>
-          <input
-            type="text"
-            value={editableActivitiesPainData.diagnosticUltrasound}
-            onChange={(e) => handleActivitiesPainChange('diagnosticUltrasound', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter diagnostic ultrasound details..."
-          />
-        </div>
-
-        {/* Disability Duration */}
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-2">Disability Duration:</h4>
-          <input
-            type="text"
-            value={editableActivitiesPainData.disabilityDuration}
-            onChange={(e) => handleActivitiesPainChange('disabilityDuration', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter disability duration..."
-          />
-        </div>
-      </div>
-
-      <div className="mt-4 flex justify-end space-x-2">
-        <button
-          onClick={handleSaveActivitiesPain}
-          className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
-        >
-          Save
-        </button>
-        <button
-          onClick={() => setIsActivitiesModalOpen(false)}
-          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
 
                  <div>
@@ -3634,146 +3596,403 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
       <div className="space-y-6 text-sm text-gray-700">
         <h4 className="font-semibold text-lg text-gray-800 mb-4">TREATMENT PLAN</h4>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Chiropractic */}
-          <div className="flex items-center">
+        {/* Chiropractic Adjustment */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Chiropractic Adjustment</h5>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-800">
+            {[
+              'Cervical Spine', 'Thoracic Spine', 'Lumbar Spine', 'Sacroiliac Spine',
+              'Hip R / L', 'Knee (Patella) R / L', 'Ankle R / L',
+              'Shoulder (GHJ) R / L', 'Elbow R / L', 'Wrist Carpals R / L'
+            ].map(item => (
+              <label key={item} className="flex items-center gap-2">
             <input
               type="checkbox"
-              id="treatmentPlan.chiropractic"
-              name="treatmentPlan.chiropractic"
-              checked={formData.treatmentPlan.chiropractic}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="treatmentPlan.chiropractic" className="ml-2 text-sm text-gray-700">
-              Chiropractic
+                  checked={treatmentListData.chiropracticAdjustment?.includes(item) || false}
+                  onChange={() => {
+                    const currentArray = treatmentListData.chiropracticAdjustment || [];
+                    if (currentArray.includes(item)) {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        chiropracticAdjustment: currentArray.filter(i => i !== item)
+                      }));
+                    } else {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        chiropracticAdjustment: [...currentArray, item]
+                      }));
+                    }
+                  }}
+                />
+                {item}
             </label>
+            ))}
+          </div>
+          <div className="mt-2">
+            <label className="text-sm text-gray-700 mr-2">Other:</label>
+            <input
+              type="text"
+              value={treatmentListData.chiropracticOther || ''}
+              onChange={(e) => setTreatmentListData(prev => ({
+                ...prev,
+                chiropracticOther: e.target.value
+              }))}
+              className="border px-2 py-1 rounded w-1/2"
+              placeholder="_______________________________"
+            />
+          </div>
           </div>
 
-          {/* Acupuncture */}
-          <div className="flex items-center">
+        {/* Acupuncture (Cupping) */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Acupuncture (Cupping)</h5>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-800">
+            {[
+              'Cervical Spine', 'Thoracic Spine', 'Lumbar Spine', 'Sacroiliac Spine',
+              'Hip R / L', 'Knee (Patella) R / L', 'Ankle R / L',
+              'Shoulder (GHJ) R / L', 'Elbow R / L', 'Wrist Carpals R / L'
+            ].map(item => (
+              <label key={item} className="flex items-center gap-2">
             <input
               type="checkbox"
-              id="treatmentPlan.acupuncture"
-              name="treatmentPlan.acupuncture"
-              checked={formData.treatmentPlan.acupuncture}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="treatmentPlan.acupuncture" className="ml-2 text-sm text-gray-700">
-              Acupuncture
+                  checked={treatmentListData.acupuncture?.includes(item) || false}
+                  onChange={() => {
+                    const currentArray = treatmentListData.acupuncture || [];
+                    if (currentArray.includes(item)) {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        acupuncture: currentArray.filter(i => i !== item)
+                      }));
+                    } else {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        acupuncture: [...currentArray, item]
+                      }));
+                    }
+                  }}
+                />
+                {item}
             </label>
+            ))}
+          </div>
+          <div className="mt-2">
+            <label className="text-sm text-gray-700 mr-2">Other:</label>
+            <input
+              type="text"
+              value={treatmentListData.acupunctureOther || ''}
+              onChange={(e) => setTreatmentListData(prev => ({
+                ...prev,
+                acupunctureOther: e.target.value
+              }))}
+              className="border px-2 py-1 rounded w-1/2"
+              placeholder="_______________________________"
+            />
+          </div>
           </div>
 
-          {/* Mechanical Traction */}
-          <div className="flex items-center">
+        {/* Physiotherapy */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Physiotherapy</h5>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {['Hot Pack/Cold Pack', 'Ultrasound', 'EMS', 'E-Stim', 'Therapeutic Exercises', 'NMR', 'Orthion Bed', 'Mechanical Traction', 'Paraffin Wax', 'Infrared'].map(item => (
+              <label key={item} className="flex items-center gap-2">
             <input
               type="checkbox"
-              id="treatmentPlan.mechanicalTraction"
-              name="treatmentPlan.mechanicalTraction"
-              checked={formData.treatmentPlan.mechanicalTraction}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="treatmentPlan.mechanicalTraction" className="ml-2 text-sm text-gray-700">
-              Mechanical Traction
+                  checked={treatmentListData.physiotherapy?.includes(item) || false} 
+                  onChange={() => {
+                    const currentArray = treatmentListData.physiotherapy || [];
+                    if (currentArray.includes(item)) {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        physiotherapy: currentArray.filter(i => i !== item)
+                      }));
+                    } else {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        physiotherapy: [...currentArray, item]
+                      }));
+                    }
+                  }} 
+                />
+                {item}
             </label>
+            ))}
+          </div>
           </div>
 
-          {/* Myofascial Release */}
-          <div className="flex items-center">
+        {/* Rehabilitation Exercises */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Rehabilitation Exercises</h5>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {treatmentListData.chiropracticAdjustment?.map(item => (
+              <label key={item + '-rehab'} className="flex items-center gap-2">
             <input
               type="checkbox"
-              id="treatmentPlan.myofascialRelease"
-              name="treatmentPlan.myofascialRelease"
-              checked={formData.treatmentPlan.myofascialRelease}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="treatmentPlan.myofascialRelease" className="ml-2 text-sm text-gray-700">
-              Myofascial Release
+                  checked={treatmentListData.rehabilitationExercises?.includes(item) || false} 
+                  onChange={() => {
+                    const currentArray = treatmentListData.rehabilitationExercises || [];
+                    if (currentArray.includes(item)) {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        rehabilitationExercises: currentArray.filter(i => i !== item)
+                      }));
+                    } else {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        rehabilitationExercises: [...currentArray, item]
+                      }));
+                    }
+                  }} 
+                />
+                {item}
             </label>
+            ))}
+          </div>
           </div>
 
-          {/* Ultrasound */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="treatmentPlan.ultrasound"
-              name="treatmentPlan.ultrasound"
-              checked={formData.treatmentPlan.ultrasound}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="treatmentPlan.ultrasound" className="ml-2 text-sm text-gray-700">
-              Ultrasound
+        {/* Duration & Re-Evaluation */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Duration & Re-Evaluation</h5>
+          <div className="flex flex-wrap gap-4">
+            <label>
+              Times per Week:
+              <input 
+                type="number" 
+                value={treatmentListData.durationFrequency?.timesPerWeek || ''} 
+                onChange={(e) => setTreatmentListData(prev => ({
+                  ...prev,
+                  durationFrequency: {
+                    ...prev.durationFrequency,
+                    timesPerWeek: e.target.value
+                  }
+                }))} 
+                className="ml-2 border px-2 py-1 rounded" 
+              />
             </label>
-          </div>
-
-          {/* Infrared Electric Muscle Stimulation */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="treatmentPlan.infraredElectricMuscleStimulation"
-              name="treatmentPlan.infraredElectricMuscleStimulation"
-              checked={formData.treatmentPlan.infraredElectricMuscleStimulation}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="treatmentPlan.infraredElectricMuscleStimulation" className="ml-2 text-sm text-gray-700">
-              Infrared Electric Muscle Stimulation
-            </label>
-          </div>
-
-          {/* Therapeutic Exercise */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="treatmentPlan.therapeuticExercise"
-              name="treatmentPlan.therapeuticExercise"
-              checked={formData.treatmentPlan.therapeuticExercise}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="treatmentPlan.therapeuticExercise" className="ml-2 text-sm text-gray-700">
-              Therapeutic Exercise
-            </label>
-          </div>
-
-          {/* Neuromuscular re-education */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="treatmentPlan.neuromuscularReeducation"
-              name="treatmentPlan.neuromuscularReeducation"
-              checked={formData.treatmentPlan.neuromuscularReeducation}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="treatmentPlan.neuromuscularReeducation" className="ml-2 text-sm text-gray-700">
-              Neuromuscular re-education
+            <label>
+              Re-Evaluation in Weeks:
+              <input 
+                type="number" 
+                value={treatmentListData.durationFrequency?.reEvalInWeeks || ''} 
+                onChange={(e) => setTreatmentListData(prev => ({
+                  ...prev,
+                  durationFrequency: {
+                    ...prev.durationFrequency,
+                    reEvalInWeeks: e.target.value
+                  }
+                }))} 
+                className="ml-2 border px-2 py-1 rounded" 
+              />
             </label>
           </div>
         </div>
 
-        {/* Other Treatment */}
-        <div className="mt-4">
-          <label htmlFor="treatmentPlan.other" className="block text-sm font-medium text-gray-700 mb-2">
-            Other:
-          </label>
+        {/* Referrals */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Referrals</h5>
+          <div className="flex flex-wrap gap-4">
+            {['Orthopedist', 'Neurologist', 'Pain Management'].map(item => (
+              <label key={item} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+                  checked={treatmentListData.referrals?.includes(item) || false} 
+                  onChange={() => {
+                    const currentArray = treatmentListData.referrals || [];
+                    if (currentArray.includes(item)) {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        referrals: currentArray.filter(i => i !== item)
+                      }));
+                    } else {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        referrals: [...currentArray, item]
+                      }));
+                    }
+                  }} 
+                />
+                {item}
+            </label>
+            ))}
+          </div>
+          </div>
+
+        {/* Imaging (X-Ray, MRI, CT) */}
+        {['xray', 'mri', 'ct'].map(modality => (
+          <div key={modality}>
+            <h5 className="font-semibold text-gray-800 mb-3">{modality.toUpperCase()}</h5>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {['C/S', 'T/S', 'L/S', 'Sacroiliac Joint R', 'Sacroiliac Joint L', 'Hip R', 'Hip L', 'Knee R', 'Knee L', 'Ankle R', 'Ankle L', 'Shoulder R', 'Shoulder L', 'Elbow R', 'Elbow L', 'Wrist R', 'Wrist L'].map(region => (
+                <label key={`${modality}-${region}`} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+                    checked={treatmentListData.imaging?.[modality as keyof typeof treatmentListData.imaging]?.includes(region) || false} 
+                    onChange={() => {
+                      const currentArray = treatmentListData.imaging?.[modality as keyof typeof treatmentListData.imaging] || [];
+                      if (currentArray.includes(region)) {
+                        setTreatmentListData(prev => ({
+                          ...prev,
+                          imaging: {
+                            ...prev.imaging,
+                            [modality]: currentArray.filter(item => item !== region)
+                          }
+                        }));
+                      } else {
+                        setTreatmentListData(prev => ({
+                          ...prev,
+                          imaging: {
+                            ...prev.imaging,
+                            [modality]: [...currentArray, region]
+                          }
+                        }));
+                      }
+                    }} 
+                  />
+                  {region}
+            </label>
+              ))}
+          </div>
+          </div>
+        ))}
+
+        {/* Diagnostic Ultrasound */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Diagnostic Ultrasound</h5>
+          <textarea 
+            value={treatmentListData.diagnosticUltrasound || ''} 
+            onChange={(e) => setTreatmentListData(prev => ({
+              ...prev,
+              diagnosticUltrasound: e.target.value
+            }))} 
+            rows={2} 
+            className="w-full border rounded px-3 py-2" 
+            placeholder="Enter area of ultrasound" 
+          />
+        </div>
+
+        {/* Nerve Study */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Nerve Study</h5>
+          <div className="flex gap-6">
+            {['EMG/NCV upper', 'EMG/NCV lower'].map(test => (
+              <label key={test} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+                  checked={treatmentListData.nerveStudy?.includes(test) || false} 
+                  onChange={() => {
+                    const currentArray = treatmentListData.nerveStudy || [];
+                    if (currentArray.includes(test)) {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        nerveStudy: currentArray.filter(item => item !== test)
+                      }));
+                    } else {
+                      setTreatmentListData(prev => ({
+                        ...prev,
+                        nerveStudy: [...currentArray, test]
+                      }));
+                    }
+                  }} 
+                />
+                {test}
+            </label>
+            ))}
+          </div>
+          </div>
+
+        {/* Restrictions */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Restrictions</h5>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Avoid Activity (Weeks):</label>
+              <input
+                type="text"
+                value={treatmentListData.restrictions?.avoidActivityWeeks || ''}
+                onChange={(e) => setTreatmentListData(prev => ({
+                  ...prev,
+                  restrictions: {
+                    ...prev.restrictions,
+                    avoidActivityWeeks: e.target.value
+                  }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lifting Limit (lbs):</label>
+              <input
+                type="text"
+                value={treatmentListData.restrictions?.liftingLimitLbs || ''}
+                onChange={(e) => setTreatmentListData(prev => ({
+                  ...prev,
+                  restrictions: {
+                    ...prev.restrictions,
+                    liftingLimitLbs: e.target.value
+                  }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 20"
+              />
+            </div>
+          <div className="flex items-center">
+              <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+                  checked={treatmentListData.restrictions?.avoidProlongedSitting || false}
+                  onChange={(e) => setTreatmentListData(prev => ({
+                    ...prev,
+                    restrictions: {
+                      ...prev.restrictions,
+                      avoidProlongedSitting: e.target.checked
+                    }
+                  }))}
+                />
+                Avoid Prolonged Sitting
+            </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Disability Duration */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Disability Duration</h5>
           <input
             type="text"
-            id="treatmentPlan.other"
-            name="treatmentPlan.other"
-            value={formData.treatmentPlan.other}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter other treatments..."
+            value={treatmentListData.disabilityDuration || ''}
+            onChange={(e) => setTreatmentListData(prev => ({
+              ...prev,
+              disabilityDuration: e.target.value
+            }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g., 4 weeks"
+          />
+        </div>
+
+        {/* Other Notes */}
+        <div>
+          <h5 className="font-semibold text-gray-800 mb-3">Other Notes</h5>
+          <textarea
+            value={treatmentListData.otherNotes || ''}
+            onChange={(e) => setTreatmentListData(prev => ({
+              ...prev,
+              otherNotes: e.target.value
+            }))}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter any additional notes..."
           />
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-end space-x-2">
+        <button
+          onClick={handleSaveTreatmentListData}
+          className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+        >
+          Save Treatment Plan
+        </button>
         <button
           onClick={() => setIsTreatmentModalOpen(false)}
           className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
@@ -3947,141 +4166,99 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
       <div className="bg-gray-50 p-4 rounded-md space-y-6 text-sm text-gray-700">
         {/* Referrals */}
         <div>
-          <h4 className="font-semibold text-gray-800 mb-3">Specialist Referrals:</h4>
-          <div className="space-y-2">
-            {imagingInputData.referrals.map((item, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <span className="text-gray-600">• {item}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveItem('referrals', index)}
-                  className="text-red-500 hover:text-red-700 text-xs"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <div className="flex space-x-2">
+          <h4 className="font-semibold text-gray-800 mb-3">Referrals:</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {['Orthopedist', 'Neurologist', 'Pain Management'].map(item => (
+              <label key={item} className="flex items-center gap-2">
               <input
-                type="text"
-                placeholder="Add referral..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddItem('referrals', e.currentTarget.value);
-                    e.currentTarget.value = '';
+                  type="checkbox" 
+                  checked={imagingInputData.referrals.includes(item)} 
+                  onChange={() => {
+                    if (imagingInputData.referrals.includes(item)) {
+                      setImagingInputData(prev => ({
+                        ...prev,
+                        referrals: prev.referrals.filter(r => r !== item)
+                      }));
+                    } else {
+                      setImagingInputData(prev => ({
+                        ...prev,
+                        referrals: [...prev.referrals, item]
+                      }));
                   }
                 }}
               />
-              <button
-                type="button"
-                onClick={(e) => {
-                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                  handleAddItem('referrals', input.value);
-                  input.value = '';
-                }}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-              >
-                Add
-              </button>
-            </div>
+                {item}
+              </label>
+            ))}
           </div>
         </div>
 
         {/* Physiotherapy */}
         <div>
           <h4 className="font-semibold text-gray-800 mb-3">Physiotherapy:</h4>
-          <div className="space-y-2">
-            {imagingInputData.physiotherapy.map((item, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <span className="text-gray-600">• {item}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveItem('physiotherapy', index)}
-                  className="text-red-500 hover:text-red-700 text-xs"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <div className="flex space-x-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {['Hot Pack/Cold Pack', 'Ultrasound', 'EMS', 'E-Stim', 'Therapeutic Exercises', 'NMR', 'Orthion Bed', 'Mechanical Traction', 'Paraffin Wax', 'Infrared'].map(item => (
+              <label key={item} className="flex items-center gap-2">
               <input
-                type="text"
-                placeholder="Add physiotherapy..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddItem('physiotherapy', e.currentTarget.value);
-                    e.currentTarget.value = '';
+                  type="checkbox" 
+                  checked={imagingInputData.physiotherapy.includes(item)} 
+                  onChange={() => {
+                    if (imagingInputData.physiotherapy.includes(item)) {
+                      setImagingInputData(prev => ({
+                        ...prev,
+                        physiotherapy: prev.physiotherapy.filter(p => p !== item)
+                      }));
+                    } else {
+                      setImagingInputData(prev => ({
+                        ...prev,
+                        physiotherapy: [...prev.physiotherapy, item]
+                      }));
                   }
                 }}
               />
-              <button
-                type="button"
-                onClick={(e) => {
-                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                  handleAddItem('physiotherapy', input.value);
-                  input.value = '';
-                }}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-              >
-                Add
-              </button>
-            </div>
+                {item}
+              </label>
+            ))}
           </div>
         </div>
 
         {/* Rehabilitation Exercises */}
         <div>
           <h4 className="font-semibold text-gray-800 mb-3">Rehabilitation Exercises:</h4>
-          <div className="space-y-2">
-            {imagingInputData.rehabilitationExercises.map((item, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <span className="text-gray-600">• {item}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveItem('rehabilitationExercises', index)}
-                  className="text-red-500 hover:text-red-700 text-xs"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <div className="flex space-x-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {imagingInputData.rehabilitationExercises.map(item => (
+              <label key={item + '-rehab'} className="flex items-center gap-2">
               <input
-                type="text"
-                placeholder="Add exercise..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddItem('rehabilitationExercises', e.currentTarget.value);
-                    e.currentTarget.value = '';
+                  type="checkbox" 
+                  checked={imagingInputData.rehabilitationExercises.includes(item)} 
+                  onChange={() => {
+                    if (imagingInputData.rehabilitationExercises.includes(item)) {
+                      setImagingInputData(prev => ({
+                        ...prev,
+                        rehabilitationExercises: prev.rehabilitationExercises.filter(r => r !== item)
+                      }));
+                    } else {
+                      setImagingInputData(prev => ({
+                        ...prev,
+                        rehabilitationExercises: [...prev.rehabilitationExercises, item]
+                      }));
                   }
                 }}
               />
-              <button
-                type="button"
-                onClick={(e) => {
-                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                  handleAddItem('rehabilitationExercises', input.value);
-                  input.value = '';
-                }}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-              >
-                Add
-              </button>
-            </div>
+                {item}
+              </label>
+            ))}
           </div>
         </div>
 
         {/* Duration & Frequency */}
         <div>
-          <h4 className="font-semibold text-gray-800 mb-3">Duration & Frequency:</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Times per Week:</label>
+          <h4 className="font-semibold text-gray-800 mb-3">Duration & Re-Evaluation:</h4>
+          <div className="flex flex-wrap gap-4">
+            <label>
+              Times per Week:
               <input
-                type="text"
+                type="number" 
                 value={imagingInputData.durationFrequency.timesPerWeek}
                 onChange={(e) => setImagingInputData(prev => ({
                   ...prev,
@@ -4090,14 +4267,13 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                     timesPerWeek: e.target.value
                   }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="e.g., 3x"
+                className="ml-2 border px-2 py-1 rounded" 
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Re-evaluation in Weeks:</label>
+            </label>
+            <label>
+              Re-Evaluation in Weeks:
               <input
-                type="text"
+                type="number" 
                 value={imagingInputData.durationFrequency.reEvalInWeeks}
                 onChange={(e) => setImagingInputData(prev => ({
                   ...prev,
@@ -4106,145 +4282,178 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                     reEvalInWeeks: e.target.value
                   }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="e.g., 4"
+                className="ml-2 border px-2 py-1 rounded" 
               />
-            </div>
+            </label>
           </div>
         </div>
 
-        {/* Imaging */}
+        {/* Imaging (X-Ray, MRI, CT) */}
+        {['xray', 'mri', 'ct'].map(modality => (
+          <div key={modality}>
+            <h4 className="font-semibold text-gray-800 mb-3">{modality.toUpperCase()}</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {['C/S', 'T/S', 'L/S', 'Sacroiliac Joint R', 'Sacroiliac Joint L', 'Hip R', 'Hip L', 'Knee R', 'Knee L', 'Ankle R', 'Ankle L', 'Shoulder R', 'Shoulder L', 'Elbow R', 'Elbow L', 'Wrist R', 'Wrist L'].map(region => (
+                <label key={`${modality}-${region}`} className="flex items-center gap-2">
+                <input
+                    type="checkbox" 
+                    checked={imagingInputData.imaging[modality as keyof typeof imagingInputData.imaging].includes(region)} 
+                    onChange={() => {
+                      const currentArray = imagingInputData.imaging[modality as keyof typeof imagingInputData.imaging];
+                      if (currentArray.includes(region)) {
+                        setImagingInputData(prev => ({
+                          ...prev,
+                          imaging: {
+                            ...prev.imaging,
+                            [modality]: currentArray.filter(item => item !== region)
+                          }
+                        }));
+                      } else {
+                        setImagingInputData(prev => ({
+                          ...prev,
+                          imaging: {
+                            ...prev.imaging,
+                            [modality]: [...currentArray, region]
+                          }
+                        }));
+                    }
+                  }}
+                />
+                  {region}
+                </label>
+              ))}
+              </div>
+        </div>
+        ))}
+
+        {/* Diagnostic Ultrasound */}
         <div>
-          <h4 className="font-semibold text-gray-800 mb-3">Imaging:</h4>
-          
-          {/* X-ray */}
-          <div className="mb-4">
-            <h5 className="font-medium text-gray-700 mb-2">X-ray:</h5>
-            <div className="space-y-2">
-              {imagingInputData.imaging.xray.map((item, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <span className="text-gray-600">• {item}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem('xray', index)}
-                    className="text-red-500 hover:text-red-700 text-xs"
-                  >
-                    Remove
-                  </button>
+          <h4 className="font-semibold text-gray-800 mb-3">Diagnostic Ultrasound</h4>
+          <textarea 
+            value={imagingInputData.diagnosticUltrasound || ''} 
+            onChange={(e) => setImagingInputData(prev => ({
+              ...prev,
+              diagnosticUltrasound: e.target.value
+            }))} 
+            rows={2} 
+            className="w-full border rounded px-3 py-2" 
+            placeholder="Enter area of ultrasound" 
+          />
                 </div>
-              ))}
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  placeholder="Add X-ray..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddItem('xray', e.currentTarget.value);
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                    handleAddItem('xray', input.value);
-                    input.value = '';
-                  }}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-                >
-                  Add
-                </button>
-              </div>
-        </div>
-      </div>
 
-          {/* MRI */}
-          <div className="mb-4">
-            <h5 className="font-medium text-gray-700 mb-2">MRI:</h5>
-            <div className="space-y-2">
-              {imagingInputData.imaging.mri.map((item, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <span className="text-gray-600">• {item}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem('mri', index)}
-                    className="text-red-500 hover:text-red-700 text-xs"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <div className="flex space-x-2">
+        {/* Nerve Study */}
+        <div>
+          <h4 className="font-semibold text-gray-800 mb-3">Nerve Study</h4>
+          <div className="flex gap-6">
+            {['EMG/NCV upper', 'EMG/NCV lower'].map(test => (
+              <label key={test} className="flex items-center gap-2">
                 <input
-                  type="text"
-                  placeholder="Add MRI..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddItem('mri', e.currentTarget.value);
-                      e.currentTarget.value = '';
+                  type="checkbox" 
+                  checked={imagingInputData.nerveStudy?.includes(test) || false} 
+                  onChange={() => {
+                    const currentArray = imagingInputData.nerveStudy || [];
+                    if (currentArray.includes(test)) {
+                      setImagingInputData(prev => ({
+                        ...prev,
+                        nerveStudy: currentArray.filter(item => item !== test)
+                      }));
+                    } else {
+                      setImagingInputData(prev => ({
+                        ...prev,
+                        nerveStudy: [...currentArray, test]
+                      }));
                     }
                   }}
                 />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                    handleAddItem('mri', input.value);
-                    input.value = '';
-                  }}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-                >
-                  Add
-                </button>
-              </div>
+                {test}
+              </label>
+            ))}
             </div>
           </div>
 
-          {/* CT */}
+        {/* Restrictions */}
           <div>
-            <h5 className="font-medium text-gray-700 mb-2">CT:</h5>
-            <div className="space-y-2">
-              {imagingInputData.imaging.ct.map((item, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <span className="text-gray-600">• {item}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem('ct', index)}
-                    className="text-red-500 hover:text-red-700 text-xs"
-                  >
-                    Remove
-                  </button>
+          <h4 className="font-semibold text-gray-800 mb-3">Restrictions</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Avoid Activity (Weeks):</label>
+              <input
+                type="text"
+                value={imagingInputData.restrictions?.avoidActivityWeeks || ''}
+                onChange={(e) => setImagingInputData(prev => ({
+                  ...prev,
+                  restrictions: {
+                    ...prev.restrictions,
+                    avoidActivityWeeks: e.target.value
+                  }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 2"
+              />
                 </div>
-              ))}
-              <div className="flex space-x-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lifting Limit (lbs):</label>
                 <input
                   type="text"
-                  placeholder="Add CT..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddItem('ct', e.currentTarget.value);
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                    handleAddItem('ct', input.value);
-                    input.value = '';
-                  }}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-                >
-                  Add
-                </button>
+                value={imagingInputData.restrictions?.liftingLimitLbs || ''}
+                onChange={(e) => setImagingInputData(prev => ({
+                  ...prev,
+                  restrictions: {
+                    ...prev.restrictions,
+                    liftingLimitLbs: e.target.value
+                  }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 20"
+              />
               </div>
+            <div className="flex items-center">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={imagingInputData.restrictions?.avoidProlongedSitting || false}
+                  onChange={(e) => setImagingInputData(prev => ({
+                    ...prev,
+                    restrictions: {
+                      ...prev.restrictions,
+                      avoidProlongedSitting: e.target.checked
+                    }
+                  }))}
+                />
+                Avoid Prolonged Sitting
+              </label>
             </div>
           </div>
+        </div>
+
+        {/* Disability Duration */}
+        <div>
+          <h4 className="font-semibold text-gray-800 mb-3">Disability Duration</h4>
+          <input
+            type="text"
+            value={imagingInputData.disabilityDuration || ''}
+            onChange={(e) => setImagingInputData(prev => ({
+              ...prev,
+              disabilityDuration: e.target.value
+            }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g., 4 weeks"
+          />
+        </div>
+
+        {/* Other Notes */}
+        <div>
+          <h4 className="font-semibold text-gray-800 mb-3">Other Notes</h4>
+          <textarea
+            value={imagingInputData.otherNotes || ''}
+            onChange={(e) => setImagingInputData(prev => ({
+              ...prev,
+              otherNotes: e.target.value
+            }))}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter any additional notes..."
+          />
         </div>
       </div>
 
@@ -4269,31 +4478,76 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
 
           </div>
 
+          {/* Spacing */}
+          <div className="mt-6"></div>
+
           {/* Review of diagnostic study with the patient */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Review of diagnostic study with the patient:</label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="diagnosticStudy.study" className="block text-xs text-gray-500 mb-1">Study</label>
-                <input
-                  type="text"
+                <select
                   id="diagnosticStudy.study"
                   name="diagnosticStudy.study"
                   value={formData.diagnosticStudy.study}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
+                >
+                  <option value="">Select study...</option>
+                  <option value="X-ray">X-ray</option>
+                  <option value="MRI">MRI</option>
+                  <option value="CT Scan">CT Scan</option>
+                  <option value="Ultrasound">Ultrasound</option>
+                  <option value="EMG/NCV">EMG/NCV</option>
+                  <option value="Bone Scan">Bone Scan</option>
+                  <option value="PET Scan">PET Scan</option>
+                  <option value="Nuclear Medicine">Nuclear Medicine</option>
+                  <option value="Arthrogram">Arthrogram</option>
+                  <option value="Myelogram">Myelogram</option>
+                  <option value="Discogram">Discogram</option>
+                  <option value="Fluoroscopy">Fluoroscopy</option>
+                  <option value="DEXA Scan">DEXA Scan</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div>
                 <label htmlFor="diagnosticStudy.bodyPart" className="block text-xs text-gray-500 mb-1">Body Part</label>
-                <input
-                  type="text"
+                <select
                   id="diagnosticStudy.bodyPart"
                   name="diagnosticStudy.bodyPart"
                   value={formData.diagnosticStudy.bodyPart}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
+                >
+                  <option value="">Select body part...</option>
+                  <option value="Cervical Spine (C/S)">Cervical Spine (C/S)</option>
+                  <option value="Thoracic Spine (T/S)">Thoracic Spine (T/S)</option>
+                  <option value="Lumbar Spine (L/S)">Lumbar Spine (L/S)</option>
+                  <option value="Sacroiliac Joint Right">Sacroiliac Joint Right</option>
+                  <option value="Sacroiliac Joint Left">Sacroiliac Joint Left</option>
+                  <option value="Hip Right">Hip Right</option>
+                  <option value="Hip Left">Hip Left</option>
+                  <option value="Knee Right">Knee Right</option>
+                  <option value="Knee Left">Knee Left</option>
+                  <option value="Ankle Right">Ankle Right</option>
+                  <option value="Ankle Left">Ankle Left</option>
+                  <option value="Shoulder Right">Shoulder Right</option>
+                  <option value="Shoulder Left">Shoulder Left</option>
+                  <option value="Elbow Right">Elbow Right</option>
+                  <option value="Elbow Left">Elbow Left</option>
+                  <option value="Wrist Right">Wrist Right</option>
+                  <option value="Wrist Left">Wrist Left</option>
+                  <option value="Hand Right">Hand Right</option>
+                  <option value="Hand Left">Hand Left</option>
+                  <option value="Foot Right">Foot Right</option>
+                  <option value="Foot Left">Foot Left</option>
+                  <option value="Pelvis">Pelvis</option>
+                  <option value="Skull">Skull</option>
+                  <option value="Chest">Chest</option>
+                  <option value="Abdomen">Abdomen</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div>
                 <label htmlFor="diagnosticStudy.result" className="block text-xs text-gray-500 mb-1">Result:</label>
@@ -4311,7 +4565,6 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
 
           {/* Home Care/Recommendations */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Home Care/Recommendations: </label>
             <button
               type="button"
               onClick={() => setIsHomeCareModalOpen(true)}
@@ -4429,6 +4682,9 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
             )}
           </div>
 
+          {/* Spacing */}
+          <div className="mt-6"></div>
+
           {/* Additional Notes */}
           <div>
             <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
@@ -4470,7 +4726,6 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                 </>
               )}
             </button>
-          </div>
         </div>
       </form>
 
@@ -4501,137 +4756,71 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                   </div>
                 )}
 
-                {/* Display Pain Location - Only show specific body parts */}
-                {formData.fetchedData?.initialVisitData?.painLocation && formData.fetchedData.initialVisitData.painLocation.length > 0 && (
-                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
-                    <h5 className="font-semibold text-gray-800 mb-2">Pain Location:</h5>
-                    <div className="space-y-2">
-                      {formData.fetchedData.initialVisitData.painLocation.map((location: string, index: number) => {
-                        const areaId = `painLocation-${index}`;
-                        const areaStatus = individualAreaStatus.painLocation?.[areaId] || {
-                          improving: false,
-                          exacerbated: false,
-                          same: false,
-                          resolved: false
-                        };
-                        
-                        return (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <span className="text-gray-700">{location}</span>
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`improving-${areaId}`}
-                                  checked={areaStatus.improving}
-                                  onChange={(e) => handleIndividualAreaStatusChange('painLocation', areaId, 'improving', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`exacerbated-${areaId}`}
-                                  checked={areaStatus.exacerbated}
-                                  onChange={(e) => handleIndividualAreaStatusChange('painLocation', areaId, 'exacerbated', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`same-${areaId}`}
-                                  checked={areaStatus.same}
-                                  onChange={(e) => handleIndividualAreaStatusChange('painLocation', areaId, 'same', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`resolved-${areaId}`}
-                                  checked={areaStatus.resolved}
-                                  onChange={(e) => handleIndividualAreaStatusChange('painLocation', areaId, 'resolved', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                {/* Display Subjective Intake Data (Chief Complaint) in Tabular Format */}
+                {(formData.fetchedData?.areasData as any)?.subjectiveIntakeData && (formData.fetchedData?.areasData as any).subjectiveIntakeData.length > 0 && (
+                  <div className="mb-6 p-4 bg-white border border-gray-200 rounded-md">
+                    <h5 className="font-semibold text-gray-800 mb-3">Pain Location:</h5>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Body Part</th>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Side</th>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Severity</th>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Quality</th>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Timing</th>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Context</th>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Exacerbated By</th>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Symptoms</th>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Notes</th>
+                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">Sciatica</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(formData.fetchedData?.areasData as any).subjectiveIntakeData.map((intake: any, index: number) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">{intake.bodyPart}</td>
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">{intake.side}</td>
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">{intake.severity}</td>
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                                {Array.isArray(intake.quality) && intake.quality.length > 0 ? intake.quality.join(', ') : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">{intake.timing || '-'}</td>
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">{intake.context || '-'}</td>
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                                {Array.isArray(intake.exacerbatedBy) && intake.exacerbatedBy.length > 0 ? intake.exacerbatedBy.join(', ') : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                                {Array.isArray(intake.symptoms) && intake.symptoms.length > 0 ? intake.symptoms.join(', ') : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">{intake.notes || '-'}</td>
+                              <td className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                                {intake.sciaticaRight || intake.sciaticaLeft ? 
+                                  `${intake.sciaticaRight ? 'R' : ''}${intake.sciaticaLeft ? 'L' : ''}` : '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-2 text-sm text-gray-600">
+                      Showing {(formData.fetchedData?.areasData as any).subjectiveIntakeData.length} subjective intake(s) from patient record
                     </div>
                   </div>
                 )}
 
-                {/* Display Joint Dysfunction */}
-                {formData.fetchedData?.initialVisitData?.jointDysfunction && formData.fetchedData.initialVisitData.jointDysfunction.length > 0 && (
-                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
-                    <h5 className="font-semibold text-gray-800 mb-2">Joint Dysfunction:</h5>
-                    <div className="space-y-2">
-                      {formData.fetchedData.initialVisitData.jointDysfunction.map((joint: string, index: number) => {
-                        const areaId = `jointDysfunction-${index}`;
-                        const areaStatus = individualAreaStatus.jointDysfunction?.[areaId] || {
-                          improving: false,
-                          exacerbated: false,
-                          same: false,
-                          resolved: false
-                        };
-                        
-                        return (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <span className="text-gray-700">{joint}</span>
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`improving-${areaId}`}
-                                  checked={areaStatus.improving}
-                                  onChange={(e) => handleIndividualAreaStatusChange('jointDysfunction', areaId, 'improving', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`improving-${areaId}`} className="ml-2 text-xs text-gray-600">Improving</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`exacerbated-${areaId}`}
-                                  checked={areaStatus.exacerbated}
-                                  onChange={(e) => handleIndividualAreaStatusChange('jointDysfunction', areaId, 'exacerbated', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`exacerbated-${areaId}`} className="ml-2 text-xs text-gray-600">Exacerbated</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`same-${areaId}`}
-                                  checked={areaStatus.same}
-                                  onChange={(e) => handleIndividualAreaStatusChange('jointDysfunction', areaId, 'same', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`same-${areaId}`} className="ml-2 text-xs text-gray-600">Same</label>
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`resolved-${areaId}`}
-                                  checked={areaStatus.resolved}
-                                  onChange={(e) => handleIndividualAreaStatusChange('jointDysfunction', areaId, 'resolved', e.target.checked)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor={`resolved-${areaId}`} className="ml-2 text-xs text-gray-600">Resolved</label>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                {/* Show message if no subjective intake data found */}
+                {(!(formData.fetchedData?.areasData as any)?.subjectiveIntakeData || (formData.fetchedData?.areasData as any)?.subjectiveIntakeData?.length === 0) && (
+                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <h5 className="font-semibold text-yellow-800 mb-2">Subjective Intake Data:</h5>
+                    <p className="text-yellow-700 text-sm">
+                      No subjective intake data found in the patient record. 
+                      Please ensure the patient has subjective intake information recorded in their profile.
+                    </p>
                   </div>
                 )}
+
+
 
                 {/* Display Joint Other */}
                 {formData.fetchedData?.initialVisitData?.jointOther && (
@@ -4752,85 +4941,82 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                         );
                       })}
                     </div>
-                  </div>
-                )}
-
-                {/* Display Tenderness - Separated by muscle groups with severity levels */}
-                {formData.fetchedData?.initialVisitData?.tenderness && Object.keys(formData.fetchedData.initialVisitData.tenderness).length > 0 && (
-                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
-                    <h5 className="font-semibold text-gray-800 mb-2">Tenderness:</h5>
-                    <div className="space-y-4">
-                      {Object.entries(formData.fetchedData.initialVisitData.tenderness).map(([region, labels], index: number) => {
-                        const displayLabels = Array.isArray(labels) ? labels : [labels];
-                        const areaId = `tenderness-${index}`;
-                        
-                        return (
-                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                            <div className="mb-3">
-                              <span className="text-gray-700 font-medium">{region}:</span>
-                              <span className="text-gray-600 ml-2">{Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              {['Mild', 'Mild-moderate', 'Moderate', 'Moderate-severe', 'Severe'].map((severity) => (
-                                <div key={severity} className="flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    id={`tenderness-${areaId}-${severity}`}
-                                    checked={muscleTendernessSelections[region]?.[areaId]?.includes(severity) || false}
-                                    onChange={(e) => handleMuscleTendernessChange(region, areaId, severity, e.target.checked)}
-                                    className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                  />
-                                  <label htmlFor={`tenderness-${areaId}-${severity}`} className="ml-2 text-xs text-gray-600">
-                                    {severity}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    
+                    {/* Additional Diagnosis Code */}
+                    <div className="mt-4">
+                      <label htmlFor="additionalDiagnosisAreas" className="block text-sm font-medium text-gray-700 mb-2">Additional Diagnosis Code:</label>
+                      <select
+                        id="additionalDiagnosisAreas"
+                        name="additionalDiagnosisAreas"
+                        value={formData.additionalDiagnosisAreas || ''}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select additional diagnosis...</option>
+                        <option value="M54.5">M54.5 - Low back pain</option>
+                        <option value="M54.6">M54.6 - Pain in thoracic spine</option>
+                        <option value="M54.9">M54.9 - Dorsalgia, unspecified</option>
+                        <option value="M25.5">M25.5 - Pain in joint</option>
+                        <option value="M79.3">M79.3 - Panniculitis, unspecified</option>
+                        <option value="M79.1">M79.1 - Myalgia</option>
+                        <option value="M79.9">M79.9 - Soft tissue disorder, unspecified</option>
+                        <option value="M62.9">M62.9 - Disorder of muscle, unspecified</option>
+                        <option value="M25.9">M25.9 - Joint disorder, unspecified</option>
+                        <option value="M54.2">M54.2 - Cervicalgia</option>
+                        <option value="M54.3">M54.3 - Sciatica</option>
+                        <option value="M54.4">M54.4 - Lumbago with sciatica</option>
+                        <option value="M54.8">M54.8 - Other dorsalgia</option>
+                        <option value="M79.0">M79.0 - Rheumatism, unspecified</option>
+                        <option value="M79.2">M79.2 - Neuralgia and neuritis, unspecified</option>
+                      </select>
                     </div>
                   </div>
                 )}
 
-                {/* Display Spasm - Separated by muscle groups with severity levels */}
-                {formData.fetchedData?.initialVisitData?.spasm && Object.keys(formData.fetchedData.initialVisitData.spasm).length > 0 && (
+                {/* Palpations Section */}
                   <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
-                    <h5 className="font-semibold text-gray-800 mb-2">Spasm:</h5>
-                    <div className="space-y-4">
-                      {Object.entries(formData.fetchedData.initialVisitData.spasm).map(([region, labels], index: number) => {
-                        const displayLabels = Array.isArray(labels) ? labels : [labels];
-                        const areaId = `spasm-${index}`;
-                        
-                        return (
-                          <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                            <div className="mb-3">
-                              <span className="text-gray-700 font-medium">{region}:</span>
-                              <span className="text-gray-600 ml-2">{Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}</span>
+                  <h5 className="font-semibold text-gray-800 mb-2">Palpations:</h5>
+                  <div className="space-y-3">
+                    {/* Tenderness Option */}
+                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="text-gray-700 font-medium">Tenderness</span>
+                      <button
+                        type="button"
+                        onClick={() => handlePalpationSelection('tenderness')}
+                        className={`px-3 py-1 rounded text-sm font-medium ${
+                          formData.fetchedData?.initialVisitData?.tenderness && Object.keys(formData.fetchedData.initialVisitData.tenderness).length > 0
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {formData.fetchedData?.initialVisitData?.tenderness && Object.keys(formData.fetchedData.initialVisitData.tenderness).length > 0
+                          ? 'View Data'
+                          : 'No Data'
+                        }
+                      </button>
+                    </div>
+                    
+                    {/* Spasm Option */}
+                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="text-gray-700 font-medium">Spasm</span>
+                      <button
+                        type="button"
+                        onClick={() => handlePalpationSelection('spasm')}
+                        className={`px-3 py-1 rounded text-sm font-medium ${
+                          formData.fetchedData?.initialVisitData?.spasm && Object.keys(formData.fetchedData.initialVisitData.spasm).length > 0
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {formData.fetchedData?.initialVisitData?.spasm && Object.keys(formData.fetchedData.initialVisitData.spasm).length > 0
+                          ? 'View Data'
+                          : 'No Data'
+                        }
+                      </button>
                             </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              {['Mild', 'Mild-moderate', 'Moderate', 'Moderate-severe', 'Severe'].map((severity) => (
-                                <div key={severity} className="flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    id={`spasm-${areaId}-${severity}`}
-                                    checked={muscleSpasmSelections[region]?.[areaId]?.includes(severity) || false}
-                                    onChange={(e) => handleMuscleSpasmChange(region, areaId, severity, e.target.checked)}
-                                    className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                  />
-                                  <label htmlFor={`spasm-${areaId}-${severity}`} className="ml-2 text-xs text-gray-600">
-                                    {severity}
-                                  </label>
                                 </div>
-                              ))}
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
 
             <div className="mt-4 flex justify-end space-x-2">
@@ -4847,6 +5033,349 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
                 Close
               </button>
             </div>
+                    </div>
+                  </div>
+                )}
+
+      {/* Palpations Data Modal */}
+      {isPalpationsModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-800">
+                {selectedPalpationType === 'tenderness' ? 'Tenderness Data' : 'Spasm Data'}
+              </h3>
+              <button
+                onClick={() => setIsPalpationsModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Close modal"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-md space-y-6">
+              {selectedPalpationData && Object.keys(selectedPalpationData).length > 0 ? (
+                Object.entries(selectedPalpationData).map(([region, labels], index: number) => {
+                        const displayLabels = Array.isArray(labels) ? labels : [labels];
+                  const areaId = `${region}-${index}`;
+                        
+                        return (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white">
+                      <div className="mb-4">
+                        <h4 className="text-lg font-semibold text-gray-800 mb-2">{region}</h4>
+                        <div className="text-gray-600">
+                          <span className="font-medium">Areas:</span> {Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}
+                            </div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <h5 className="font-medium text-gray-700">Severity Levels:</h5>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {['Mild', 'Mild-moderate', 'Moderate', 'Moderate-severe', 'Severe'].map((severity) => (
+                            <div key={severity} className="flex items-center p-2 bg-gray-50 rounded">
+                                  <input
+                                    type="checkbox"
+                                id={`palpation-${areaId}-${severity}`}
+                                checked={palpationSeveritySelections[region]?.[areaId]?.includes(severity) || false}
+                                onChange={(e) => handlePalpationSeverityChange(region, areaId, severity, e.target.checked)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
+                              />
+                              <span className="text-sm text-gray-700">{severity}</span>
+                                </div>
+                              ))}
+                        </div>
+                            </div>
+                          </div>
+                        );
+                })
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 text-lg">No {selectedPalpationType} data available</p>
+                  </div>
+                )}
+            </div>
+
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={handleSavePalpationData}
+                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setIsPalpationsModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
+              >
+                Close
+              </button>
+            </div>
+                    </div>
+                  </div>
+                )}
+
+
+      {/* Palpations Data Modal */}
+      {isPalpationsModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-800">
+                {selectedPalpationType === 'tenderness' ? 'Tenderness Data' : 'Spasm Data'}
+              </h3>
+              <button
+                onClick={() => setIsPalpationsModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Close modal"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-md space-y-6">
+              {selectedPalpationData && Object.keys(selectedPalpationData).length > 0 ? (
+                Object.entries(selectedPalpationData).map(([region, labels], index: number) => {
+                        const displayLabels = Array.isArray(labels) ? labels : [labels];
+                  const areaId = `${region}-${index}`;
+                        
+                        return (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white">
+                      <div className="mb-4">
+                        <h4 className="text-lg font-semibold text-gray-800 mb-2">{region}</h4>
+                        <div className="text-gray-600">
+                          <span className="font-medium">Areas:</span> {Array.isArray(displayLabels) ? displayLabels.join(', ') : displayLabels}
+                            </div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <h5 className="font-medium text-gray-700">Severity Levels:</h5>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {['Mild', 'Mild-moderate', 'Moderate', 'Moderate-severe', 'Severe'].map((severity) => (
+                            <div key={severity} className="flex items-center p-2 bg-gray-50 rounded">
+                                  <input
+                                    type="checkbox"
+                                id={`palpation-${areaId}-${severity}`}
+                                checked={palpationSeveritySelections[region]?.[areaId]?.includes(severity) || false}
+                                onChange={(e) => handlePalpationSeverityChange(region, areaId, severity, e.target.checked)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
+                              />
+                              <span className="text-sm text-gray-700">{severity}</span>
+                                </div>
+                              ))}
+                        </div>
+                            </div>
+                          </div>
+                        );
+                })
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 text-lg">No {selectedPalpationType} data available</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={handleSavePalpationData}
+                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setIsPalpationsModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Activities Modal */}
+      {isActivitiesModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-800">Activities That Still Cause Pain</h3>
+              <button
+                onClick={() => setIsActivitiesModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Close modal"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-md space-y-6">
+              {/* Chief Complaint Reference */}
+              {formData.fetchedData?.initialVisitData?.chiefComplaint && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <h4 className="font-semibold text-blue-800 mb-2">Original Chief Complaint:</h4>
+                  <p className="text-blue-700 text-sm">{formData.fetchedData.initialVisitData.chiefComplaint}</p>
+                </div>
+              )}
+
+              {/* Add Body Part Section */}
+              <div className="mb-6 p-4 bg-white border border-gray-200 rounded-md">
+                <h4 className="text-lg font-semibold text-gray-800 mb-4">Add Body Part for Activities</h4>
+                
+                {/* Dropdown Row */}
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  {/* Body Part Dropdown */}
+                  <select
+                    value={formData.subjective?.tempBodyPart || ''}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        subjective: {
+                          ...prev.subjective,
+                          tempBodyPart: e.target.value,
+                        },
+                      }))
+                    }
+                    className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select Body Part</option>
+                    {[
+                      'C/S', 'T/S', 'L/S', 'SH', 'ELB', 'WR', 'Hand', 'Finger(s)',
+                      'Hip', 'KN', 'AN', 'Foot', 'Toe(s)',
+                      'L Ant/Post/Lat/Med', 'R Ant/Post/Lat/Med',
+                    ].map((part) => (
+                      <option key={part} value={part}>{part}</option>
+                    ))}
+                  </select>
+
+                  {/* Side Dropdown */}
+                  <select
+                    value={formData.subjective?.tempSide || ''}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        subjective: {
+                          ...prev.subjective,
+                          tempSide: e.target.value,
+                        },
+                      }))
+                    }
+                    className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select Side</option>
+                    <option value="Left">Left</option>
+                    <option value="Right">Right</option>
+                    <option value="Bilateral">Bilateral</option>
+                  </select>
+
+                  {/* Add Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const { tempBodyPart, tempSide } = formData.subjective || {};
+                      if (tempBodyPart && tempSide) {
+                        // Add to activities data
+                        const newActivity = `${tempBodyPart} - ${tempSide}`;
+                        const currentActivities = activitiesData ? activitiesData + '\n• ' : '• ';
+                        setActivitiesData(currentActivities + newActivity);
+                        
+                        // Clear temp values
+                        setFormData((prev) => ({
+                          ...prev,
+                          subjective: {
+                            ...prev.subjective,
+                            tempBodyPart: '',
+                            tempSide: '',
+                          },
+                        }));
+                      }
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  >
+                    Add Body Part
+                  </button>
+                </div>
+              </div>
+
+              {/* Activities Data Table */}
+              <div className="bg-white border border-gray-200 rounded-md">
+                <div className="px-4 py-3 border-b border-gray-200">
+                  <h4 className="font-semibold text-gray-800">Activities That Still Cause Pain</h4>
+                  <p className="text-sm text-gray-600 mt-1">Edit the activities based on the chief complaint</p>
+                </div>
+                
+                <div className="p-4">
+                  <div className="mb-4">
+                    <label htmlFor="activitiesTextarea" className="block text-sm font-medium text-gray-700 mb-2">
+                      Activities Description:
+                    </label>
+                    <textarea
+                      id="activitiesTextarea"
+                      value={activitiesData}
+                      onChange={(e) => setActivitiesData(e.target.value)}
+                      rows={6}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter activities that still cause pain based on the chief complaint..."
+                    />
+                  </div>
+
+                  {/* Suggested Activities Table */}
+                  {formData.fetchedData?.initialVisitData?.chiefComplaint && (
+                    <div className="mt-4">
+                      <h5 className="font-medium text-gray-700 mb-3">Suggested Activities (from Chief Complaint):</h5>
+                      <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {formData.fetchedData.initialVisitData.chiefComplaint.split(/[.,;]/).map((activity: string, index: number) => {
+                            const trimmedActivity = activity.trim();
+                            if (trimmedActivity) {
+                              return (
+                                <div key={index} className="flex items-center p-2 bg-white border border-gray-200 rounded">
+                                  <span className="text-sm text-gray-700 flex-1">{trimmedActivity}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const currentActivities = activitiesData ? activitiesData + '\n• ' : '• ';
+                                      setActivitiesData(currentActivities + trimmedActivity);
+                                    }}
+                                    className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200"
+                                  >
+                                    Add
+                                  </button>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                    </div>
+                  </div>
+                )}
+
+                  {/* Current Activities Display */}
+                  {activitiesData && (
+                    <div className="mt-4">
+                      <h5 className="font-medium text-gray-700 mb-2">Current Activities:</h5>
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                        <pre className="text-sm text-green-800 whitespace-pre-wrap">{activitiesData}</pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={handleSaveActivitiesData}
+                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+              >
+                Save Activities
+              </button>
+              <button
+                onClick={() => setIsActivitiesModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -4855,3 +5384,4 @@ List of tests specific for body part {orthoTestsData && Object.keys(orthoTestsDa
 };
 
 export default FollowupVisitForm;
+

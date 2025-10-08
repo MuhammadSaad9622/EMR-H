@@ -5,7 +5,8 @@ import { Save, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from 'react-modal';
 import { useQuery } from '@tanstack/react-query';
-import DiagnosisSelector from './DiagnosisSelector';
+import DiagnosisSelector, { icd10Map as diagnosisIcd10Map } from './DiagnosisSelector';
+// Removed local icd10Lookup in favor of shared map exported by DiagnosisSelector
 
 
 
@@ -392,7 +393,7 @@ const { data: patientData, isLoading } = useQuery({
     if (patientData?.subjective) {
       if (Array.isArray(patientData.subjective.bodyPart) && patientData.subjective.bodyPart.length > 0) {
         // Concatenate all body part complaints
-        chiefComplaintValue = patientData.subjective.bodyPart.map(bp => `${bp.part} (${bp.side}): ${bp.notes || ''}`).join('; ');
+        chiefComplaintValue = patientData.subjective.bodyPart.map((bp: any) => `${bp.part} (${bp.side}): ${bp.notes || ''}`).join('; ');
       } else if (typeof patientData.subjective === 'object') {
         // Fallback to legacy subjective fields
         chiefComplaintValue = [
@@ -413,6 +414,7 @@ const { data: patientData, isLoading } = useQuery({
       const response = await axios.post(`https://emr-h.onrender.com/api/visits`, {
          ...formData,
          strength: transformStrength(formData.strength),
+         diagnosisDetails: formData.diagnosis.map((d) => ({ name: d, icd10: (diagnosisIcd10Map as any)[d] || '' })),
          chiefComplaint: chiefComplaintValue,
          patient: id,
          doctor: user?._id,
@@ -582,6 +584,23 @@ const handleTendernessSpasmChange = (
     triggerAutoSave();
   };
 
+  // Helper: check all pain checkboxes for a region
+  const checkAllAromPain = (region: string, movements: string[], sided: boolean = false) => {
+    setFormData(prev => {
+      const updated = { ...prev } as InitialVisitFormData;
+      const regionObj: Record<string, any> = { ...(updated.arom?.[region] || {}) };
+      movements.forEach((movement) => {
+        const current = regionObj[movement] || {};
+        regionObj[movement] = sided
+          ? { ...current, pain_left: true, pain_right: true }
+          : { ...current, pain: true };
+      });
+      updated.arom = { ...updated.arom, [region]: regionObj } as InitialVisitFormData['arom'];
+      return updated;
+    });
+    triggerAutoSave();
+  };
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex items-center mb-4">
@@ -632,9 +651,14 @@ const handleTendernessSpasmChange = (
     <div className="mt-2 p-2 bg-gray-50 rounded">
       <p className="text-sm font-medium">Selected Diagnoses:</p>
       <ul className="mt-1 text-sm text-gray-700">
-        {formData.diagnosis.map((diagnosis, index) => (
-          <li key={index} className="list-disc list-inside">{diagnosis}</li>
-        ))}
+        {formData.diagnosis.map((diagnosis, index) => {
+          const code = (diagnosisIcd10Map as any)[diagnosis] || '';
+          return (
+            <li key={index} className="list-disc list-inside">
+              {diagnosis}{code ? ` (${code})` : ''}
+            </li>
+          );
+        })}
       </ul>
     </div>
   )}
@@ -1469,6 +1493,15 @@ const handleTendernessSpasmChange = (
         <th className="border border-black px-2 py-1">PAIN</th>
       </tr>
     </thead>
+    <caption className="text-left p-2">
+      <button
+        type="button"
+        className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+        onClick={() => checkAllAromPain('CERVICAL', ['FLEXION','EXTENSION','L LAT BEND','R LAT BEND','L ROTATION','R ROTATION'])}
+      >
+        Check all pain
+      </button>
+    </caption>
     <tbody>
       {[
         ['FLEXION', '50°'],
@@ -1608,6 +1641,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('THORACIC', ['FLEXION','EXTENSION','L LAT BEND','R LAT BEND','L ROTATION','R ROTATION'])}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['FLEXION', '50°'],
@@ -1751,6 +1793,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('LUMBAR', ['FLEXION','EXTENSION','L LAT BEND','R LAT BEND','L ROTATION','R ROTATION','SACRAL ANGLE'])}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['FLEXION', '60°'],
@@ -1886,6 +1937,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('SHOULDER', ['FLEXION','EXTENSION','ADDUCTION','ABDUCTION','INT ROTATION','EXT ROTATION'], /*sided*/ true)}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['FLEXION', '180°'],
@@ -2043,6 +2103,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('ELBOW', ['FLEXION','EXTENSION','SUPINATION','PRONATION'], /*sided*/ true)}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['FLEXION', '140°'],
@@ -2189,6 +2258,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('WRIST', ['FLEXION','EXTENSION','ULNAR DEVIATION','RADIAL DEVIATION'], /*sided*/ true)}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['FLEXION', '60°'],
@@ -2342,6 +2420,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('HAND', ['DIP FLEXION','DIP EXTENSION','PIP FLEXION','PIP EXTENSION','MCP ABDUCTION','MCP ADDUCTION','MCP FLEXION','MCP EXTENSION','PIP THUMB FLEXION','PIP THUMB EXTENSION','MCP THUMB ABDUCTION','MCP THUMB ADDUCTION','MCP THUMB FLEXION','MCP THUMB EXTENSION'], /*sided*/ true)}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['DIP FLEXION', '80°'],
@@ -2499,6 +2586,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('HIP', ['FLEXION','EXTENSION','INT ROTATION','EXT ROTATION','ABDUCTION','ADDUCTION'], /*sided*/ true)}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['FLEXION', '110°'],
@@ -2651,6 +2747,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('KNEE', ['FLEXION','EXTENSION','EXT ROTATION','INT ROTATION'], /*sided*/ true)}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['FLEXION', '110°'],
@@ -2806,6 +2911,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('ANKLE', ['PLANTAR FLEXION','DORSIFLEXION','INVERSION','EVERSION'], /*sided*/ true)}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['PLANTAR FLEXION', '40°'],
@@ -2954,6 +3068,15 @@ const handleTendernessSpasmChange = (
           <th className="border border-black px-2 py-1">PAIN</th>
         </tr>
       </thead>
+      <caption className="text-left p-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded"
+          onClick={() => checkAllAromPain('FOOT', ['INVERSION','EVERSION','MTP FLEXION','MTP EXTENSION','PIP FLEXION','PIP EXTENSION'], /*sided*/ true)}
+        >
+          Check all pain
+        </button>
+      </caption>
       <tbody>
         {[
           ['INVERSION', '35°'],
@@ -3393,7 +3516,7 @@ const handleTendernessSpasmChange = (
           {/* Body Parts Section */}
           <div className="mb-4">
             <h3 className="font-semibold text-lg mb-2">Body Parts</h3>
-            {patientData.subjective.bodyPart.map((bp, index) => (
+            {patientData.subjective.bodyPart.map((bp: any, index: number) => (
               <div key={index} className="mb-4 border-b pb-4 rounded-lg bg-gray-50 p-3">
                 <p className="font-medium text-blue-600 text-lg border-b border-gray-200 pb-1 mb-2">{bp.part} ({bp.side})</p>
                 
@@ -3515,6 +3638,51 @@ const handleTendernessSpasmChange = (
         </div>
       ) : (
         <p className="text-gray-500">No subjective data found.</p>
+      )}
+      
+      {/* Additional Visit Details (from current form selections) */}
+      {(
+        (Array.isArray(formData.imaging?.xray) && formData.imaging.xray.length > 0) ||
+        (Array.isArray(formData.imaging?.mri) && formData.imaging.mri.length > 0) ||
+        (Array.isArray(formData.imaging?.ct) && formData.imaging.ct.length > 0) ||
+        (Array.isArray(formData.nerveStudy) && formData.nerveStudy.length > 0) ||
+        !!formData.disabilityDuration
+      ) && (
+        <div className="mt-6 text-sm text-gray-800 space-y-4">
+          {/* Imaging */}
+          {(formData.imaging?.xray?.length || formData.imaging?.mri?.length || formData.imaging?.ct?.length) ? (
+            <div>
+              <h3 className="text-lg font-semibold mb-1">Imaging</h3>
+              {Array.isArray(formData.imaging?.xray) && formData.imaging.xray.length > 0 && (
+                <p>Xray was referred for: {formData.imaging.xray.join(', ')}.</p>
+              )}
+              {Array.isArray(formData.imaging?.mri) && formData.imaging.mri.length > 0 && (
+                <p>Mri was referred for: {formData.imaging.mri.join(', ')}.</p>
+              )}
+              {Array.isArray(formData.imaging?.ct) && formData.imaging.ct.length > 0 && (
+                <p>CT was referred for: {formData.imaging.ct.join(', ')}.</p>
+              )}
+            </div>
+          ) : null}
+
+          {/* Nerve Study */}
+          {Array.isArray(formData.nerveStudy) && formData.nerveStudy.length > 0 ? (
+            <div>
+              <h3 className="text-lg font-semibold mb-1">Nerve Study</h3>
+              <p>referred for Nerve studies : {formData.nerveStudy.join(', ')}.</p>
+            </div>
+          ) : null}
+
+          {/* Disability Duration */}
+          {formData.disabilityDuration ? (
+            <div>
+              <h3 className="text-lg font-semibold mb-1">Disability Duration</h3>
+              <p>
+                {`${formData.disabilityDuration} ${formData.disabilityDuration === '1' ? 'week' : 'weeks'}`}
+              </p>
+            </div>
+          ) : null}
+        </div>
       )}
       <div className="mt-4 flex justify-between">
         <button 
