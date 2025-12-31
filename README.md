@@ -100,8 +100,7 @@ Create a `.env` file in the `server` directory:
 ```env
 # MongoDB Connection
 MONGODB_URI=mongodb://localhost:27017/wellness-studio-emr
-# or for MongoDB Atlas:
-# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/wellness-studio-emr
+
 
 # JWT Secret
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
